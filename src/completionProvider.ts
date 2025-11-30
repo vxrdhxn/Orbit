@@ -20,14 +20,23 @@ export class CompletionProvider implements vscode.InlineCompletionItemProvider {
         const prompt = `<|fim_prefix|>${prefix}<|fim_suffix|>${suffix}<|fim_middle|>`;
 
         try {
-            // TODO: Pass 'token' to generate() to cancel requests
-            const completion = await generate(prompt);
+            // Create an AbortController to handle cancellation
+            const abortController = new AbortController();
+            token.onCancellationRequested(() => {
+                abortController.abort();
+            });
+
+            const completion = await generate(prompt, abortController.signal);
 
             if (token.isCancellationRequested) return [];
             if (!completion) return [];
 
             return [new vscode.InlineCompletionItem(completion, new vscode.Range(position, position))];
-        } catch (e) {
+        } catch (e: any) {
+            if (e.name === 'AbortError') {
+                // Request was cancelled, return empty
+                return [];
+            }
             console.error('Completion error:', e);
             return [];
         }

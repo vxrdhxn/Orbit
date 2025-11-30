@@ -38,13 +38,14 @@ export async function modelExists(name: string) {
   return models.includes(name);
 }
 
-export async function generate(prompt: string): Promise<string> {
+export async function generate(prompt: string, signal?: AbortSignal): Promise<string> {
   const { baseUrl, model, temperature } = cfg();
   const body: GenerateReq = { model, prompt, stream: false, options: { temperature } };
   const res = await fetch(`${baseUrl}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    signal,
   });
   if (!res.ok) throw new Error(`Generate failed: HTTP ${res.status}`);
   const json = (await res.json()) as GenerateResp; // <-- narrow here too

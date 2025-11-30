@@ -13,10 +13,10 @@ export async function performSearch(query: string, workspaceFolder: vscode.Uri):
   const topK = c.get<number>('searchTopK', 5);
 
   const qvec = await embedOne(query);
-  return entries.map(e => ({ entry: e, score: cosine(qvec, e.vector) }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, topK);
+  return rankEntries(entries, qvec, topK);
 }
+
+import { rankEntries } from './searchUtils';
 
 export async function runSearch(context: vscode.ExtensionContext) {
   const query = await vscode.window.showInputBox({ prompt: 'Search code (semantic)', placeHolder: 'e.g., parse JSON error handling' });
@@ -28,7 +28,6 @@ export async function runSearch(context: vscode.ExtensionContext) {
 
   const results = await performSearch(query, workspaceFolder);
 
-  // Render a simple Markdown result doc with links
   const lines: string[] = [];
   lines.push(`# Search: ${query}`);
   lines.push('');
@@ -37,7 +36,6 @@ export async function runSearch(context: vscode.ExtensionContext) {
   } else {
     for (const { entry, score } of results) {
       const filePath = path.join(workspaceFolder.fsPath, entry.file);
-      // Use fragment for offset if needed, or just open file
       const uri = vscode.Uri.file(filePath).with({ fragment: `${entry.start}` });
       lines.push(`### ${entry.file}  \`score: ${score.toFixed(3)}\``);
       lines.push(`[Open selection](${uri.toString()})`);

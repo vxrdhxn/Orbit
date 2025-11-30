@@ -1,6 +1,6 @@
 {
-  "name": "offline-dev-assistant",
-  "displayName": "Offline Dev Assistant",
+  "name": "devmind",
+  "displayName": "DevMind",
   "description": "Local, offline-first AI assistant for VS Code powered by Ollama.",
   "version": "0.0.3",
   "publisher": "you",
@@ -8,19 +8,14 @@
   "categories": ["Other"],
   "main": "./out/extension.js",
   "activationEvents": [
-    "onStartupFinished",
-    "onCommand:offlineDevAssistant.healthCheck",
-    "onCommand:offlineDevAssistant.explainSelection",
-    "onCommand:offlineDevAssistant.search",
-    "onCommand:offlineDevAssistant.editCode",
-    "onView:offlineDevAssistant.chatView"
+    "onStartupFinished"
   ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "offline-dev-assistant-sidebar",
-          "title": "Offline Dev Assistant",
+          "title": "DevMind",
           "icon": "$(hubot)"
         }
       ]
@@ -30,7 +25,8 @@
         {
           "type": "webview",
           "id": "offlineDevAssistant.chatView",
-          "name": "Chat"
+          "name": "Chat",
+          "icon": "resources/icon.svg"
         }
       ]
     },
@@ -42,7 +38,7 @@
     ],
     "configuration": {
       "type": "object",
-      "title": "Offline Dev Assistant",
+      "title": "DevMind",
       "properties": {
         "offlineDevAssistant.ollamaBaseUrl": {
           "type": "string",
@@ -97,11 +93,15 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -w -p ./",
-    "vscode:prepublish": "npm run compile"
+    "vscode:prepublish": "npm run compile",
+    "test": "mocha out/test/**/*.test.js"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.6",
     "@types/node": "^20.12.12",
     "@types/vscode": "^1.85.0",
+    "mocha": "^10.4.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
   }
 }

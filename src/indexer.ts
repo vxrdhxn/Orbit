@@ -6,31 +6,13 @@ function cfg() {
   const c = vscode.workspace.getConfiguration('offlineDevAssistant');
   return {
     include: c.get<string[]>('indexIncludeGlobs', ['**/*.{ts,tsx,js,jsx,py,java,go,rs,cpp,c,cs,md}']),
-    exclude: c.get<string[]>('indexExcludeGlobs', ['**/node_modules/**','**/.git/**','**/out/**','**/dist/**','**/.devmind/**']),
+    exclude: c.get<string[]>('indexExcludeGlobs', ['**/node_modules/**', '**/.git/**', '**/out/**', '**/dist/**', '**/.devmind/**']),
     maxChars: c.get<number>('indexMaxCharsPerChunk', 1200),
     overlap: c.get<number>('indexOverlapChars', 200),
   };
 }
 
-// simple chunker: greedy by characters, trying to break on blank lines where possible
-function chunk(text: string, maxChars: number, overlap: number): { start: number; end: number; text: string }[] {
-  const chunks: { start: number; end: number; text: string }[] = [];
-  let i = 0;
-  while (i < text.length) {
-    let end = Math.min(i + maxChars, text.length);
-    // try to end on a blank line boundary within the last 150 chars
-    const windowStart = Math.max(i, end - 150);
-    const slice = text.slice(windowStart, end);
-    const rel = slice.lastIndexOf('\n\n');
-    if (rel > -1) end = windowStart + rel + 2;
-
-    const t = text.slice(i, end);
-    chunks.push({ start: i, end, text: t });
-    if (end >= text.length) break;
-    i = Math.max(end - overlap, 0);
-  }
-  return chunks;
-}
+import { chunk } from './indexerUtils';
 
 export async function buildIndex(workspaceFolder: vscode.Uri, token?: vscode.CancellationToken) {
   const { include, exclude, maxChars, overlap } = cfg();

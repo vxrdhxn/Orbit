@@ -9,7 +9,7 @@ import { CompletionProvider } from './completionProvider';
 export function activate(context: vscode.ExtensionContext) {
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   status.text = '$(gear) AI: Init';
-  status.tooltip = 'Offline Dev Assistant';
+  status.tooltip = 'DevMind';
   status.show();
   context.subscriptions.push(status);
 
