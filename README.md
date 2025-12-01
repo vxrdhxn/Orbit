@@ -2,7 +2,7 @@
 
 **DevMind** is a local, offline-first AI assistant for VS Code, powered by [Ollama](https://ollama.com/). It brings the power of large language models directly into your editor without sending your code to the cloud.
 
-![Icon](resources/icon.svg)
+![Icon](resources/icon.png)
 
 ## Features
 

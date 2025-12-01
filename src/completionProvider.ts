@@ -26,7 +26,7 @@ export class CompletionProvider implements vscode.InlineCompletionItemProvider {
                 abortController.abort();
             });
 
-            const completion = await generate(prompt, abortController.signal);
+            const completion = await generate(prompt, undefined, abortController.signal, undefined);
 
             if (token.isCancellationRequested) return [];
             if (!completion) return [];

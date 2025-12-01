@@ -23,40 +23,106 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "offline-dev-assistant-sidebar",
+          "id": "offlineDevAssistant-sidebar",
           "title": "DevMind",
-          "icon": "$(hubot)"
+          "icon": "resources/devmind.svg"
         }
       ]
     },
     "views": {
-      "offline-dev-assistant-sidebar": [
+      "offlineDevAssistant-sidebar": [
         {
           "type": "webview",
           "id": "offlineDevAssistant.chatView",
           "name": "Chat",
-          "icon": "resources/icon.svg"
+          "icon": "resources/devmind.svg"
         }
       ]
     },
     "commands": [
       {
         "command": "offlineDevAssistant.healthCheck",
-        "title": "AI Assistant: Health Check (Ollama)"
+        "title": "AI: Health Check"
       },
       {
         "command": "offlineDevAssistant.explainSelection",
-        "title": "AI Assistant: Explain Selection (Local)"
+        "title": "AI: Explain Selection"
       },
       {
         "command": "offlineDevAssistant.search",
-        "title": "AI Assistant: Search Code (Local)"
+        "title": "AI: Search Codebase"
       },
       {
         "command": "offlineDevAssistant.editCode",
-        "title": "AI Assistant: Edit Code (Unified Diff, Local)"
+        "title": "AI: Edit Code (Diff)"
+      },
+      {
+        "command": "devmind.newChat",
+        "title": "New Chat",
+        "icon": "$(add)"
+      },
+      {
+        "command": "devmind.history",
+        "title": "History",
+        "icon": "$(history)"
+      },
+      {
+        "command": "devmind.customizations",
+        "title": "Customizations"
+      },
+      {
+        "command": "devmind.mcpServers",
+        "title": "MCP Servers"
+      },
+      {
+        "command": "devmind.downloadDiagnostics",
+        "title": "Download Diagnostics"
+      },
+      {
+        "command": "devmind.export",
+        "title": "Export"
+      },
+      {
+        "command": "devmind.closeView",
+        "title": "Close",
+        "icon": "$(close)"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "devmind.newChat",
+          "when": "view == offlineDevAssistant.chatView",
+          "group": "navigation"
+        },
+        {
+          "command": "devmind.history",
+          "when": "view == offlineDevAssistant.chatView",
+          "group": "navigation"
+        },
+        {
+          "command": "devmind.closeView",
+          "when": "view == offlineDevAssistant.chatView",
+          "group": "navigation"
+        },
+        {
+          "command": "devmind.customizations",
+          "when": "view == offlineDevAssistant.chatView"
+        },
+        {
+          "command": "devmind.mcpServers",
+          "when": "view == offlineDevAssistant.chatView"
+        },
+        {
+          "command": "devmind.downloadDiagnostics",
+          "when": "view == offlineDevAssistant.chatView"
+        },
+        {
+          "command": "devmind.export",
+          "when": "view == offlineDevAssistant.chatView"
+        }
+      ]
+    },
     "configuration": {
       "type": "object",
       "title": "DevMind",
@@ -138,6 +204,7 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "@vscode/codicons": "^0.0.43",
     "@vscode/webview-ui-toolkit": "^1.4.0"
   }
 }

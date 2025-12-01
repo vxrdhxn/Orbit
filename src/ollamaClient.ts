@@ -8,6 +8,7 @@ type OllamaTagsResponse = {
 type GenerateReq = {
   model: string;
   prompt: string;
+  images?: string[];
   stream?: boolean;
   options?: { temperature?: number; top_p?: number };
 };
@@ -27,10 +28,18 @@ function cfg() {
 // ---- Ollama helpers ----
 export async function listModels(): Promise<string[]> {
   const { baseUrl } = cfg();
-  const res = await fetch(`${baseUrl}/api/tags`);
-  if (!res.ok) throw new Error(`Ollama not reachable at ${baseUrl}`);
-  const json = (await res.json()) as OllamaTagsResponse; // <-- narrow unknown → typed
-  return (json.models ?? []).map((m) => m.name);
+  console.log(`[ollamaClient] listModels called, baseUrl: ${baseUrl}`);
+  try {
+    const res = await fetch(`${baseUrl}/api/tags`);
+    console.log(`[ollamaClient] fetch response status: ${res.status}`);
+    if (!res.ok) throw new Error(`Ollama not reachable at ${baseUrl}`);
+    const json = (await res.json()) as OllamaTagsResponse;
+    console.log(`[ollamaClient] models found: ${json.models?.length}`);
+    return (json.models ?? []).map((m) => m.name);
+  } catch (e) {
+    console.error('[ollamaClient] listModels failed:', e);
+    throw e;
+  }
 }
 
 export async function modelExists(name: string) {
@@ -38,19 +47,52 @@ export async function modelExists(name: string) {
   return models.includes(name);
 }
 
-export async function generate(prompt: string, signal?: AbortSignal): Promise<string> {
+export async function generate(prompt: string, onChunk?: (chunk: string) => void, signal?: AbortSignal, images?: string[]): Promise<string> {
   const { baseUrl, model, temperature } = cfg();
-  const body: GenerateReq = { model, prompt, stream: false, options: { temperature } };
+  const body: GenerateReq = { model, prompt, images, stream: !!onChunk, options: { temperature } };
   const res = await fetch(`${baseUrl}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     signal,
   });
+
   if (!res.ok) throw new Error(`Generate failed: HTTP ${res.status}`);
-  const json = (await res.json()) as GenerateResp; // <-- narrow here too
-  if (json.error) throw new Error(json.error);
-  return json.response ?? '';
+
+  if (!onChunk) {
+    // Non-streaming behavior
+    const json = (await res.json()) as GenerateResp;
+    if (json.error) throw new Error(json.error);
+    return json.response ?? '';
+  }
+
+  // Streaming behavior
+  if (!res.body) throw new Error('No response body');
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let fullResponse = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    // Ollama sends multiple JSON objects in one chunk sometimes
+    const lines = chunk.split('\n').filter(l => l.trim() !== '');
+    for (const line of lines) {
+      try {
+        const json = JSON.parse(line) as GenerateResp;
+        if (json.error) throw new Error(json.error);
+        if (json.done) break;
+        if (json.response) {
+          onChunk(json.response);
+          fullResponse += json.response;
+        }
+      } catch (e) {
+        console.error('Error parsing JSON chunk', e);
+      }
+    }
+  }
+  return fullResponse;
 }
 
 export async function healthCheck(): Promise<{ ok: boolean; message: string }> {

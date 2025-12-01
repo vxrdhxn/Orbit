@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3a86ff" />
+      <stop offset="100%" stop-color="#8338ec" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Brain Outline -->
+  <path d="M64 16 
+           C 40 16, 20 36, 20 64 
+           C 20 85, 32 102, 50 110
+           L 64 116
+           L 78 110
+           C 96 102, 108 85, 108 64
+           C 108 36, 88 16, 64 16 Z" 
+        fill="none" 
+        stroke="url(#grad)" 
+        stroke-width="8" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+        
+  <!-- Circuit Connections -->
+  <path d="M64 16 V 64" stroke="url(#grad)" stroke-width="6" stroke-linecap="round" />
+  <path d="M20 64 H 108" stroke="url(#grad)" stroke-width="6" stroke-linecap="round" />
+  <circle cx="64" cy="64" r="12" fill="url(#grad)" />
+  <circle cx="42" cy="42" r="6" fill="url(#grad)" />
+  <circle cx="86" cy="42" r="6" fill="url(#grad)" />
+  <circle cx="42" cy="86" r="6" fill="url(#grad)" />
+  <circle cx="86" cy="86" r="6" fill="url(#grad)" />
+</svg>

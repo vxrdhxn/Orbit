@@ -72,8 +72,20 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // Chat View
+  const chatProvider = new ChatProvider(context);
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(ChatProvider.viewType, new ChatProvider(context.extensionUri))
+    vscode.window.registerWebviewViewProvider(ChatProvider.viewType, chatProvider)
+  );
+
+  // Register Chat View Commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand('devmind.newChat', () => chatProvider.clearChat()),
+    vscode.commands.registerCommand('devmind.history', () => chatProvider.showHistory()),
+    vscode.commands.registerCommand('devmind.customizations', () => chatProvider.handleHeaderOption('customizations')),
+    vscode.commands.registerCommand('devmind.mcpServers', () => chatProvider.handleHeaderOption('mcpServers')),
+    vscode.commands.registerCommand('devmind.downloadDiagnostics', () => chatProvider.handleHeaderOption('downloadDiagnostics')),
+    vscode.commands.registerCommand('devmind.export', () => chatProvider.handleHeaderOption('export')),
+    vscode.commands.registerCommand('devmind.closeView', () => vscode.commands.executeCommand('workbench.action.closeSidebar'))
   );
 
   // Diff Content Provider
