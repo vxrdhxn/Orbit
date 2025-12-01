@@ -3,9 +3,18 @@
   "displayName": "DevMind",
   "description": "Local, offline-first AI assistant for VS Code powered by Ollama.",
   "version": "0.0.3",
-  "publisher": "you",
-  "engines": { "vscode": "^1.85.0" },
-  "categories": ["Other"],
+  "publisher": "devmind-user",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devmind-user/devmind-vscode.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
   "main": "./out/extension.js",
   "activationEvents": [
     "onStartupFinished"
@@ -31,10 +40,22 @@
       ]
     },
     "commands": [
-      { "command": "offlineDevAssistant.healthCheck", "title": "AI Assistant: Health Check (Ollama)" },
-      { "command": "offlineDevAssistant.explainSelection", "title": "AI Assistant: Explain Selection (Local)" },
-      { "command": "offlineDevAssistant.search", "title": "AI Assistant: Search Code (Local)" },
-      { "command": "offlineDevAssistant.editCode", "title": "AI Assistant: Edit Code (Unified Diff, Local)" }
+      {
+        "command": "offlineDevAssistant.healthCheck",
+        "title": "AI Assistant: Health Check (Ollama)"
+      },
+      {
+        "command": "offlineDevAssistant.explainSelection",
+        "title": "AI Assistant: Explain Selection (Local)"
+      },
+      {
+        "command": "offlineDevAssistant.search",
+        "title": "AI Assistant: Search Code (Local)"
+      },
+      {
+        "command": "offlineDevAssistant.editCode",
+        "title": "AI Assistant: Edit Code (Unified Diff, Local)"
+      }
     ],
     "configuration": {
       "type": "object",
@@ -62,14 +83,26 @@
         },
         "offlineDevAssistant.indexIncludeGlobs": {
           "type": "array",
-          "default": ["**/*.{ts,tsx,js,jsx,py,java,go,rs,cpp,c,cs,md}"],
-          "items": { "type": "string" },
+          "default": [
+            "**/*.{ts,tsx,js,jsx,py,java,go,rs,cpp,c,cs,md}"
+          ],
+          "items": {
+            "type": "string"
+          },
           "description": "Glob patterns to include for indexing."
         },
         "offlineDevAssistant.indexExcludeGlobs": {
           "type": "array",
-          "default": ["**/node_modules/**", "**/.git/**", "**/out/**", "**/dist/**", "**/.devmind/**"],
-          "items": { "type": "string" },
+          "default": [
+            "**/node_modules/**",
+            "**/.git/**",
+            "**/out/**",
+            "**/dist/**",
+            "**/.devmind/**"
+          ],
+          "items": {
+            "type": "string"
+          },
           "description": "Glob patterns to exclude from indexing."
         },
         "offlineDevAssistant.indexMaxCharsPerChunk": {
@@ -103,5 +136,8 @@
     "mocha": "^10.4.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "@vscode/webview-ui-toolkit": "^1.4.0"
   }
 }
