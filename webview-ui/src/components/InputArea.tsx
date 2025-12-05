@@ -12,6 +12,7 @@ interface InputAreaProps {
     currentModel: string;
     onModelChange: (model: string) => void;
     onPasteImage: (base64: string) => void;
+    onRemoveImage: () => void;
 }
 
 export const InputArea = ({
@@ -24,7 +25,8 @@ export const InputArea = ({
     models,
     currentModel,
     onModelChange,
-    onPasteImage
+    onPasteImage,
+    onRemoveImage
 }: InputAreaProps) => {
     const [value, setValue] = useState('');
 
@@ -63,6 +65,8 @@ export const InputArea = ({
         }
     };
 
+    const isPreview = selectedImage && selectedImage.startsWith('data:');
+
     return (
         <div className="input-container" onPaste={handlePaste} style={{
             padding: '16px',
@@ -82,22 +86,59 @@ export const InputArea = ({
                 gap: '4px'
             }}>
                 {selectedImage && (
-                    <div className="animate-fade-in" style={{
-                        fontSize: '0.85em',
-                        color: 'var(--vscode-textLink-foreground)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '4px 8px',
-                        backgroundColor: 'var(--vscode-editor-inactiveSelectionBackground)',
-                        borderRadius: '4px',
+                    <div className="image-preview" style={{
+                        position: 'relative',
                         alignSelf: 'flex-start',
-                        marginBottom: '4px'
+                        marginBottom: '8px',
+                        display: 'inline-block'
                     }}>
-                        <span className="codicon codicon-file-media"></span>
-                        <span style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {selectedImage.split(/[/\\]/).pop()}
-                        </span>
+                        {isPreview ? (
+                            <img src={selectedImage} alt="Selected" style={{
+                                maxHeight: '100px',
+                                maxWidth: '200px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--vscode-widget-border)'
+                            }} />
+                        ) : (
+                            <div style={{
+                                fontSize: '0.85em',
+                                color: 'var(--vscode-textLink-foreground)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '4px 8px',
+                                backgroundColor: 'var(--vscode-editor-inactiveSelectionBackground)',
+                                borderRadius: '4px',
+                            }}>
+                                <span className="codicon codicon-file-media"></span>
+                                <span style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {selectedImage.split(/[/\\]/).pop()}
+                                </span>
+                            </div>
+                        )}
+
+                        <div
+                            onClick={onRemoveImage}
+                            title="Remove Image"
+                            style={{
+                                position: 'absolute',
+                                top: '-6px',
+                                right: '-6px',
+                                width: '20px',
+                                height: '20px',
+                                borderRadius: '50%',
+                                backgroundColor: 'var(--vscode-errorForeground)',
+                                color: 'white',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                fontSize: '12px'
+                            }}
+                        >
+                            <span className="codicon codicon-close"></span>
+                        </div>
                     </div>
                 )}
 

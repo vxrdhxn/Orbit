@@ -61,6 +61,18 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  private _getMimeType(filePath: string): string {
+    const ext = path.extname(filePath).toLowerCase();
+    switch (ext) {
+      case '.png': return 'image/png';
+      case '.jpg':
+      case '.jpeg': return 'image/jpeg';
+      case '.gif': return 'image/gif';
+      case '.webp': return 'image/webp';
+      default: return 'application/octet-stream';
+    }
+  }
+
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     context: vscode.WebviewViewResolveContext,
@@ -230,10 +242,20 @@ export class ChatProvider implements vscode.WebviewViewProvider {
               'Images': ['png', 'jpg', 'jpeg', 'gif', 'webp']
             }
           };
-          vscode.window.showOpenDialog(options).then(fileUri => {
+          vscode.window.showOpenDialog(options).then(async fileUri => {
             if (fileUri && fileUri[0]) {
               this._currentImage = fileUri[0].fsPath;
-              webviewView.webview.postMessage({ type: 'imageSelected', value: fileUri[0].fsPath });
+              try {
+                const imageBuffer = await vscode.workspace.fs.readFile(fileUri[0]);
+                const base64 = Buffer.from(imageBuffer).toString('base64');
+                const mimeType = this._getMimeType(fileUri[0].fsPath);
+                webviewView.webview.postMessage({
+                  type: 'imageSelected',
+                  value: `data:${mimeType};base64,${base64}`
+                });
+              } catch (e) {
+                console.error('Error reading image for preview:', e);
+              }
             }
           });
           break;
@@ -243,7 +265,11 @@ export class ChatProvider implements vscode.WebviewViewProvider {
             const base64Data = data.value;
             if (!base64Data) return;
 
-            const base64Image = base64Data.split(';base64,').pop();
+            const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+            if (!matches || matches.length !== 3) {
+              return;
+            }
+            const base64Image = matches[2];
             const buffer = Buffer.from(base64Image, 'base64');
 
             const tempDir = os.tmpdir();
@@ -253,11 +279,16 @@ export class ChatProvider implements vscode.WebviewViewProvider {
             await fs.promises.writeFile(filePath, buffer);
 
             this._currentImage = filePath;
-            webviewView.webview.postMessage({ type: 'imageSelected', value: filePath });
+            // Send back the original data URI for preview
+            webviewView.webview.postMessage({ type: 'imageSelected', value: base64Data });
           } catch (e: any) {
             console.error('Failed to save pasted image:', e);
             vscode.window.showErrorMessage('Failed to paste image');
           }
+          break;
+        }
+        case 'clearImage': {
+          this._currentImage = null;
           break;
         }
         case 'insertCode': {
@@ -322,68 +353,46 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     }));
 
     const selected = await vscode.window.showQuickPick(items, {
-      placeHolder: 'Select a previous chat session'
+      placeHolder: 'Select a chat session to load'
     });
 
     if (selected) {
       this._currentSession = selected.session;
+      this._currentImage = null; // Clear image when loading history
       this._webviewView?.webview.postMessage({ type: 'loadChat', value: this._currentSession.messages });
     }
   }
 
-  public async handleHeaderOption(opt: string) {
-    if (opt === 'customizations') {
-      vscode.commands.executeCommand('workbench.action.openSettings', 'offlineDevAssistant');
-    } else if (opt === 'mcpServers') {
-      vscode.window.showInformationMessage('MCP Servers configuration coming soon!');
-    } else if (opt === 'downloadDiagnostics') {
-      const diagnostics = {
-        version: vscode.extensions.getExtension('vxrdhxn.devmind')?.packageJSON.version,
-        config: vscode.workspace.getConfiguration('offlineDevAssistant'),
-      };
-      const doc = await vscode.workspace.openTextDocument({
-        content: JSON.stringify(diagnostics, null, 2),
-        language: 'json'
-      });
-      vscode.window.showTextDocument(doc);
-    } else if (opt === 'export') {
-      vscode.window.showInformationMessage('Export feature coming soon!');
+  public handleHeaderOption(option: string) {
+    switch (option) {
+      case 'customizations':
+        vscode.commands.executeCommand('workbench.action.openSettings', 'devmind');
+        break;
     }
   }
 
   private async _sendModelList(webview: vscode.Webview) {
-    console.log('[_sendModelList] called');
     try {
-      const installedModels = await listModels();
-      console.log('[_sendModelList] installedModels:', installedModels);
-      const currentModel = vscode.workspace.getConfiguration('offlineDevAssistant').get<string>('model');
+      const models = await listModels();
+      const config = vscode.workspace.getConfiguration('offlineDevAssistant');
+      const currentModel = config.get<string>('model') || (models.length > 0 ? models[0] : '');
 
-      const suggestedModels = ['deepseek-coder:6.7b', 'llama3', 'mistral', 'qwen2.5-coder:7b'];
-      const allModels = [...installedModels];
-
-      // Add suggested models if not present, marked as downloadable
-      suggestedModels.forEach(m => {
-        if (!installedModels.includes(m)) {
-          allModels.push(`${m} (Download)`);
+      webview.postMessage({
+        type: 'updateModels',
+        value: {
+          models: models,
+          current: currentModel
         }
       });
-
-      console.log('[_sendModelList] sending updateModels message');
-      webview.postMessage({ type: 'updateModels', value: { models: allModels, current: currentModel } });
     } catch (e: any) {
-      console.error('Failed to list models', e);
-      webview.postMessage({ type: 'modelListError', value: e.message || 'Unknown error' });
+      // Just send empty list or error state
+      webview.postMessage({ type: 'modelListError', value: e.message });
     }
   }
 
-  private _getHtmlForWebview(webview: vscode.Webview) {
-    // Local path to main script run in the webview
-    const scriptPathOnDisk = vscode.Uri.joinPath(this._context.extensionUri, 'out', 'webview', 'index.js');
-    const stylePathOnDisk = vscode.Uri.joinPath(this._context.extensionUri, 'out', 'webview', 'index.css');
-
-    // And the uri we use to load this script in the webview
-    const scriptUri = webview.asWebviewUri(scriptPathOnDisk);
-    const styleUri = webview.asWebviewUri(stylePathOnDisk);
+  private _getHtmlForWebview(webview: vscode.Webview): string {
+    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'out', 'webview', 'index.js'));
+    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'out', 'webview', 'index.css'));
     const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'media', 'codicon.css'));
 
     // Use a nonce to only allow specific scripts to be run
@@ -392,16 +401,16 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     return `<!DOCTYPE html>
       <html lang="en">
       <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'nonce-${nonce}'; font-src ${webview.cspSource};">
-        <link href="${codiconsUri}" rel="stylesheet" />
-        <link href="${styleUri}" rel="stylesheet" />
-        <title>DevMind Chat</title>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; font-src ${webview.cspSource}; img-src ${webview.cspSource} data: https:;">
+          <link href="${styleUri}" rel="stylesheet">
+          <link href="${codiconsUri}" rel="stylesheet">
+          <title>DevMind Chat</title>
       </head>
       <body>
-        <div id="root"></div>
-        <script nonce="${nonce}" src="${scriptUri}"></script>
+          <div id="root"></div>
+          <script nonce="${nonce}" type="module" src="${scriptUri}"></script>
       </body>
       </html>`;
   }

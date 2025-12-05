@@ -110,6 +110,12 @@ function App() {
         vscode.postMessage({ type: 'pasteImage', value: base64 });
     };
 
+    const handleRemoveImage = () => {
+        setIsGenerating(false); // Should not affect generating, but good safety
+        setSelectedImage(null);
+        vscode.postMessage({ type: 'clearImage' });
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--vscode-editor-background)', color: 'var(--vscode-editor-foreground)' }}>
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
@@ -164,6 +170,7 @@ function App() {
                 currentModel={currentModel}
                 onModelChange={handleModelChange}
                 onPasteImage={handlePasteImage}
+                onRemoveImage={handleRemoveImage}
             />
         </div>
     );
