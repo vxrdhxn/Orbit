@@ -106,6 +106,10 @@ function App() {
         vscode.postMessage({ type: 'cancelGeneration' });
     };
 
+    const handlePasteImage = (base64: string) => {
+        vscode.postMessage({ type: 'pasteImage', value: base64 });
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--vscode-editor-background)', color: 'var(--vscode-editor-foreground)' }}>
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
@@ -159,6 +163,7 @@ function App() {
                 models={models}
                 currentModel={currentModel}
                 onModelChange={handleModelChange}
+                onPasteImage={handlePasteImage}
             />
         </div>
     );

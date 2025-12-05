@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { generate, listModels } from './ollamaClient';
 import { performSearch } from './searchCommand';
 
@@ -235,6 +236,28 @@ export class ChatProvider implements vscode.WebviewViewProvider {
               webviewView.webview.postMessage({ type: 'imageSelected', value: fileUri[0].fsPath });
             }
           });
+          break;
+        }
+        case 'pasteImage': {
+          try {
+            const base64Data = data.value;
+            if (!base64Data) return;
+
+            const base64Image = base64Data.split(';base64,').pop();
+            const buffer = Buffer.from(base64Image, 'base64');
+
+            const tempDir = os.tmpdir();
+            const fileName = `devmind_pasted_${Date.now()}.png`;
+            const filePath = path.join(tempDir, fileName);
+
+            await fs.promises.writeFile(filePath, buffer);
+
+            this._currentImage = filePath;
+            webviewView.webview.postMessage({ type: 'imageSelected', value: filePath });
+          } catch (e: any) {
+            console.error('Failed to save pasted image:', e);
+            vscode.window.showErrorMessage('Failed to paste image');
+          }
           break;
         }
         case 'insertCode': {

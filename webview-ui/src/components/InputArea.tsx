@@ -1,4 +1,4 @@
-import { useState, KeyboardEvent } from 'react';
+import { useState, KeyboardEvent, ClipboardEvent } from 'react';
 import { VSCodeButton, VSCodeTextArea } from '@vscode/webview-ui-toolkit/react';
 
 interface InputAreaProps {
@@ -11,6 +11,7 @@ interface InputAreaProps {
     models: string[];
     currentModel: string;
     onModelChange: (model: string) => void;
+    onPasteImage: (base64: string) => void;
 }
 
 export const InputArea = ({
@@ -22,7 +23,8 @@ export const InputArea = ({
     selectedImage,
     models,
     currentModel,
-    onModelChange
+    onModelChange,
+    onPasteImage
 }: InputAreaProps) => {
     const [value, setValue] = useState('');
 
@@ -40,8 +42,29 @@ export const InputArea = ({
         }
     };
 
+    const handlePaste = (e: ClipboardEvent) => {
+        const items = e.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                e.preventDefault();
+                const blob = items[i].getAsFile();
+                if (blob) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const base64 = event.target?.result as string;
+                        if (base64) {
+                            onPasteImage(base64);
+                        }
+                    };
+                    reader.readAsDataURL(blob);
+                }
+                return;
+            }
+        }
+    };
+
     return (
-        <div className="input-container" style={{
+        <div className="input-container" onPaste={handlePaste} style={{
             padding: '16px',
             backgroundColor: 'transparent',
             display: 'flex',
@@ -56,7 +79,7 @@ export const InputArea = ({
                 boxShadow: 'var(--shadow-md)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '4px' // Reduced gap for tighter look
+                gap: '4px'
             }}>
                 {selectedImage && (
                     <div className="animate-fade-in" style={{
@@ -128,7 +151,7 @@ export const InputArea = ({
                                     fontSize: 'inherit',
                                     cursor: 'pointer',
                                     outline: 'none',
-                                    appearance: 'none', // Remove native arrow
+                                    appearance: 'none',
                                     maxWidth: '120px',
                                     whiteSpace: 'nowrap',
                                     overflow: 'hidden',
