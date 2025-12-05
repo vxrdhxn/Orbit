@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { generate, listModels } from './ollamaClient';
 import { performSearch } from './searchCommand';
 
@@ -255,6 +257,18 @@ export class ChatProvider implements vscode.WebviewViewProvider {
           vscode.window.showInformationMessage('Code copied to clipboard');
           break;
         }
+        case 'newChat': {
+          this.clearChat();
+          break;
+        }
+        case 'openHistory': {
+          this.showHistory();
+          break;
+        }
+        case 'openSettings': {
+          this.handleHeaderOption('customizations');
+          break;
+        }
       }
     });
   }
@@ -333,679 +347,48 @@ export class ChatProvider implements vscode.WebviewViewProvider {
 
       console.log('[_sendModelList] sending updateModels message');
       webview.postMessage({ type: 'updateModels', value: { models: allModels, current: currentModel } });
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to list models', e);
+      webview.postMessage({ type: 'modelListError', value: e.message || 'Unknown error' });
     }
   }
 
   private _getHtmlForWebview(webview: vscode.Webview) {
-    const toolkitUri = webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'media', 'toolkit.min.js'));
+    // Local path to main script run in the webview
+    const scriptPathOnDisk = vscode.Uri.joinPath(this._context.extensionUri, 'out', 'webview', 'index.js');
+    const stylePathOnDisk = vscode.Uri.joinPath(this._context.extensionUri, 'out', 'webview', 'index.css');
+
+    // And the uri we use to load this script in the webview
+    const scriptUri = webview.asWebviewUri(scriptPathOnDisk);
+    const styleUri = webview.asWebviewUri(stylePathOnDisk);
     const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'media', 'codicon.css'));
 
+    // Use a nonce to only allow specific scripts to be run
+    const nonce = getNonce();
+
     return `<!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource};">
-      <script type="module" src="${toolkitUri}" onerror="console.error('Failed to load toolkit script'); window.vscode.postMessage({ type: 'error', value: 'Failed to load toolkit script' });"></script>
-      <link href="${codiconsUri}" rel="stylesheet" />
-      <script>
-        try {
-          window.vscode = acquireVsCodeApi();
-          console.log('VS Code API acquired');
-        } catch (e) {
-          console.error('Failed to acquire VS Code API', e);
-        }
-        
-        window.onerror = function(message, source, lineno, colno, error) {
-          console.error('Global Error:', message, source, lineno);
-          if (window.vscode) {
-            window.vscode.postMessage({ 
-              type: 'error', 
-              value: 'Global Error: ' + message + ' at ' + source + ':' + lineno 
-            });
-          }
-        };
-      </script>
-      <style>
-        body {
-          font-family: var(--vscode-font-family);
-          background-color: var(--vscode-editor-background);
-          color: var(--vscode-editor-foreground);
-          margin: 0;
-          padding: 0;
-          display: flex;
-          flex-direction: column;
-          height: 100vh;
-          overflow: hidden;
-        }
-
-        /* Empty State Styling */
-        body.empty {
-          justify-content: center;
-          align-items: center;
-        }
-        body.empty .messages {
-          display: none;
-        }
-        body.empty .input-container {
-          width: 100%;
-          max-width: 600px;
-          padding: 0 20px;
-          box-sizing: border-box;
-          border-top: none;
-          background-color: transparent;
-        }
-        body.empty .input-box {
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-          border: 1px solid var(--vscode-widget-border);
-        }
-        .empty-header {
-          display: none;
-          font-size: 1.5em;
-          font-weight: 600;
-          margin-bottom: 20px;
-          color: var(--vscode-editor-foreground);
-          opacity: 0.9;
-          text-align: center;
-        }
-        body.empty .empty-header {
-          display: block;
-        }
-
-        .messages {
-          flex-grow: 1;
-          overflow-y: auto;
-          padding: 10px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-        .message {
-          padding: 10px 14px;
-          border-radius: 14px;
-          max-width: 85%;
-          line-height: 1.5;
-          word-wrap: break-word;
-          font-size: var(--vscode-font-size);
-        }
-        .message.user {
-          background-color: var(--vscode-button-background);
-          color: var(--vscode-button-foreground);
-          align-self: flex-end;
-          border-bottom-right-radius: 2px;
-          white-space: pre-wrap;
-        }
-        .message.ai {
-          background-color: var(--vscode-editor-inactiveSelectionBackground);
-          color: var(--vscode-editor-foreground);
-          align-self: flex-start;
-          border: 1px solid var(--vscode-widget-border);
-          border-bottom-left-radius: 2px;
-        }
-        .status {
-          padding: 0 10px;
-          margin-bottom: 5px;
-          font-style: italic;
-          color: var(--vscode-descriptionForeground);
-          font-size: 0.85em;
-          min-height: 1.2em;
-          text-align: center;
-        }
-
-        /* Input Area Redesign */
-        .input-container {
-          padding: 15px;
-          background-color: var(--vscode-editor-background);
-        }
-        .input-box {
-          border: 1px solid var(--vscode-input-border);
-          border-radius: 10px;
-          background-color: var(--vscode-input-background);
-          padding: 10px 10px 8px 10px;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          position: relative; /* For context menu positioning */
-        }
-        .input-box:focus-within {
-          border-color: var(--vscode-focusBorder);
-          outline: 1px solid var(--vscode-focusBorder);
-        }
-        vscode-text-area {
-          width: 100%;
-          --input-background: transparent;
-          border: none;
-          resize: none;
-          margin-bottom: 4px;
-        }
-        /* Hide default border of text area since we have a wrapper */
-        vscode-text-area::part(control) {
-          border: none !important;
-          background: transparent !important;
-          font-family: var(--vscode-font-family);
-        }
-
-        .input-toolbar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-top: 4px;
-        }
-        .toolbar-left {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        
-        .toolbar-item {
-          color: var(--vscode-descriptionForeground);
-          font-size: 0.85em;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          cursor: pointer;
-          padding: 4px 6px;
-          border-radius: 4px;
-          transition: background-color 0.2s;
-        }
-        .toolbar-item:hover {
-          background-color: var(--vscode-toolbar-hoverBackground);
-          color: var(--vscode-foreground);
-        }
-
-        /* Context Menu Styling */
-        .context-menu {
-          display: none;
-          position: absolute;
-          bottom: 100%; /* Position above the input box */
-          left: 0;
-          margin-bottom: 5px;
-          background-color: var(--vscode-menu-background);
-          border: 1px solid var(--vscode-menu-border);
-          border-radius: 6px;
-          padding: 4px 0;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-          z-index: 100;
-          min-width: 150px;
-        }
-        .context-menu.visible {
-          display: block;
-        }
-        .menu-header {
-          padding: 4px 12px;
-          font-size: 0.8em;
-          color: var(--vscode-descriptionForeground);
-          border-bottom: 1px solid var(--vscode-menu-separatorBackground);
-          margin-bottom: 4px;
-        }
-        .menu-item {
-          padding: 6px 12px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-          font-size: 0.9em;
-          color: var(--vscode-menu-foreground);
-        }
-        .menu-item:hover {
-          background-color: var(--vscode-menu-selectionBackground);
-          color: var(--vscode-menu-selectionForeground);
-        }
-        .menu-item .codicon {
-          font-size: 16px;
-        }
-
-        /* Minimalist Dropdown for Model */
-        vscode-dropdown {
-          min-width: auto;
-          --dropdown-border: transparent;
-          --dropdown-background: transparent;
-          margin: 0;
-          height: 20px;
-        }
-        vscode-dropdown::part(control) {
-          background: transparent;
-          border: none;
-          color: var(--vscode-descriptionForeground);
-          min-height: 20px;
-          padding: 0;
-        }
-        vscode-dropdown::part(listbox) {
-          background: var(--vscode-dropdown-background);
-          border: 1px solid var(--vscode-dropdown-border);
-        }
-
-        /* Add Context Button Styling */
-        #addContextBtn {
-          border-radius: 50%;
-          width: 24px;
-          height: 24px;
-          padding: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background-color: var(--vscode-button-secondaryBackground);
-          color: var(--vscode-button-secondaryForeground);
-          transition: background-color 0.2s;
-        }
-        #addContextBtn:hover {
-          background-color: var(--vscode-button-secondaryHoverBackground);
-        }
-        #addContextBtn .codicon {
-          font-size: 14px;
-        }
-
-        /* Send Button Alignment & Animation */
-        #sendBtn {
-          border-radius: 50%;
-          width: 28px;
-          height: 28px;
-          padding: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: transform 0.2s;
-        }
-        #sendBtn::part(control) {
-          padding: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          height: 100%;
-        }
-        #sendBtn span {
-          font-size: 16px;
-          display: block;
-        }
-
-        /* Pulse Animation for Cancel State */
-        @keyframes pulse {
-          0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.4); }
-          70% { box-shadow: 0 0 0 6px rgba(255, 0, 0, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
-        }
-        #sendBtn.cancel {
-          background-color: var(--vscode-errorForeground) !important;
-          animation: pulse 1.5s infinite;
-        }
-
-        /* Code Block Styling */
-        .code-block {
-          background-color: var(--vscode-textBlockQuote-background);
-          border: 1px solid var(--vscode-textBlockQuote-border);
-          border-radius: 4px;
-          margin: 8px 0;
-          overflow: hidden;
-        }
-        .code-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 4px 8px;
-          background-color: var(--vscode-editor-lineHighlightBackground);
-          border-bottom: 1px solid var(--vscode-textBlockQuote-border);
-          font-size: 0.85em;
-        }
-        .code-actions {
-          display: flex;
-          gap: 6px;
-        }
-        pre {
-          margin: 0;
-          padding: 8px;
-          overflow-x: auto;
-          font-family: var(--vscode-editor-font-family);
-          font-size: var(--vscode-editor-font-size);
-        }
-        code {
-          font-family: var(--vscode-editor-font-family);
-        }
-
-        /* Scrollbar styling */
-        ::-webkit-scrollbar { width: 10px; height: 10px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--vscode-scrollbarSlider-background); border-radius: 5px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--vscode-scrollbarSlider-hoverBackground); }
-        ::-webkit-scrollbar-thumb:active { background: var(--vscode-scrollbarSlider-activeBackground); }
-      </style>
-    </head>
-    <body class="empty">
-      <div class="empty-header">DevMind</div>
-
-      <div class="messages" id="messages"></div>
-      <div class="status" id="status"></div>
-
-      <div class="input-container">
-        <div class="input-box">
-          <vscode-text-area id="chatInput" rows="2" placeholder="Ask anything (Ctrl+L), @ to mention, / for workflows" resize="none"></vscode-text-area>
-
-          <!-- Context Menu -->
-          <div class="context-menu" id="contextMenu">
-            <div class="menu-header">Add context</div>
-            <div class="menu-item" onclick="handleMenuOption('images')">
-              <span class="codicon codicon-file-media"></span>
-              <span>Images</span>
-            </div>
-            <div class="menu-item" onclick="handleMenuOption('mentions')">
-              <span class="codicon codicon-mention"></span>
-              <span>Mentions</span>
-            </div>
-            <div class="menu-item" onclick="handleMenuOption('workflows')">
-              <span class="codicon codicon-git-merge"></span>
-              <span>Workflows</span>
-            </div>
-          </div>
-
-          <div class="input-toolbar">
-            <div class="toolbar-left">
-              <div class="toolbar-item" title="Add Context" id="addContextBtn">
-                <span class="codicon codicon-add"></span>
-              </div>
-
-              <!-- Model Selector -->
-              <div class="toolbar-item">
-                <vscode-dropdown id="modelSelect">
-                  <vscode-option>Loading...</vscode-option>
-                </vscode-dropdown>
-              </div>
-            </div>
-
-            <vscode-button appearance="primary" id="sendBtn" aria-label="Send">
-              <span class="codicon codicon-arrow-right"></span>
-            </vscode-button>
-          </div>
-        </div>
-      </div>
-
-      <script>
-        console.log('Body script started');
-        const vscode = window.vscode;
-        // Notify backend that webview is ready
-        if (vscode) {
-          vscode.postMessage({ type: 'webviewReady' });
-        }
-        
-        const messagesDiv = document.getElementById('messages');
-        const statusDiv = document.getElementById('status');
-        const chatInput = document.getElementById('chatInput');
-        const modelSelect = document.getElementById('modelSelect');
-        const sendBtn = document.getElementById('sendBtn');
-        const contextMenu = document.getElementById('contextMenu');
-        const addContextBtn = document.getElementById('addContextBtn');
-
-        let currentAiMessageDiv = null;
-        let currentAiMessageText = '';
-        let isGenerating = false;
-
-        // Auto-focus input
-        chatInput.focus();
-
-        // Toggle Context Menu
-        addContextBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          contextMenu.classList.toggle('visible');
-        });
-
-        // Close menu when clicking outside
-        document.addEventListener('click', (e) => {
-          if (!contextMenu.contains(e.target) && !addContextBtn.contains(e.target)) {
-            contextMenu.classList.remove('visible');
-          }
-        });
-
-        // Handle Menu Options
-        window.handleMenuOption = (option) => {
-          contextMenu.classList.remove('visible');
-          if (option === 'images') {
-            vscode.postMessage({ type: 'selectImage' });
-          } else if (option === 'mentions') {
-            chatInput.value += '@';
-            chatInput.focus();
-          } else if (option === 'workflows') {
-            chatInput.value += '/';
-            chatInput.focus();
-          }
-        };
-
-        // Handle Model Selection
-        modelSelect.addEventListener('change', (e) => {
-          const val = e.target.value;
-          if (val.includes('(Download)')) {
-            const modelName = val.replace(' (Download)', '');
-            vscode.postMessage({ type: 'pullModel', value: modelName });
-          } else if (val) {
-            vscode.postMessage({ type: 'changeModel', value: val });
-          }
-        });
-
-        // Send Message Logic
-        function sendMessage() {
-          console.log('sendMessage called');
-          if (isGenerating) {
-            console.log('isGenerating is true, cancelling');
-            // Cancel logic
-            vscode.postMessage({ type: 'cancelGeneration' });
-            setGenerating(false);
-            return;
-          }
-
-          const text = chatInput.value.trim();
-          console.log('chatInput value:', text);
-          if (!text) {
-            console.log('Text is empty');
-            return;
-          }
-
-          chatInput.value = '';
-          document.body.classList.remove('empty'); // Switch to chat mode
-
-          // Slash commands
-          if (text.startsWith('/')) {
-            handleCommand(text);
-            return;
-          }
-
-          addMessage(text, 'user');
-          setGenerating(true);
-          vscode.postMessage({ type: 'sendMessage', value: text });
-          console.log('Message posted to backend');
-
-          // Reset streaming state
-          currentAiMessageDiv = null;
-          currentAiMessageText = '';
-        }
-
-        function setGenerating(generating) {
-          isGenerating = generating;
-          const icon = sendBtn.querySelector('.codicon');
-          if (generating) {
-            sendBtn.classList.add('cancel');
-            icon.classList.remove('codicon-arrow-right');
-            icon.classList.add('codicon-debug-stop');
-            sendBtn.setAttribute('aria-label', 'Cancel');
-          } else {
-            sendBtn.classList.remove('cancel');
-            icon.classList.remove('codicon-debug-stop');
-            icon.classList.add('codicon-arrow-right');
-            sendBtn.setAttribute('aria-label', 'Send');
-          }
-        }
-
-        chatInput.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-          }
-        });
-
-        sendBtn.addEventListener('click', () => {
-          sendMessage();
-        });
-
-        function handleCommand(cmd) {
-          const lower = cmd.toLowerCase();
-          if (lower === '/clear') {
-            messagesDiv.innerHTML = '';
-            document.body.classList.add('empty'); // Switch back to empty mode if cleared
-          } else if (lower === '/help') {
-            addSystemMessage('Available commands:\\n/clear - Clear chat history\\n/explain - Explain active file\\n/fix - Fix active file\\n/test - Generate tests\\n/pull <model> - Pull a new model\\n/help - Show this help message');
-          } else if (lower.startsWith('/pull ')) {
-            const model = cmd.substring(6).trim();
-            if (model) {
-              vscode.postMessage({ type: 'pullModel', value: model });
-              addSystemMessage('Pulling model: ' + model);
-            }
-          } else if (lower.startsWith('/explain') || lower.startsWith('/fix') || lower.startsWith('/test')) {
-            addMessage(cmd, 'user');
-            setGenerating(true);
-            vscode.postMessage({ type: 'sendMessage', value: cmd });
-            currentAiMessageDiv = null;
-            currentAiMessageText = '';
-          } else {
-            addSystemMessage('Unknown command: ' + cmd);
-          }
-        }
-
-        window.addEventListener('message', event => {
-          const message = event.data;
-          console.log('Webview received message:', message.type);
-          switch (message.type) {
-            case 'addResponse':
-              addMessage(message.value, 'ai');
-              setGenerating(false);
-              break;
-            case 'addResponseChunk':
-              handleResponseChunk(message.value);
-              break;
-            case 'status':
-              statusDiv.textContent = message.value;
-              if (message.value === '') setGenerating(false);
-              break;
-            case 'updateModels':
-              console.log('Updating models:', message.value);
-              updateModelList(message.value.models, message.value.current);
-              break;
-            case 'imageSelected':
-              addMessage('Image selected: ' + message.value, 'user');
-              break;
-            case 'clearChat':
-              messagesDiv.innerHTML = '';
-              document.body.classList.add('empty');
-              break;
-            case 'loadChat':
-              messagesDiv.innerHTML = '';
-              document.body.classList.remove('empty');
-              message.value.forEach(msg => {
-                addMessage(msg.content, msg.role);
-              });
-              break;
-          }
-        });
-
-        function handleResponseChunk(chunk) {
-          document.body.classList.remove('empty');
-
-          if (!currentAiMessageDiv) {
-            currentAiMessageDiv = document.createElement('div');
-            currentAiMessageDiv.className = 'message ai';
-            messagesDiv.appendChild(currentAiMessageDiv);
-          }
-
-          currentAiMessageText += chunk;
-          currentAiMessageDiv.innerHTML = parseMarkdown(currentAiMessageText);
-          messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-
-        function updateModelList(models, current) {
-          modelSelect.innerHTML = '';
-          models.forEach(m => {
-            const opt = document.createElement('vscode-option');
-            opt.textContent = m;
-            opt.value = m;
-            if (m === current) opt.selected = true;
-            modelSelect.appendChild(opt);
-          });
-        }
-
-        function addMessage(text, sender) {
-          document.body.classList.remove('empty'); // Ensure we are in chat mode
-          const div = document.createElement('div');
-          div.className = 'message ' + sender;
-
-          if (sender === 'ai') {
-            div.innerHTML = parseMarkdown(text);
-          } else {
-            div.textContent = text;
-          }
-
-          messagesDiv.appendChild(div);
-          messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-
-        function addSystemMessage(text) {
-          document.body.classList.remove('empty');
-          const div = document.createElement('div');
-          div.className = 'message system';
-          div.style.fontStyle = 'italic';
-          div.style.opacity = '0.8';
-          div.textContent = text;
-          messagesDiv.appendChild(div);
-          messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-
-        // Simple Markdown Parser
-        function parseMarkdown(text) {
-          // Escape HTML first to prevent XSS (basic)
-          let escaped = text
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;");
-
-          // Code blocks
-          escaped = escaped.replace(/\\x60\\x60\\x60(\\w+)?\\n([\\s\\S]*?)\\x60\\x60\\x60/g, (match, lang, code) => {
-            const language = lang || 'text';
-            const encodedCode = encodeURIComponent(code);
-            return '<div class="code-block">' +
-                '<div class="code-header">' +
-                  '<span class="lang-label">' + language + '</span>' +
-                  '<div class="code-actions">' +
-                    '<vscode-button appearance="secondary" style="height: 20px; font-size: 10px;" onclick="copyCode(this)">Copy</vscode-button>' +
-                    '<vscode-button appearance="secondary" style="height: 20px; font-size: 10px;" onclick="insertCode(this)">Insert</vscode-button>' +
-                  </div>' +
-                '</div>' +
-                '<pre><code data-code="' + encodedCode + '">' + code + '</code></pre>' +
-              '</div>';
-          });
-
-          // Inline code
-          escaped = escaped.replace(/\\x60([^\\x60]+)\\x60/g, '<code>$1</code>');
-
-          // Bold: **...**
-          escaped = escaped.replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>');
-
-          // Italic: *...*
-          escaped = escaped.replace(/\\*([^*]+)\\*/g, '<em>$1</em>');
-
-          return escaped;
-        }
-
-        // Global functions for buttons
-        window.copyCode = (btn) => {
-          const codeEl = btn.closest('.code-header').nextElementSibling.querySelector('code');
-          const code = decodeURIComponent(codeEl.getAttribute('data-code'));
-          vscode.postMessage({ type: 'copyCode', value: code });
-        };
-
-        window.insertCode = (btn) => {
-          const codeEl = btn.closest('.code-header').nextElementSibling.querySelector('code');
-          const code = decodeURIComponent(codeEl.getAttribute('data-code'));
-          vscode.postMessage({ type: 'insertCode', value: code });
-        };
-      </script>
-    </body>
-    </html>`;
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'nonce-${nonce}'; font-src ${webview.cspSource};">
+        <link href="${codiconsUri}" rel="stylesheet" />
+        <link href="${styleUri}" rel="stylesheet" />
+        <title>DevMind Chat</title>
+      </head>
+      <body>
+        <div id="root"></div>
+        <script nonce="${nonce}" src="${scriptUri}"></script>
+      </body>
+      </html>`;
   }
+}
+
+function getNonce() {
+  let text = '';
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
 }
