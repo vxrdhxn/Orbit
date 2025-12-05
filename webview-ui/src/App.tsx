@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { vscode } from './utilities/vscode';
 import { MessageList } from './components/MessageList';
 import { InputArea } from './components/InputArea';
-import { Header } from './components/Header';
 
 interface Message {
     role: 'user' | 'ai' | 'system';
@@ -109,14 +108,6 @@ function App() {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--vscode-editor-background)', color: 'var(--vscode-editor-foreground)' }}>
-            <Header
-                models={models}
-                currentModel={currentModel}
-                onModelChange={handleModelChange}
-                onShowHistory={() => vscode.postMessage({ type: 'openHistory' })}
-                onNewChat={() => vscode.postMessage({ type: 'newChat' })}
-            />
-
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
                 {messages.length === 0 ? (
                     <div style={{
@@ -162,9 +153,12 @@ function App() {
                 onSend={handleSend}
                 onImageSelect={handleImageSelect}
                 onStop={handleStop}
-                disabled={false} // Always enabled unless we want to block strictly
+                disabled={false}
                 isGenerating={isGenerating}
                 selectedImage={selectedImage}
+                models={models}
+                currentModel={currentModel}
+                onModelChange={handleModelChange}
             />
         </div>
     );

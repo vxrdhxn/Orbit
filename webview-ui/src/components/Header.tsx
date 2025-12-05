@@ -1,14 +1,12 @@
-import { VSCodeButton, VSCodeDropdown, VSCodeOption } from '@vscode/webview-ui-toolkit/react';
+import { VSCodeDropdown, VSCodeOption } from '@vscode/webview-ui-toolkit/react';
 
 interface HeaderProps {
     models: string[];
     currentModel: string;
     onModelChange: (model: string) => void;
-    onShowHistory: () => void;
-    onNewChat: () => void;
 }
 
-export const Header = ({ models, currentModel, onModelChange, onShowHistory, onNewChat }: HeaderProps) => {
+export const Header = ({ models, currentModel, onModelChange }: HeaderProps) => {
     return (
         <div className="glass" style={{
             display: 'flex',
@@ -32,14 +30,6 @@ export const Header = ({ models, currentModel, onModelChange, onShowHistory, onN
                         <VSCodeOption key={model} value={model}>{model}</VSCodeOption>
                     ))}
                 </VSCodeDropdown>
-            </div>
-            <div style={{ display: 'flex', gap: '4px' }}>
-                <VSCodeButton appearance="icon" onClick={onShowHistory} title="Chat History">
-                    <span className="codicon codicon-history"></span>
-                </VSCodeButton>
-                <VSCodeButton appearance="icon" onClick={onNewChat} title="New Chat">
-                    <span className="codicon codicon-add"></span>
-                </VSCodeButton>
             </div>
         </div>
     );
