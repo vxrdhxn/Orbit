@@ -1,8 +1,16 @@
 :root {
-  --container-paddding: 20px;
-  --input-padding-vertical: 6px;
-  --input-padding-horizontal: 4px;
-  --input-margin-vertical: 4px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+  --animation-speed: 0.3s;
 }
 
 body {
@@ -14,15 +22,110 @@ body {
   color: var(--vscode-foreground);
   font-family: var(--vscode-font-family);
   background-color: var(--vscode-editor-background);
+  font-size: var(--vscode-font-size);
 }
 
 * {
   box-sizing: border-box;
 }
 
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.5;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--animation-speed) ease-out forwards;
+}
+
+.animate-pulse {
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+/* Scrollbar Styling to match VS Code */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background);
+  border-radius: 10px;
+  border: 2px solid var(--vscode-editor-background);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: var(--vscode-scrollbarSlider-activeBackground);
+}
+
+/* Button Reset */
 button {
   background: none;
   border: none;
   cursor: pointer;
   color: inherit;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Typography Utilities */
+.text-sm {
+  font-size: 0.9em;
+}
+
+.text-muted {
+  opacity: 0.7;
+}
+
+/* Interactive Elements */
+.clickable {
+  transition: opacity 0.2s;
+}
+
+.clickable:hover {
+  opacity: 0.8;
+}
+
+/* Message Styles - Helper classes to keep components cleaner */
+.message-bubble {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+/* Code Block Styles override */
+pre {
+  margin: 0 !important;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm) !important;
 }

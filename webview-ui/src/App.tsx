@@ -136,18 +136,23 @@ function App() {
                 )}
 
                 {statusMessage && isGenerating && (
-                    <div style={{
+                    <div className="glass animate-pulse" style={{
                         position: 'absolute',
-                        bottom: '10px',
+                        bottom: '20px',
                         left: '50%',
                         transform: 'translateX(-50%)',
-                        backgroundColor: 'var(--vscode-editor-background)',
+                        padding: '8px 16px',
+                        borderRadius: '20px',
+                        fontSize: '0.85em',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
                         border: '1px solid var(--vscode-widget-border)',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        fontSize: '0.8em',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                        boxShadow: 'var(--shadow-md)',
+                        color: 'var(--vscode-descriptionForeground)',
+                        zIndex: 20
                     }}>
+                        <span className="codicon codicon-loading codicon-modifier-spin"></span>
                         {statusMessage}
                     </div>
                 )}

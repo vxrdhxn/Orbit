@@ -10,26 +10,30 @@ interface HeaderProps {
 
 export const Header = ({ models, currentModel, onModelChange, onShowHistory, onNewChat }: HeaderProps) => {
     return (
-        <div style={{
+        <div className="glass" style={{
             display: 'flex',
             alignItems: 'center',
-            padding: '10px',
+            padding: '12px 16px',
             borderBottom: '1px solid var(--vscode-widget-border)',
-            gap: '10px',
-            justifyContent: 'space-between'
+            gap: '12px',
+            justifyContent: 'space-between',
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                <span className="codicon codicon-robot" style={{ fontSize: '18px', opacity: 0.8 }}></span>
                 <VSCodeDropdown
                     value={currentModel}
-                    onChange={(e: any) => onModelChange(e.target.value)}
-                    style={{ minWidth: '150px' }}
+                    onInput={(e: any) => onModelChange(e.target.value)}
+                    style={{ minWidth: '160px', zIndex: 11 }}
                 >
                     {models.map(model => (
                         <VSCodeOption key={model} value={model}>{model}</VSCodeOption>
                     ))}
                 </VSCodeDropdown>
             </div>
-            <div style={{ display: 'flex', gap: '5px' }}>
+            <div style={{ display: 'flex', gap: '4px' }}>
                 <VSCodeButton appearance="icon" onClick={onShowHistory} title="Chat History">
                     <span className="codicon codicon-history"></span>
                 </VSCodeButton>
