@@ -24,7 +24,7 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
         const total = fileFindings.length;
         const range = new vscode.Range(0, 0, 0, 0); // Top of file
         const cmd: vscode.Command = {
-            title: `DevMind: ${total} issues found`,
+            title: `Orbit: ${total} issues found`,
             command: 'devmind.showReviewPanel', // Make sure this exists or use a dummy
             arguments: []
         };
@@ -41,7 +41,7 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
 
         for (const [line, group] of byLine) {
             const r = new vscode.Range(line, 0, line, 0);
-            const title = group.length === 1 ? `DevMind: ${group[0].title}` : `DevMind: ${group.length} issues`;
+            const title = group.length === 1 ? `Orbit: ${group[0].title}` : `Orbit: ${group.length} issues`;
             // Ensure command exists, or use generic
             lenses.push(new vscode.CodeLens(r, {
                 title,

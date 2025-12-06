@@ -129,8 +129,8 @@ function App() {
                         opacity: 0.8,
                         gap: '10px'
                     }}>
-                        <div style={{ fontSize: '2em', fontWeight: 600 }}>DevMind</div>
-                        <div style={{ fontSize: '0.9em' }}>Your Offline AI Assistant</div>
+                        <div style={{ fontSize: '2em', fontWeight: 600 }}>Orbit</div>
+                        <div style={{ fontSize: '0.9em' }}>Always watching your code</div>
                     </div>
                 ) : (
                     <MessageList messages={messages} />
