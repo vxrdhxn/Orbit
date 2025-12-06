@@ -110,3 +110,52 @@ export async function healthCheck(): Promise<{ ok: boolean; message: string }> {
     return { ok: false, message: `Health check failed: ${e?.message ?? e}` };
   }
 }
+
+export class OllamaClient {
+  private baseUrl: string;
+
+  constructor(baseUrl?: string) {
+    if (baseUrl) {
+      this.baseUrl = baseUrl;
+    } else {
+      const { baseUrl: configUrl } = cfg();
+      this.baseUrl = configUrl;
+    }
+  }
+
+  public async generate(prompt: string, params?: { model?: string; json?: boolean }): Promise<string> {
+    // Use provided model or config default
+    const { model: configModel, temperature } = cfg();
+    const model = params?.model || configModel;
+
+    // Construct body
+    // Note: The standalone generate function supports streaming and images.
+    // This class method supports the simple use case needed by ReviewService (JSON, no images, non-stream for now or stream internally).
+    // ReviewService currently waits for full response (non-streaming in MVP logic).
+
+    const body: GenerateReq = {
+      model,
+      prompt,
+      stream: false,
+      options: { temperature }
+    };
+
+    if (params?.json) {
+      // Ollama supports format: 'json'
+      (body as any).format = 'json';
+    }
+
+    const res = await fetch(`${this.baseUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) throw new Error(`Generate failed: HTTP ${res.status}`);
+
+    const json = (await res.json()) as GenerateResp;
+    if (json.error) throw new Error(json.error);
+
+    return json.response ?? '';
+  }
+}

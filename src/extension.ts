@@ -71,6 +71,49 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // NEW: Code Review
+  context.subscriptions.push(
+    vscode.commands.registerCommand('devmind.reviewCode', async () => {
+      // dynamic import or just usage
+      // We need to instantiate dependencies here or globally
+      // For now, let's just do it here to avoid global pollution
+      const ws = vscode.workspace.workspaceFolders?.[0];
+      if (!ws) return vscode.window.showErrorMessage("Open a workspace first.");
+
+      // Imports (we need to import these at top level)
+      // Ensure imports are added to top of file
+      const { ReviewCommand } = require('./reviewCommand');
+      const { ReviewService } = require('./reviewService');
+      const { ContextGatherer } = require('./reviewContext');
+      const { OllamaClient } = require('./ollamaClient');
+      const { SimpleIndex } = require('./store');
+      const { PresetManager } = require('./reviewPresets');
+
+      // This is a bit messy with requires, better to import at top. 
+      // But for step replacement, this is safer if I don't want to touch top imports yet.
+      // Actually, let's use the ReviewCommand logic which wraps everything if designed so
+      // ReviewCommand takes ReviewService.
+
+      const index = new SimpleIndex(ws.uri);
+      const ollama = new OllamaClient(); // Use default config
+      const contextGatherer = new ContextGatherer(index);
+      const presetManager = new PresetManager(context);
+
+      // Stub config for now or read from workspace
+      const config = {
+        enabledCategories: [],
+        minSeverity: 'info',
+        includeContext: true,
+        maxFindings: 100,
+        autoApplyFixes: false
+      };
+
+      const service = new ReviewService(ollama, contextGatherer, config);
+      const cmd = new ReviewCommand(service, presetManager);
+      await cmd.execute();
+    })
+  );
+
   // Chat View
   const chatProvider = new ChatProvider(context);
   context.subscriptions.push(

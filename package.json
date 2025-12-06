@@ -57,6 +57,11 @@
         "title": "AI: Edit Code (Diff)"
       },
       {
+        "command": "devmind.reviewCode",
+        "title": "AI: Review Code Code",
+        "category": "DevMind"
+      },
+      {
         "command": "devmind.newChat",
         "title": "New Chat",
         "icon": "$(add)"
@@ -199,6 +204,7 @@
     "@types/mocha": "^10.0.6",
     "@types/node": "^20.12.12",
     "@types/vscode": "^1.85.0",
+    "fast-check": "^4.3.0",
     "mocha": "^10.4.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
