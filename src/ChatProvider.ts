@@ -107,14 +107,14 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         case 'changeModel': {
           const config = vscode.workspace.getConfiguration('offlineDevAssistant');
           await config.update('model', data.value, vscode.ConfigurationTarget.Global);
-          vscode.window.showInformationMessage(`DevMind: Model changed to ${data.value}`);
+          vscode.window.showInformationMessage(`Orbit: Model changed to ${data.value}`);
           break;
         }
         case 'pullModel': {
           const modelName = data.value;
           if (!modelName) return;
 
-          const terminal = vscode.window.createTerminal(`DevMind: Pull ${modelName}`);
+          const terminal = vscode.window.createTerminal(`Orbit: Pull ${modelName}`);
           terminal.show();
           terminal.sendText(`ollama pull ${modelName}`);
 
@@ -366,7 +366,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
   public handleHeaderOption(option: string) {
     switch (option) {
       case 'customizations':
-        vscode.commands.executeCommand('workbench.action.openSettings', 'devmind');
+        vscode.commands.executeCommand('workbench.action.openSettings', 'Orbit');
         break;
     }
   }
@@ -406,7 +406,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
           <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; font-src ${webview.cspSource}; img-src ${webview.cspSource} data: https:;">
           <link href="${styleUri}" rel="stylesheet">
           <link href="${codiconsUri}" rel="stylesheet">
-          <title>DevMind Chat</title>
+          <title>Orbit Chat</title>
       </head>
       <body>
           <div id="root"></div>

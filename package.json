@@ -1,12 +1,12 @@
 {
-  "name": "devmind",
-  "displayName": "DevMind",
-  "description": "Local, offline-first AI assistant for VS Code powered by Ollama.",
-  "version": "0.0.3",
-  "publisher": "devmind-user",
+  "name": "orbit",
+  "displayName": "Orbit",
+  "description": "Always Watching Your Code",
+  "version": "0.0.4",
+  "publisher": "orbit-user",
   "repository": {
     "type": "git",
-    "url": "https://github.com/devmind-user/devmind-vscode.git"
+    "url": "https://github.com/orbit-user/orbit-vscode.git"
   },
   "license": "MIT",
   "engines": {
@@ -24,8 +24,8 @@
       "activitybar": [
         {
           "id": "offlineDevAssistant-sidebar",
-          "title": "DevMind",
-          "icon": "resources/devmind.svg"
+          "title": "Orbit",
+          "icon": "resources/orbit.svg"
         }
       ]
     },
@@ -35,36 +35,36 @@
           "type": "webview",
           "id": "offlineDevAssistant.chatView",
           "name": "Chat",
-          "icon": "resources/devmind.svg"
+          "icon": "resources/orbit.svg"
         }
       ]
     },
     "commands": [
       {
         "command": "offlineDevAssistant.healthCheck",
-        "title": "AI: Health Check"
+        "title": "Orbit: Health Check"
       },
       {
         "command": "offlineDevAssistant.explainSelection",
-        "title": "AI: Explain Selection"
+        "title": "Orbit: Explain Selection"
       },
       {
         "command": "offlineDevAssistant.search",
-        "title": "AI: Search Codebase"
+        "title": "Orbit: Search Codebase"
       },
       {
         "command": "offlineDevAssistant.editCode",
-        "title": "AI: Edit Code (Diff)"
+        "title": "Orbit: Edit Code (Diff)"
       },
       {
         "command": "devmind.reviewCode",
-        "title": "AI: Review Code",
-        "category": "DevMind"
+        "title": "Orbit: Review Code",
+        "category": "Orbit"
       },
       {
         "command": "devmind.reviewDiff",
-        "title": "AI: Review Git Changes",
-        "category": "DevMind"
+        "title": "Orbit: Review Git Changes",
+        "category": "Orbit"
       },
       {
         "command": "devmind.newChat",
@@ -135,7 +135,7 @@
     },
     "configuration": {
       "type": "object",
-      "title": "DevMind",
+      "title": "Orbit",
       "properties": {
         "offlineDevAssistant.ollamaBaseUrl": {
           "type": "string",

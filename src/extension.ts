@@ -8,8 +8,8 @@ import { CompletionProvider } from './completionProvider';
 
 export function activate(context: vscode.ExtensionContext) {
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-  status.text = '$(gear) AI: Init';
-  status.tooltip = 'DevMind';
+  status.text = '$(rocket) Orbit: Init';
+  status.tooltip = 'Orbit - Always Watching Your Code';
   status.show();
   context.subscriptions.push(status);
 
