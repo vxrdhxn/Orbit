@@ -58,7 +58,12 @@
       },
       {
         "command": "devmind.reviewCode",
-        "title": "AI: Review Code Code",
+        "title": "AI: Review Code",
+        "category": "DevMind"
+      },
+      {
+        "command": "devmind.reviewDiff",
+        "title": "AI: Review Git Changes",
         "category": "DevMind"
       },
       {

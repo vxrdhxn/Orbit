@@ -96,6 +96,7 @@ export interface CodeInput {
     language: string;
     startLine?: number;
     endLine?: number;
+    focusRanges?: { start: number; end: number }[];
 }
 
 export interface ProjectContext {

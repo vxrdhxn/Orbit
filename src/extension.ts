@@ -114,6 +114,40 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Git Review Command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('devmind.reviewDiff', async () => {
+      const ws = vscode.workspace.workspaceFolders?.[0];
+      if (!ws) return vscode.window.showErrorMessage("Open a workspace first.");
+
+      const { ReviewDiffCommand } = require('./reviewDiffCommand');
+      const { ReviewService } = require('./reviewService');
+      const { ContextGatherer } = require('./reviewContext');
+      const { OllamaClient } = require('./ollamaClient');
+      const { SimpleIndex } = require('./store');
+      const { PresetManager } = require('./reviewPresets');
+      const { GitAnalyzer } = require('./reviewGit');
+
+      const index = new SimpleIndex(ws.uri);
+      const ollama = new OllamaClient();
+      const contextGatherer = new ContextGatherer(index);
+      const presetManager = new PresetManager(context);
+      const gitAnalyzer = new GitAnalyzer(ws.uri.fsPath);
+
+      const config = {
+        enabledCategories: [],
+        minSeverity: 'info',
+        includeContext: true,
+        maxFindings: 100,
+        autoApplyFixes: false
+      };
+
+      const service = new ReviewService(ollama, contextGatherer, config);
+      const cmd = new ReviewDiffCommand(service, gitAnalyzer, presetManager);
+      await cmd.execute();
+    })
+  );
+
   // Chat View
   const chatProvider = new ChatProvider(context);
   context.subscriptions.push(

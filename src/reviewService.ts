@@ -69,14 +69,23 @@ export class ReviewService {
     }
 
     private buildPrompt(codeInputs: CodeInput[], context: ProjectContext): string {
-        const codeSection = codeInputs.map(input => `
+        const codeSection = codeInputs.map(input => {
+            let ranges = '';
+            if (input.focusRanges && input.focusRanges.length > 0) {
+                ranges = input.focusRanges.map(r => `${r.start}-${r.end}`).join(', ');
+            } else {
+                ranges = `${input.startLine || 1}-${input.endLine || 'END'}`;
+            }
+
+            return `
 FILE: ${input.fileName}
 LANGUAGE: ${input.language}
-LINES: ${input.startLine || 1}-${input.endLine || 'END'}
+LINES: ${ranges}
 \`\`\`${input.language}
 ${input.content}
 \`\`\`
-`).join('\n\n');
+`;
+        }).join('\n\n');
 
         let contextSection = "";
         if (context.similarCode && context.similarCode.length > 0) {
