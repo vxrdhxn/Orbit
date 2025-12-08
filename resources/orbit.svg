@@ -1,35 +1,41 @@
-<svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="brainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FF00CC" />
-      <stop offset="50%" stop-color="#9900FF" />
-      <stop offset="100%" stop-color="#00CCFF" />
+    <radialGradient id="gradBg" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" style="stop-color:#2b2b2b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e1e1e;stop-opacity:1" />
+    </radialGradient>
+    <linearGradient id="gradSphere" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00b4db;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0083b0;stop-opacity:1" />
     </linearGradient>
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="2" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    <filter id="glow">
+        <feGaussianBlur stdDeviation="5" result="coloredBlur"/>
+        <feMerge>
+            <feMergeNode in="coloredBlur"/>
+            <feMergeNode in="SourceGraphic"/>
+        </feMerge>
     </filter>
   </defs>
   
-  <g stroke="url(#brainGradient)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" transform="translate(10, 15) scale(0.8)">
-    <!-- Left Hemisphere -->
-    <path d="M40 10 C 25 10, 10 25, 10 40 C 10 50, 15 65, 30 70 L 38 72 L 40 75 L 42 72 L 40 40 L 40 10 Z" />
-    <!-- Right Hemisphere -->
-    <path d="M60 10 C 75 10, 90 25, 90 40 C 90 50, 85 65, 70 70 L 62 72 L 60 75 L 58 72 L 60 40 L 60 10 Z" />
-    
-    <!-- Sulci (Inner lines) Left -->
-    <path d="M15 40 Q 25 35, 30 45 T 35 55" />
-    <path d="M20 25 Q 30 20, 35 30" />
-    
-    <!-- Sulci (Inner lines) Right -->
-    <path d="M85 40 Q 75 35, 70 45 T 65 55" />
-    <path d="M80 25 Q 70 20, 65 30" />
-    
-    <!-- Connection -->
-    <path d="M40 25 L 60 25" stroke-opacity="0.5" stroke-dasharray="3,2" />
-    <path d="M40 50 L 60 50" stroke-opacity="0.5" stroke-dasharray="3,2" />
-
-    <!-- Cerebellum / Stem Base -->
-    <path d="M40 75 Q 50 85, 60 75" />
-  </g>
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" ry="100" fill="url(#gradBg)" />
+  
+  <!-- Orbital Rings -->
+  <ellipse cx="256" cy="256" rx="180" ry="60" fill="none" stroke="#ffffff" stroke-width="12" stroke-opacity="0.3" transform="rotate(45 256 256)" />
+  <ellipse cx="256" cy="256" rx="180" ry="60" fill="none" stroke="#ffffff" stroke-width="12" stroke-opacity="0.3" transform="rotate(-45 256 256)" />
+  
+  <!-- Active Orbit Path (The "Watching" Path) -->
+  <path d="M 383,128 A 180,60 45 0,1 128,383" fill="none" stroke="#00b4db" stroke-width="14" stroke-linecap="round" />
+  
+  <!-- Central Sphere (The Core) -->
+  <circle cx="256" cy="256" r="70" fill="url(#gradSphere)" filter="url(#glow)" />
+  
+  <!-- Inner Code Symbol -->
+  <path d="M 230,230 L 210,256 L 230,282" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 282,230 L 302,256 L 282,282" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+  <line x1="248" y1="290" x2="264" y2="222" stroke="#ffffff" stroke-width="10" stroke-linecap="round" />
+  
+  <!-- The Watcher (Satellite) -->
+  <circle cx="383" cy="128" r="25" fill="#ff9900" filter="url(#glow)" />
+  
 </svg>
