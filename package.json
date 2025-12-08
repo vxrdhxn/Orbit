@@ -26,6 +26,16 @@
           "id": "offlineDevAssistant-sidebar",
           "title": "Orbit",
           "icon": "resources/orbit.svg"
+        },
+        {
+          "id": "orbit-sidebar",
+          "title": "Orbit",
+          "icon": "resources/orbit-icon.png"
+        },
+        {
+          "id": "orbit-corrections",
+          "title": "Corrections",
+          "icon": "resources/orbit-icon.png"
         }
       ]
     },
@@ -36,6 +46,20 @@
           "id": "offlineDevAssistant.chatView",
           "name": "Chat",
           "icon": "resources/orbit.svg"
+        }
+      ],
+      "orbit-sidebar": [
+        {
+          "type": "webview",
+          "id": "orbit.chatView",
+          "name": "Chat"
+        }
+      ],
+      "orbit-corrections": [
+        {
+          "type": "webview",
+          "id": "orbit.correctionPanel",
+          "name": "Issues"
         }
       ]
     },

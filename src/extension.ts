@@ -5,6 +5,17 @@ import { runSearch } from './searchCommand';
 import { runEditCommand, DiffContentProvider } from './editCommand';
 import { ChatProvider } from './ChatProvider';
 import { CompletionProvider } from './completionProvider';
+import { CodeAnalyzer } from './correction/CodeAnalyzer';
+import { CorrectionManager } from './correction/CorrectionManager';
+import { ReviewService } from './reviewService';
+import { ContextGatherer } from './reviewContext';
+import { OllamaClient } from './ollamaClient';
+import { SimpleIndex } from './store';
+import { ReviewConfig } from './reviewTypes';
+import { CorrectionHoverProvider } from './correction/ui/CorrectionHoverProvider';
+import { CorrectionCodeLensProvider } from './correction/ui/CorrectionCodeLensProvider';
+import { CorrectionPanel } from './correction/ui/CorrectionPanel';
+import { FixApplicator } from './correction/FixApplicator';
 
 export function activate(context: vscode.ExtensionContext) {
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -12,6 +23,51 @@ export function activate(context: vscode.ExtensionContext) {
   status.tooltip = 'Orbit - Always Watching Your Code';
   status.show();
   context.subscriptions.push(status);
+
+  // --- Shared Services ---
+  const ws = vscode.workspace.workspaceFolders?.[0];
+  const index = ws ? new SimpleIndex(ws.uri) : new SimpleIndex(vscode.Uri.file('')); // Fallback
+  const ollama = new OllamaClient();
+  const contextGatherer = new ContextGatherer(index);
+
+  // Correction Services
+  const correctionConfig: ReviewConfig = {
+    enabledCategories: [], // Use defaults
+    minSeverity: 'info' as any,
+    includeContext: true,
+    maxFindings: 100,
+    autoApplyFixes: false
+  };
+  const correctionReviewService = new ReviewService(ollama, contextGatherer, correctionConfig);
+  // We might want to separate ReviewService for Review vs Correction, but for now reuse instance or create new.
+  // CodeAnalyzer needs one.
+
+  const correctionManager = new CorrectionManager(context);
+  const codeAnalyzer = new CodeAnalyzer(context, correctionReviewService, correctionManager);
+  const fixApplicator = new FixApplicator(correctionManager);
+
+  // UI Providers
+  context.subscriptions.push(
+    vscode.languages.registerHoverProvider({ scheme: 'file' }, new CorrectionHoverProvider(correctionManager)),
+    vscode.languages.registerCodeLensProvider({ scheme: 'file' }, new CorrectionCodeLensProvider(correctionManager)),
+    vscode.window.registerWebviewViewProvider(CorrectionPanel.viewType, new CorrectionPanel(context.extensionUri, correctionManager))
+  );
+
+  // Commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand('orbit.applyCorrection', async (correctionId: string) => {
+      await fixApplicator.applyCorrection(correctionId);
+    }),
+    vscode.commands.registerCommand('orbit.rejectCorrection', async (correctionId: string) => {
+      await fixApplicator.rejectCorrection(correctionId);
+    })
+  );
+
+  // Expose services to commands via context.globalState or closure if needed, 
+  // but commands create their own instances currently. 
+  // We can let commands create their own for now to match existing pattern, 
+  // or refactor commands to use these shared instances. 
+  // For CodeAnalyzer, it MUST run globally.
 
   async function runHealthCheck(showMsg = true) {
     status.text = '$(sync~spin) AI: Checking...';

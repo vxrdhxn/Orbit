@@ -21,6 +21,7 @@ export interface Finding {
     location: CodeLocation;
     suggestedFix?: SuggestedFix;
     references?: string[];
+    confidence?: number; // Added for Correction support
 }
 
 export interface CodeLocation {
@@ -105,3 +106,5 @@ export interface ProjectContext {
     commonPatterns: string[];
     projectType?: string;
 }
+
+

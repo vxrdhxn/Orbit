@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This document specifies the requirements for adding direct file reading capabilities to the Orbit VS Code extension. The feature will allow users to explicitly reference and read files from their workspace within chat conversations, providing better context control and more accurate AI responses.
+This document specifies the requirements for adding direct file reading capabilities with error analysis to the Orbit VS Code extension. The feature will allow users to explicitly reference and read files from their workspace within chat conversations, and the AI will automatically analyze the files for errors, suggest corrections, and provide better context-aware responses.
 
 ## Glossary
 
