@@ -4,6 +4,9 @@ import * as path from 'path';
 import * as os from 'os';
 import { generate, listModels } from './ollamaClient';
 import { performSearch } from './searchCommand';
+import { FileReferenceParser } from './fileReference/fileReferenceParser';
+import { FileContentReader } from './fileReference/fileContentReader';
+import { FileReferenceManager } from './fileReference/fileReferenceManager';
 
 export interface ChatMessage {
   role: 'user' | 'ai';
@@ -25,9 +28,15 @@ export class ChatProvider implements vscode.WebviewViewProvider {
   private _webviewView: vscode.WebviewView | undefined;
 
   private _currentSession: ChatSession;
+  private _fileParser: FileReferenceParser;
+  private _fileReader: FileContentReader;
+  private _fileManager: FileReferenceManager;
 
   constructor(private readonly _context: vscode.ExtensionContext) {
     this._currentSession = this._createNewSession();
+    this._fileParser = new FileReferenceParser();
+    this._fileReader = new FileContentReader();
+    this._fileManager = new FileReferenceManager(_context);
   }
 
   private _createNewSession(): ChatSession {
@@ -140,6 +149,33 @@ export class ChatProvider implements vscode.WebviewViewProvider {
             content: userMsg,
             timestamp: Date.now()
           });
+
+          // Check for file references
+          const ws = vscode.workspace.workspaceFolders?.[0];
+          let fileContext = '';
+          const detectedRefs = await this._fileParser.parse(userMsg);
+          const validFiles: string[] = [];
+
+          if (detectedRefs.length > 0) {
+            for (const ref of detectedRefs) {
+              if (ref.isValid) {
+                try {
+                  const content = await this._fileReader.read(ref.path, {
+                    lineRange: ref.lineRange
+                  });
+                  fileContext += `\n\nReference: ${ref.raw}\nFile: ${ref.path}\n\`\`\`\n${content.content}\n\`\`\``;
+                  validFiles.push(ref.path);
+                  // Add to recent files
+                  this._fileManager.addRecentFile(ref.path);
+                } catch (e: any) {
+                  webviewView.webview.postMessage({ type: 'addResponse', value: `Error reading ${ref.path}: ${e.message}` });
+                }
+              } else {
+                webviewView.webview.postMessage({ type: 'addResponse', value: `Warning: File not found: ${ref.raw}` });
+              }
+            }
+          }
+
           this._saveHistory();
 
           // Cancel previous generation if any
@@ -157,19 +193,13 @@ export class ChatProvider implements vscode.WebviewViewProvider {
             let contextText = '';
             if (ws) {
               try {
-                // Check for file references in the message
-                const fileRegex = /(\S+\.[a-zA-Z0-9]+)/g;
-                const matches = userMsg.match(fileRegex);
+                // Check for file references in the message - Legacy simple regex mostly replaced by new parser, but kept for fallback or specific cases?
+                // Actually, let's remove the legacy simple regex if we trust our parser, 
+                // OR process *other* context. 
+                // The new parser handles explicit references. 
 
-                if (matches) {
-                  for (const fileName of matches) {
-                    const files = await vscode.workspace.findFiles(`**/${fileName}`, '**/node_modules/**', 1);
-                    if (files.length > 0) {
-                      const doc = await vscode.workspace.openTextDocument(files[0]);
-                      contextText += `\n\nReferenced File: ${fileName}\n\`\`\`\n${doc.getText()}\n\`\`\``;
-                    }
-                  }
-                }
+                // Let's rely on the new parser above for explicit file references.
+                // We keep search for RAG.
 
                 const results = await performSearch(userMsg, ws.uri);
                 if (results.length > 0) {
@@ -189,7 +219,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
               contextText += `\n\nActive File (${doc.fileName}):\n\`\`\`\n${text}\n\`\`\``;
             }
 
-            const prompt = contextText ? `${contextText}\n\nUser Question: ${userMsg}` : userMsg;
+            const prompt = (contextText || fileContext) ? `${contextText}${fileContext}\n\nUser Question: ${userMsg}` : userMsg;
 
             // Handle Image
             let images: string[] | undefined;
@@ -321,6 +351,52 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         }
         case 'openSettings': {
           this.handleHeaderOption('customizations');
+          break;
+        }
+        case 'openFilePicker': {
+          const files = await this._fileManager.searchFiles(''); // list all/some files
+          const recent = this._fileManager.getRecentFiles();
+
+          // Create pick items
+          const items: vscode.QuickPickItem[] = [];
+
+          // Recent section
+          if (recent.length > 0) {
+            items.push({ label: 'Recent Files', kind: vscode.QuickPickItemKind.Separator });
+            recent.forEach(f => items.push({
+              label: path.basename(f.path),
+              description: f.relativePath,
+              detail: f.path
+            }));
+          }
+
+          // All files section
+          items.push({ label: 'All Files', kind: vscode.QuickPickItemKind.Separator });
+          // We might want to avoid listing ALL files if too many. 
+          // vscode.window.showQuickPick can take a Promise<string[]> but better to let user type.
+          // But here we want to send back to webview? 
+          // Requirement says "Chat Interface SHALL provide a button... to open a file picker".
+          // If we rely on VS Code native picker, we can do it here.
+
+          const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Select a file to reference',
+            matchOnDescription: true,
+            matchOnDetail: true
+          });
+
+          if (selected && selected.detail) {
+            // Insert into chat input via message
+            // Ideally we send back "insertFileReference" message
+            webviewView.webview.postMessage({
+              type: 'insertFileReference',
+              value: selected.detail
+            });
+          } else {
+            // Maybe user wants to search by typing? 
+            // showQuickPick allows typing. 
+            // If we want FULL search, we might need a custom picker or use `vscode.workspace.findFiles`.
+            // Let's stick to simple recent + picker for now.
+          }
           break;
         }
       }

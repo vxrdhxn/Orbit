@@ -1,5 +1,6 @@
-import { useState, KeyboardEvent, ClipboardEvent } from 'react';
+import { useState, useEffect, KeyboardEvent, ClipboardEvent } from 'react';
 import { VSCodeButton, VSCodeTextArea } from '@vscode/webview-ui-toolkit/react';
+import { FileReferenceIndicator } from './FileReferenceIndicator';
 
 interface InputAreaProps {
     onSend: (text: string) => void;
@@ -13,6 +14,7 @@ interface InputAreaProps {
     onModelChange: (model: string) => void;
     onPasteImage: (base64: string) => void;
     onRemoveImage: () => void;
+    onFilePicker: () => void;
 }
 
 export const InputArea = ({
@@ -26,9 +28,18 @@ export const InputArea = ({
     currentModel,
     onModelChange,
     onPasteImage,
-    onRemoveImage
+    onRemoveImage,
+    onFilePicker
 }: InputAreaProps) => {
     const [value, setValue] = useState('');
+
+    useEffect(() => {
+        const handleInsertByEvent = (e: CustomEvent) => {
+            setValue(prev => prev + (prev && !prev.endsWith(' ') ? ' ' : '') + e.detail);
+        };
+        window.addEventListener('orbit-insert-text', handleInsertByEvent as EventListener);
+        return () => window.removeEventListener('orbit-insert-text', handleInsertByEvent as EventListener);
+    }, []);
 
     const handleSend = () => {
         if (value.trim()) {
@@ -159,6 +170,8 @@ export const InputArea = ({
                     }}
                 />
 
+                <FileReferenceIndicator text={value} />
+
                 <div className="input-footer" style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -167,7 +180,10 @@ export const InputArea = ({
                 }}>
                     <div className="left-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <VSCodeButton appearance="icon" onClick={onImageSelect} disabled={disabled || isGenerating} title="Attach Image" style={{ opacity: 0.7 }}>
-                            <span className="codicon codicon-add" style={{ fontSize: '18px' }}></span>
+                            <span className="codicon codicon-file-media" style={{ fontSize: '18px' }}></span>
+                        </VSCodeButton>
+                        <VSCodeButton appearance="icon" onClick={onFilePicker} disabled={disabled || isGenerating} title="Attach File" style={{ opacity: 0.7 }}>
+                            <span className="codicon codicon-paperclip" style={{ fontSize: '18px' }}></span>
                         </VSCodeButton>
 
                         <div className="model-selector-pill" style={{

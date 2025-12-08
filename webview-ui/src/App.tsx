@@ -67,15 +67,17 @@ function App() {
                     setMessages(message.value);
                     setIsGenerating(false);
                     break;
+                case 'insertFileReference':
+                    window.dispatchEvent(new CustomEvent('orbit-insert-text', { detail: message.value }));
+                    break;
             }
-        };
 
-        window.addEventListener('message', handleMessage);
-        // Tell extension we are ready
-        vscode.postMessage({ type: 'webviewReady' });
+            window.addEventListener('message', handleMessage);
+            // Tell extension we are ready
+            vscode.postMessage({ type: 'webviewReady' });
 
-        return () => window.removeEventListener('message', handleMessage);
-    }, []);
+            return () => window.removeEventListener('message', handleMessage);
+        }, []);
 
     const handleSend = (text: string) => {
         if (isGenerating) return;
@@ -114,6 +116,10 @@ function App() {
         setIsGenerating(false); // Should not affect generating, but good safety
         setSelectedImage(null);
         vscode.postMessage({ type: 'clearImage' });
+    };
+
+    const handleFilePicker = () => {
+        vscode.postMessage({ type: 'openFilePicker' });
     };
 
     return (
@@ -171,6 +177,7 @@ function App() {
                 onModelChange={handleModelChange}
                 onPasteImage={handlePasteImage}
                 onRemoveImage={handleRemoveImage}
+                onFilePicker={handleFilePicker}
             />
         </div>
     );
