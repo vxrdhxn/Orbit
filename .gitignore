@@ -4,8 +4,10 @@ dist
 .vscode-test
 *.vsix
 .DS_Store
-<<<<<<< HEAD
 .vscode
-=======
 .devmind
->>>>>>> ce6368e0eb74d8839f1f971419601547e6442e09
+*.db
+*.log
+*.txt
+debug_router.ts
+debug_router.js

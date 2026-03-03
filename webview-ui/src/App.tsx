@@ -2,6 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { vscode } from './utilities/vscode';
 import { MessageList } from './components/MessageList';
 import { InputArea } from './components/InputArea';
+import { DiffApproval } from './components/DiffApproval';
+import { DiffProposal } from './types';
+
+declare global {
+    interface Window {
+        initialData?: any;
+    }
+}
 
 interface Message {
     role: 'user' | 'ai' | 'system';
@@ -9,6 +17,8 @@ interface Message {
 }
 
 function App() {
+    const [view, setView] = useState<'chat' | 'diff'>(window.initialData ? 'diff' : 'chat');
+    const [proposal, setProposal] = useState<DiffProposal | null>(window.initialData || null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [models, setModels] = useState<string[]>([]);
@@ -70,6 +80,10 @@ function App() {
                 case 'insertFileReference':
                     window.dispatchEvent(new CustomEvent('orbit-insert-text', { detail: message.value }));
                     break;
+                case 'showDiff':
+                    setProposal(message.value);
+                    setView('diff');
+                    break;
             }
         };
 
@@ -122,6 +136,10 @@ function App() {
     const handleFilePicker = () => {
         vscode.postMessage({ type: 'openFilePicker' });
     };
+
+    if (view === 'diff' && proposal) {
+        return <DiffApproval proposal={proposal} />;
+    }
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--vscode-editor-background)', color: 'var(--vscode-editor-foreground)' }}>

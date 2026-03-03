@@ -14,8 +14,14 @@ import { ReviewCommand } from './reviewCommand';
 import { PresetManager } from './reviewPresets';
 import { FindingCategory, SeverityLevel } from './reviewTypes';
 import { OllamaClient } from './ollamaClient';
-
 import { SimpleIndex } from './store';
+
+import { SQLiteMemory } from './memory/SQLiteMemory';
+import { DecisionJournal } from './memory/DecisionJournal';
+import { EnhancedDiffEngine } from './services/EnhancedDiffEngine';
+import { ApprovalManager } from './services/ApprovalManager';
+import { DiffApprovalView } from './ui/DiffApprovalView';
+import { runEditCommand } from './editCommand';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Orbit is active!');
@@ -38,6 +44,19 @@ export function activate(context: vscode.ExtensionContext) {
     // Reasoning Infrastructure
     const formatter = new ResponseFormatter();
     const router = new LLMRouter(formatter, { maxRetries: 2, enforceFormat: true });
+
+    // Memory System (Phase 2)
+    const sqliteMemory = new SQLiteMemory(workspaceFolder.fsPath);
+    sqliteMemory.initialize();
+    const decisionJournal = new DecisionJournal(sqliteMemory);
+
+    // Diff & Approval System (Phase 4)
+    const diffEngine = new EnhancedDiffEngine(ollamaClient, router);
+    const approvalManager = new ApprovalManager(decisionJournal);
+    const diffApprovalView = new DiffApprovalView(context.extensionUri,
+        (ids) => approvalManager.approve(ids),
+        () => approvalManager.reject()
+    );
 
     // Review System
     const index = new SimpleIndex(workspaceFolder);
@@ -76,8 +95,8 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage(`Orbit Health: Online=${health.online}, Local=${health.local}`);
         }),
         vscode.commands.registerCommand('orbit.review', () => reviewCommand.execute()),
+        vscode.commands.registerCommand('orbit.edit', () => runEditCommand(diffEngine, approvalManager, diffApprovalView)),
         vscode.commands.registerCommand('orbit.showFindings', (findings) => {
-            // Focus internal findings or show simple message for now
             vscode.window.showInformationMessage(`Showing ${findings?.length || 0} local findings.`);
         }),
         vscode.commands.registerCommand('orbit.viewReasoning', (finding) => {

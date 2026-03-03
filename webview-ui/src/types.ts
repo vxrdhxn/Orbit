@@ -6,17 +6,6 @@ export interface StructuredResponse {
     production: string;
 }
 
-export interface ValidationResult {
-    isValid: boolean;
-    missingSections: string[];
-    errors: string[];
-}
-
-export interface LLMRouterConfig {
-    maxRetries: number;
-    enforceFormat: boolean;
-}
-
 export interface DiffHunk {
     id: string;
     oldStart: number;
@@ -24,7 +13,7 @@ export interface DiffHunk {
     newStart: number;
     newLen: number;
     header: string;
-    lines: string[]; // lines include the prefix (+, -, ' ')
+    lines: string[];
 }
 
 export interface DiffProposal {

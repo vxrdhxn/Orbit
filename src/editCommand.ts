@@ -1,91 +1,62 @@
 import * as vscode from 'vscode';
-import { generate } from './ollamaClient';
-
-// Store content for the diff view
-const diffContentMap = new Map<string, string>();
-
-export class DiffContentProvider implements vscode.TextDocumentContentProvider {
-  static scheme = 'offline-diff';
-
-  provideTextDocumentContent(uri: vscode.Uri): string {
-    return diffContentMap.get(uri.toString()) || '';
-  }
-}
+import { EnhancedDiffEngine } from './services/EnhancedDiffEngine';
+import { ApprovalManager } from './services/ApprovalManager';
+import { DiffApprovalView } from './ui/DiffApprovalView';
 
 /**
- * Extract a unified diff from model output.
- * Supports plain unified diff or fenced blocks ```diff / ```patch.
+ * Orchestrates the reasoned edit command.
+ * 1. Takes user input instruction.
+ * 2. Uses EnhancedDiffEngine to generate a reasoned proposal.
+ * 3. Shows the DiffApprovalView for user review.
  */
-import { extractUnifiedDiff, applyUnifiedDiff } from './diffUtils';
-
-/**
- * Build a strict prompt: ask ONLY for unified diff for the active file.
- */
-function buildDiffPrompt(filePath: string, original: string, instruction: string): string {
-  return [
-    'You are a precise code editor. Apply the user instruction to the given file and output a standard UNIX unified diff (patch) for this single file.',
-    'Rules:',
-    '- Output ONLY the diff. No prose, no explanations.',
-    `- Use headers with the exact file path:`,
-    `  --- a/${filePath}`,
-    `  +++ b/${filePath}`,
-    '- Use hunk headers like: @@ -oldStart,oldLen +newStart,newLen @@',
-    '- Include only the minimal necessary changes.',
-    '',
-    'User instruction:',
-    instruction,
-    '',
-    'Original file content begins:',
-    '```',
-    original,
-    '```',
-    '',
-    'Now output ONLY the unified diff.'
-  ].join('\n');
-}
-
-export async function runEditCommand() {
+export async function runEditCommand(
+  diffEngine: EnhancedDiffEngine,
+  approvalManager: ApprovalManager,
+  diffApprovalView: DiffApprovalView
+) {
   const editor = vscode.window.activeTextEditor;
-  if (!editor) return vscode.window.showWarningMessage('Open a file to edit.');
+  if (!editor) {
+    return vscode.window.showWarningMessage('Please open a file to edit.');
+  }
 
   const instruction = await vscode.window.showInputBox({
-    prompt: 'Describe the change (e.g., “convert to async/await and add error handling”).',
-    placeHolder: 'Your edit instruction…',
+    prompt: 'Describe the change (e.g., "add error handling to this function").',
+    placeHolder: 'Your edit instruction...',
     ignoreFocusOut: true
   });
-  if (!instruction?.trim()) return;
+
+  if (!instruction || !instruction.trim()) {
+    return;
+  }
 
   const doc = editor.document;
   const fullText = doc.getText();
-  const relPath = vscode.workspace.asRelativePath(doc.uri, false);
-
-  const prompt = buildDiffPrompt(relPath, fullText, instruction.trim());
+  const filePath = vscode.workspace.asRelativePath(doc.uri, false);
 
   await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: 'Generating patch (local)…', cancellable: false },
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: 'Orbit: Reasoning about changes...',
+      cancellable: false
+    },
     async () => {
       try {
-        const resp = await generate(prompt);
-        const diff = extractUnifiedDiff(resp);
-        if (!diff) throw new Error('Model did not return a unified diff.');
-
-        const newText = applyUnifiedDiff(fullText, diff);
-
-        // Prepare the diff view
-        const originalUri = doc.uri;
-        // Create a URI for the "right" side of the diff
-        const diffUri = vscode.Uri.parse(`${DiffContentProvider.scheme}:${originalUri.path}?t=${Date.now()}`);
-
-        // Store the content
-        diffContentMap.set(diffUri.toString(), newText);
-
-        // Open diff
-        await vscode.commands.executeCommand(
-          'vscode.diff',
-          originalUri,
-          diffUri,
-          `${relPath} ↔ AI Proposed`
+        // Generate the proposal with reasoning and diff-hunks
+        const proposal = await diffEngine.generateProposal(
+          filePath,
+          fullText,
+          instruction.trim()
         );
+
+        if (!proposal) {
+          throw new Error('AI could not generate a valid proposal for this change.');
+        }
+
+        // Stage for approval
+        approvalManager.setProposal(proposal);
+
+        // Show the approval UI
+        diffApprovalView.show(proposal);
 
       } catch (e: any) {
         vscode.window.showErrorMessage(`Edit failed: ${e?.message ?? e}`);
