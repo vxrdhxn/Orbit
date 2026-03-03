@@ -3,48 +3,91 @@ import { ProviderResolver } from './providers/ProviderResolver';
 import { OnlineProvider } from './providers/OnlineProvider';
 import { LocalProvider } from './providers/LocalProvider';
 import { ChatViewProvider } from './providers/ChatViewProvider';
-import * as path from 'path';
-import * as fs from 'fs';
+import { ReviewService } from './reviewService';
+import { EnhancedReviewService } from './services/EnhancedReviewService';
+import { LLMRouter } from './reasoning/LLMRouter';
+import { ResponseFormatter } from './reasoning/ResponseFormatter';
+import { ContextGatherer } from './reviewContext';
+import { AnnotationManager } from './reviewAnnotations';
+import { ReviewCodeLensProvider } from './reviewCodeLens';
+import { ReviewCommand } from './reviewCommand';
+import { PresetManager } from './reviewPresets';
+import { FindingCategory, SeverityLevel } from './reviewTypes';
+import { OllamaClient } from './ollamaClient';
+
+import { SimpleIndex } from './store';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Orbit is active!');
+
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) return;
+    const workspaceFolder = workspaceFolders[0].uri;
 
     const config = vscode.workspace.getConfiguration('orbit');
     const onlineEndpoint = config.get<string>('onlineApiEndpoint') || '';
     const onlineApiKey = config.get<string>('onlineApiKey') || '';
     const ollamaEndpoint = config.get<string>('ollamaEndpoint') || 'http://localhost:11434';
-    const ollamaModel = config.get<string>('ollamaModel') || 'codellama';
+    const ollamaModel = config.get<string>('ollamaModel') || 'qwen2.5-coder:7b';
 
     const onlineProvider = new OnlineProvider(onlineEndpoint, onlineApiKey);
     const localProvider = new LocalProvider(ollamaEndpoint, ollamaModel);
     const resolver = new ProviderResolver(onlineProvider, localProvider);
+    const ollamaClient = new OllamaClient(ollamaEndpoint);
 
-    // Register Sidebar Chat View Provider
+    // Reasoning Infrastructure
+    const formatter = new ResponseFormatter();
+    const router = new LLMRouter(formatter, { maxRetries: 2, enforceFormat: true });
+
+    // Review System
+    const index = new SimpleIndex(workspaceFolder);
+    const contextGatherer = new ContextGatherer(index);
+    const reviewConfig = {
+        enabledCategories: [FindingCategory.Bug, FindingCategory.Security, FindingCategory.Performance],
+        minSeverity: SeverityLevel.Info,
+        includeContext: true,
+        maxFindings: 20,
+        autoApplyFixes: false
+    };
+    const reviewService = new EnhancedReviewService(ollamaClient, contextGatherer, reviewConfig, router);
+    const presetManager = new PresetManager(context);
+    const annotationManager = new AnnotationManager();
+    const reviewCommand = new ReviewCommand(reviewService, presetManager);
+
+    // UI Providers
+    const codeLensProvider = new ReviewCodeLensProvider(annotationManager);
+    context.subscriptions.push(
+        vscode.languages.registerCodeLensProvider({ scheme: 'file' }, codeLensProvider)
+    );
+
+    // Register Chat View
     const chatViewProvider = new ChatViewProvider(context.extensionUri, resolver);
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(ChatViewProvider.viewType, chatViewProvider)
     );
 
-    // Register Chat Command to focus the view
-    let chatDisposable = vscode.commands.registerCommand('orbit.chat', () => {
-        vscode.commands.executeCommand('orbit.chatView.focus');
-    });
-
-    // Register Health Check
-    let healthDisposable = vscode.commands.registerCommand('orbit.health', async () => {
-        const health = await resolver.checkHealth();
-        vscode.window.showInformationMessage(
-            `Orbit Health: Online=${health.online}, Local=${health.local}, Active=${health.active}`,
-            'Open Chat'
-        ).then(selection => {
-            if (selection === 'Open Chat') {
-                vscode.commands.executeCommand('orbit.chat');
+    // Commands
+    context.subscriptions.push(
+        vscode.commands.registerCommand('orbit.chat', () => {
+            vscode.commands.executeCommand('orbit.chatView.focus');
+        }),
+        vscode.commands.registerCommand('orbit.health', async () => {
+            const health = await resolver.checkHealth();
+            vscode.window.showInformationMessage(`Orbit Health: Online=${health.online}, Local=${health.local}`);
+        }),
+        vscode.commands.registerCommand('orbit.review', () => reviewCommand.execute()),
+        vscode.commands.registerCommand('orbit.showFindings', (findings) => {
+            // Focus internal findings or show simple message for now
+            vscode.window.showInformationMessage(`Showing ${findings?.length || 0} local findings.`);
+        }),
+        vscode.commands.registerCommand('orbit.viewReasoning', (finding) => {
+            if (finding?.reasoning) {
+                const md = formatter.renderMarkdown(finding.reasoning);
+                const panel = vscode.window.createWebviewPanel('orbitReasoning', 'AI Reasoning', vscode.ViewColumn.Beside, { enableScripts: true });
+                panel.webview.html = `<html><body><script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script><div id="content"></div><script>document.getElementById('content').innerHTML = marked.parse(\`${md.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`);</script></body></html>`;
             }
-        });
-    });
-
-    context.subscriptions.push(chatDisposable);
-    context.subscriptions.push(healthDisposable);
+        })
+    );
 }
 
 export function deactivate() { }

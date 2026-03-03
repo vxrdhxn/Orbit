@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { Finding, SeverityLevel, CodeLocation } from './reviewTypes';
+import { ResponseFormatter } from './reasoning/ResponseFormatter';
 
 export class AnnotationManager {
     private decorationTypes: Map<SeverityLevel, vscode.TextEditorDecorationType>;
@@ -102,12 +103,17 @@ export class AnnotationManager {
                 hoverMessage.isTrusted = true;
                 hoverMessage.appendMarkdown(`**[${finding.severity.toUpperCase()}] ${finding.title}**\n\n`);
                 hoverMessage.appendMarkdown(`${finding.description}\n\n`);
+
+                if (finding.reasoning) {
+                    const formatter = new ResponseFormatter();
+                    hoverMessage.appendMarkdown(`---\n### AI Reasoning\n`);
+                    hoverMessage.appendMarkdown(formatter.renderMarkdown(finding.reasoning));
+                    hoverMessage.appendMarkdown(`\n---\n`);
+                }
+
                 if (finding.suggestedFix) {
                     hoverMessage.appendMarkdown(`*Suggested Fix:*\n\`\`\`\n${finding.suggestedFix.code}\n\`\`\`\n`);
                 }
-
-                // Add Apply Fix command link if possible?
-                // [Apply Fix](command:devmind.applyFix?...)
 
                 decorations.get(finding.severity)?.push({
                     range,

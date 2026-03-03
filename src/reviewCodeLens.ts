@@ -42,12 +42,23 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
         for (const [line, group] of byLine) {
             const r = new vscode.Range(line, 0, line, 0);
             const title = group.length === 1 ? `Orbit: ${group[0].title}` : `Orbit: ${group.length} issues`;
-            // Ensure command exists, or use generic
+
             lenses.push(new vscode.CodeLens(r, {
                 title,
-                command: '', // Todo: open details
+                command: 'orbit.showFindings', // Updated command
+                arguments: [group],
                 tooltip: group.map(g => g.title).join('\n')
             }));
+
+            // Add "View Reasoning" if any finding in the group has reasoning
+            if (group.some(f => f.reasoning)) {
+                lenses.push(new vscode.CodeLens(r, {
+                    title: '$(info) View Reasoning',
+                    command: 'orbit.viewReasoning',
+                    arguments: [group.find(f => f.reasoning)],
+                    tooltip: 'Show detailed AI reasoning for these findings'
+                }));
+            }
         }
 
         return lenses;

@@ -1,19 +1,13 @@
 import { SQLiteMemory } from './SQLiteMemory';
 import { DecisionRecord, DecisionQuery } from './types';
-<<<<<<< HEAD
 import { StructuredResponse } from '../reasoning/types';
-import * as crypto from 'crypto';
-
-=======
 import * as crypto from 'crypto';
 
 // Polyfill randomUUID for strict test environments without Node 18 globals
 const safeRandomUUID = () => {
-    if (crypto && crypto.randomUUID) return crypto.randomUUID();
+    if (crypto && (crypto as any).randomUUID) return (crypto as any).randomUUID();
     return crypto.randomBytes(16).toString('hex');
 };
-
->>>>>>> c5f6132 (phase 2 - SQLite Memeory)
 export class DecisionJournal {
     private db: SQLiteMemory;
 
@@ -33,11 +27,7 @@ export class DecisionJournal {
     ): DecisionRecord | null {
         // Generate unique IDs and timestamps (req 9.1)
         const record: DecisionRecord = {
-<<<<<<< HEAD
-            id: crypto.randomUUID(),
-=======
             id: safeRandomUUID(),
->>>>>>> c5f6132 (phase 2 - SQLite Memeory)
             timestamp: Date.now(),
             project_id: projectId,
             file_path: filePath,

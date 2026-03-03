@@ -17,9 +17,9 @@ import {
 
 export class ReviewService {
     constructor(
-        private ollamaClient: OllamaClient,
-        private contextGatherer: ContextGatherer,
-        private config: ReviewConfig
+        protected ollamaClient: OllamaClient,
+        protected contextGatherer: ContextGatherer,
+        protected config: ReviewConfig
     ) { }
 
     async reviewCode(code: CodeInput[], options: ReviewOptions): Promise<ReviewReport> {
@@ -68,7 +68,7 @@ export class ReviewService {
         return levels.indexOf(severity) >= levels.indexOf(minSeverity);
     }
 
-    private buildPrompt(codeInputs: CodeInput[], context: ProjectContext): string {
+    protected buildPrompt(codeInputs: CodeInput[], context: ProjectContext): string {
         const codeSection = codeInputs.map(input => {
             let ranges = '';
             if (input.focusRanges && input.focusRanges.length > 0) {
@@ -147,7 +147,7 @@ Provide specific, actionable feedback.
 `;
     }
 
-    private parseResponse(response: string): ReviewReport {
+    protected parseResponse(response: string): ReviewReport {
         try {
             // Find JSON block if needed, but Ollama json mode usually returns pure JSON
             const jsonStart = response.indexOf('{');
@@ -173,7 +173,8 @@ Provide specific, actionable feedback.
                     description: f.description || "",
                     location: f.location || { fileName: "", startLine: 1, endLine: 1, snippet: "" },
                     suggestedFix: f.suggestedFix,
-                    references: f.references
+                    references: f.references,
+                    reasoning: f.reasoning
                 })),
                 metadata: {
                     timestamp: 0,
@@ -200,7 +201,7 @@ Provide specific, actionable feedback.
         }
     }
 
-    private countSeverities(findings: any[]): Record<SeverityLevel, number> {
+    protected countSeverities(findings: any[]): Record<SeverityLevel, number> {
         const counts = { [SeverityLevel.Critical]: 0, [SeverityLevel.Warning]: 0, [SeverityLevel.Info]: 0, [SeverityLevel.Suggestion]: 0 };
         findings?.forEach(f => {
             if (counts[f.severity as SeverityLevel] !== undefined) {
@@ -210,7 +211,7 @@ Provide specific, actionable feedback.
         return counts;
     }
 
-    private countCategories(findings: any[]): Record<FindingCategory, number> {
+    protected countCategories(findings: any[]): Record<FindingCategory, number> {
         const counts = {
             [FindingCategory.Bug]: 0,
             [FindingCategory.Security]: 0,

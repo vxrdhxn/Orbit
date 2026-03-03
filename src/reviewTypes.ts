@@ -1,3 +1,5 @@
+import { StructuredResponse } from './reasoning/types';
+
 export interface ReviewReport {
     summary: ReviewSummary;
     findings: Finding[];
@@ -22,6 +24,7 @@ export interface Finding {
     suggestedFix?: SuggestedFix;
     references?: string[];
     confidence?: number; // Added for Correction support
+    reasoning?: StructuredResponse;
 }
 
 export interface CodeLocation {

@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import { ReviewService } from './reviewService';
 import { FindingCategory, SeverityLevel, CodeInput, ReviewOptions } from './reviewTypes';
 import { PresetManager, ReviewPreset } from './reviewPresets';
+import { CommentConsolidator } from './services/CommentConsolidator';
+import { ResponseFormatter } from './reasoning/ResponseFormatter';
 
 export class ReviewCommand {
     constructor(
@@ -64,6 +66,9 @@ export class ReviewCommand {
 
                 const report = await this.reviewService.reviewCode([codeInput], options);
 
+                // Consolidate findings by line for better UI experience
+                report.findings = CommentConsolidator.consolidate(report.findings);
+
                 // Show Results (Placeholder: Output Channel or Webview)
                 // For MVP: Output Channel or Markdown preview
                 await this.showResults(report, preset);
@@ -93,6 +98,14 @@ export class ReviewCommand {
                 lines.push(`**Location:** Line ${f.location.startLine}-${f.location.endLine}`);
                 lines.push(``);
                 lines.push(`${f.description}`);
+
+                if (f.reasoning) {
+                    const formatter = new ResponseFormatter();
+                    lines.push(``);
+                    lines.push(`#### AI Reasoning`);
+                    lines.push(formatter.renderMarkdown(f.reasoning));
+                }
+
                 if (f.suggestedFix) {
                     lines.push(``);
                     lines.push(`**Suggested Fix:**`);

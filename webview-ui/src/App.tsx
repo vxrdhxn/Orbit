@@ -71,13 +71,14 @@ function App() {
                     window.dispatchEvent(new CustomEvent('orbit-insert-text', { detail: message.value }));
                     break;
             }
+        };
 
-            window.addEventListener('message', handleMessage);
-            // Tell extension we are ready
-            vscode.postMessage({ type: 'webviewReady' });
+        window.addEventListener('message', handleMessage);
+        // Tell extension we are ready
+        vscode.postMessage({ type: 'webviewReady' });
 
-            return () => window.removeEventListener('message', handleMessage);
-        }, []);
+        return () => window.removeEventListener('message', handleMessage);
+    }, []);
 
     const handleSend = (text: string) => {
         if (isGenerating) return;
