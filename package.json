@@ -39,6 +39,18 @@
       {
         "command": "orbit.health",
         "title": "Orbit: Health Check"
+      },
+      {
+        "command": "orbit.analyzePerformance",
+        "title": "Orbit: Analyze Performance"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "orbit.analyzePerformance",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p",
+        "when": "editorTextFocus"
       }
     ],
     "viewsContainers": {

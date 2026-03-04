@@ -22,6 +22,8 @@ import { EnhancedDiffEngine } from './services/EnhancedDiffEngine';
 import { ApprovalManager } from './services/ApprovalManager';
 import { DiffApprovalView } from './ui/DiffApprovalView';
 import { runEditCommand } from './editCommand';
+import { PerformanceAnalyzer } from './performance/PerformanceAnalyzer';
+import { runAnalyzePerformance } from './commands/analyzePerformance';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Orbit is active!');
@@ -57,6 +59,10 @@ export function activate(context: vscode.ExtensionContext) {
         (ids) => approvalManager.approve(ids),
         () => approvalManager.reject()
     );
+
+    // Performance Analyzer (Phase 5)
+    const performanceAnalyzer = new PerformanceAnalyzer(localProvider, router, formatter);
+    const performanceOutputChannel = vscode.window.createOutputChannel('Orbit Performance');
 
     // Review System
     const index = new SimpleIndex(workspaceFolder);
@@ -105,7 +111,8 @@ export function activate(context: vscode.ExtensionContext) {
                 const panel = vscode.window.createWebviewPanel('orbitReasoning', 'AI Reasoning', vscode.ViewColumn.Beside, { enableScripts: true });
                 panel.webview.html = `<html><body><script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script><div id="content"></div><script>document.getElementById('content').innerHTML = marked.parse(\`${md.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`);</script></body></html>`;
             }
-        })
+        }),
+        vscode.commands.registerCommand('orbit.analyzePerformance', () => runAnalyzePerformance(performanceAnalyzer, performanceOutputChannel))
     );
 }
 
