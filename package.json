@@ -108,6 +108,41 @@
           "type": "string",
           "default": "codellama",
           "description": "Model to use for Ollama (e.g., codellama, llama2, mistral)"
+        },
+        "orbit.reasoning.maxRetries": {
+          "type": "number",
+          "default": 3,
+          "description": "Maximum number of retries for structured reasoning generation"
+        },
+        "orbit.reasoning.fallbackToRaw": {
+          "type": "boolean",
+          "default": true,
+          "description": "Fallback to raw output if structured generation fails after max retries"
+        },
+        "orbit.context.maxTokens": {
+          "type": "number",
+          "default": 4000,
+          "description": "Maximum number of tokens to include in AI context"
+        },
+        "orbit.context.includeDecisions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include past decisions in the AI context"
+        },
+        "orbit.decisionJournal.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the Decision Journal for tracking architectural choices"
+        },
+        "orbit.decisionJournal.maxHistoryItems": {
+          "type": "number",
+          "default": 50,
+          "description": "Maximum number of historical decisions to fetch in the history view"
+        },
+        "orbit.performance.showUncertainty": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show uncertainty levels in performance analysis results"
         }
       }
     }
