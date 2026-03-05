@@ -25,6 +25,8 @@ import { runEditCommand } from './editCommand';
 import { PerformanceAnalyzer } from './performance/PerformanceAnalyzer';
 import { runAnalyzePerformance } from './commands/analyzePerformance';
 import { EnhancedContextCollector } from './context/EnhancedContextCollector';
+import { DecisionHistoryView } from './ui/DecisionHistoryView';
+import { runViewDecisionHistory } from './commands/viewDecisionHistory';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Orbit is active!');
@@ -82,6 +84,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     // UI Providers
     const contextCollector = new EnhancedContextCollector(decisionJournal, index);
+    const historyView = new DecisionHistoryView(context.extensionUri, (path) => {
+        // Handle navigation to file
+        const uri = vscode.Uri.file(path);
+        vscode.workspace.openTextDocument(uri).then(doc => {
+            vscode.window.showTextDocument(doc);
+        });
+    });
     const codeLensProvider = new ReviewCodeLensProvider(annotationManager);
     context.subscriptions.push(
         vscode.languages.registerCodeLensProvider({ scheme: 'file' }, codeLensProvider)
@@ -114,7 +123,8 @@ export function activate(context: vscode.ExtensionContext) {
                 panel.webview.html = `<html><body><script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script><div id="content"></div><script>document.getElementById('content').innerHTML = marked.parse(\`${md.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`);</script></body></html>`;
             }
         }),
-        vscode.commands.registerCommand('orbit.analyzePerformance', () => runAnalyzePerformance(performanceAnalyzer, performanceOutputChannel))
+        vscode.commands.registerCommand('orbit.analyzePerformance', () => runAnalyzePerformance(performanceAnalyzer, performanceOutputChannel)),
+        vscode.commands.registerCommand('orbit.viewDecisionHistory', () => runViewDecisionHistory(decisionJournal, historyView))
     );
 }
 

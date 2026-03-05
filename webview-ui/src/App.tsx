@@ -3,6 +3,7 @@ import { vscode } from './utilities/vscode';
 import { MessageList } from './components/MessageList';
 import { InputArea } from './components/InputArea';
 import { DiffApproval } from './components/DiffApproval';
+import { DecisionHistory } from './components/DecisionHistory';
 import { DiffProposal } from './types';
 
 declare global {
@@ -17,8 +18,9 @@ interface Message {
 }
 
 function App() {
-    const [view, setView] = useState<'chat' | 'diff'>(window.initialData ? 'diff' : 'chat');
+    const [view, setView] = useState<'chat' | 'diff' | 'history'>(window.initialData ? 'diff' : 'chat');
     const [proposal, setProposal] = useState<DiffProposal | null>(window.initialData || null);
+    const [decisions, setDecisions] = useState<any[]>([]);
     const [messages, setMessages] = useState<Message[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [models, setModels] = useState<string[]>([]);
@@ -84,6 +86,13 @@ function App() {
                     setProposal(message.value);
                     setView('diff');
                     break;
+                case 'showHistory':
+                    setDecisions(message.value || []);
+                    setView('history');
+                    break;
+                case 'updateDecisions':
+                    setDecisions(message.value);
+                    break;
             }
         };
 
@@ -139,6 +148,10 @@ function App() {
 
     if (view === 'diff' && proposal) {
         return <DiffApproval proposal={proposal} />;
+    }
+
+    if (view === 'history') {
+        return <DecisionHistory decisions={decisions} />;
     }
 
     return (

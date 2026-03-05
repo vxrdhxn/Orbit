@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { DiffProposal } from '../types';
 import { vscode } from '../utilities/vscode';
+import { StructuredReasoning } from './StructuredReasoning';
 
 interface DiffApprovalProps {
     proposal: DiffProposal;
@@ -59,24 +60,11 @@ export const DiffApproval: React.FC<DiffApprovalProps> = ({ proposal }) => {
                 <section style={{ marginBottom: '24px' }}>
                     <h2 style={{
                         fontSize: '1em',
-                        marginBottom: '8px',
+                        marginBottom: '12px',
                         color: 'var(--vscode-symbolIcon-propertyForeground)',
                         fontWeight: 600
                     }}>AI Reasoning</h2>
-                    <div style={{
-                        backgroundColor: 'var(--vscode-editor-inactiveSelectionBackground)',
-                        padding: '12px',
-                        borderRadius: '4px',
-                        fontSize: '0.9em',
-                        lineHeight: '1.4'
-                    }}>
-                        <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>What changed:</div>
-                        <ul style={{ margin: '0 0 12px 0', paddingLeft: '20px' }}>
-                            {proposal.reasoning.what.map((item, i) => <li key={i}>{item}</li>)}
-                        </ul>
-                        <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>Why:</div>
-                        <p style={{ margin: 0 }}>{proposal.reasoning.why}</p>
-                    </div>
+                    <StructuredReasoning reasoning={proposal.reasoning} />
                 </section>
 
                 {/* Hunk List Section */}

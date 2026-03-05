@@ -43,6 +43,10 @@
       {
         "command": "orbit.analyzePerformance",
         "title": "Orbit: Analyze Performance"
+      },
+      {
+        "command": "orbit.viewDecisionHistory",
+        "title": "Orbit: View Decision History"
       }
     ],
     "keybindings": [
@@ -50,6 +54,12 @@
         "command": "orbit.analyzePerformance",
         "key": "ctrl+alt+p",
         "mac": "cmd+alt+p",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "orbit.viewDecisionHistory",
+        "key": "ctrl+alt+h",
+        "mac": "cmd+alt+h",
         "when": "editorTextFocus"
       }
     ],
