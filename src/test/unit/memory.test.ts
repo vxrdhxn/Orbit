@@ -18,15 +18,18 @@ describe('SQLite Memory and Decision Journal', () => {
     });
 
     beforeEach(() => {
+        // Clear previous test data out if persistent
+        const dbPath = path.join(testWorkspace, '.orbit', 'decisions.db');
+        try {
+            if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+        } catch (e) {
+            console.warn('Could not unlink test database:', e);
+        }
+
         // Initialize fresh DB
         memory = new SQLiteMemory(testWorkspace);
         memory.initialize();
         journal = new DecisionJournal(memory);
-
-        // Clear previous test data out if persistent
-        const dbPath = path.join(testWorkspace, '.orbit', 'decisions.db');
-        if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
-        memory.initialize();
     });
 
     afterEach(() => {

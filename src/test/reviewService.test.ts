@@ -37,7 +37,7 @@ const mockConfig: ReviewConfig = {
     autoApplyFixes: false
 };
 
-suite('ReviewService Tests', () => {
+describe('ReviewService Tests', () => {
 
     test('Property 1: Localhost-only communication (Service Verification)', async () => {
         const mockOllama = new MockOllamaClient();

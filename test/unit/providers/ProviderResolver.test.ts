@@ -36,7 +36,7 @@ describe('ProviderResolver', () => {
 
         const provider = await resolver.getProvider();
         expect(provider.type).toBe('online');
-        expect(provider.name).toBe('Online');
+        expect(provider.name).toBe('Structured(Online)');
     });
 
     test('should fallback to local provider when online assumes unavailable', async () => {
@@ -46,7 +46,7 @@ describe('ProviderResolver', () => {
 
         const provider = await resolver.getProvider();
         expect(provider.type).toBe('local');
-        expect(provider.name).toBe('Local');
+        expect(provider.name).toBe('Structured(Local)');
     });
 
     test('should throw error when neither is available', async () => {

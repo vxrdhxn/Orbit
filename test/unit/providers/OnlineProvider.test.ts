@@ -58,12 +58,13 @@ describe('OnlineProvider', () => {
     test('chat throws on error', async () => {
         (global.fetch as jest.Mock).mockResolvedValueOnce({
             ok: false,
+            status: 401,
             statusText: 'Unauthorized'
         });
 
         const messages: Message[] = [{ role: 'user', content: 'hello' }];
         const context: Context = {};
 
-        await expect(provider.chat(messages, context)).rejects.toThrow('Online provider failed: Unauthorized');
+        await expect(provider.chat(messages, context)).rejects.toThrow('Online provider failed with status 401. Please check your configuration.');
     });
 });

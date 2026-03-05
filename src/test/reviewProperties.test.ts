@@ -12,7 +12,7 @@ import {
     CodeLocation
 } from '../reviewTypes';
 
-suite('Code Review Property Tests', () => {
+describe('Code Review Property Tests', () => {
 
     // Generators
     const severityGen = fc.constantFrom(

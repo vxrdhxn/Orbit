@@ -4,4 +4,7 @@ module.exports = {
     roots: ['<rootDir>/src', '<rootDir>/test'],
     testMatch: ['**/*.test.ts'],
     moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+    moduleNameMapper: {
+        '^vscode$': '<rootDir>/test/vscodeMock.ts',
+    },
 };

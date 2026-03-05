@@ -41,7 +41,7 @@ export class OnlineProvider implements AIProvider {
         });
 
         if (!response.ok) {
-            throw new Error(`Online provider failed: ${response.statusText}`);
+            throw new Error(`Online provider failed with status ${response.status}. Please check your configuration.`);
         }
 
         const data = await response.json();

@@ -12,7 +12,8 @@ module.exports = {
         libraryTarget: 'commonjs',
     },
     externals: {
-        vscode: 'commonjs vscode', // Ignored because it's provided by the VS Code host
+        vscode: 'commonjs vscode',
+        'better-sqlite3': 'commonjs better-sqlite3'
     },
     resolve: {
         extensions: ['.ts', '.js'],

@@ -14,6 +14,15 @@ export class SQLiteMemory {
             fs.mkdirSync(orbitDir, { recursive: true });
         }
         this.dbPath = path.join(orbitDir, 'decisions.db');
+        // Ensure file exists before chmod if it's new, though better-sqlite3 handles creation
+        if (!fs.existsSync(this.dbPath)) {
+            fs.writeFileSync(this.dbPath, '');
+        }
+        try {
+            fs.chmodSync(this.dbPath, 0o600);
+        } catch (e) {
+            console.warn('Could not set restrictive permissions on database file:', e);
+        }
     }
 
     /**

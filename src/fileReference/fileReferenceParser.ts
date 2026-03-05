@@ -20,7 +20,7 @@ export class FileReferenceParser {
     async parse(message: string): Promise<FileReference[]> {
         const references: FileReference[] = [];
         const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) {
+        if (!workspaceFolders || workspaceFolders.length === 0) {
             return [];
         }
         const workspaceRoot = workspaceFolders[0].uri.fsPath;

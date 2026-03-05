@@ -3,16 +3,16 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { FileContentReader } from '../fileReference/fileContentReader';
 
-suite('FileContentReader Test Suite', () => {
+describe('FileContentReader Test Suite', () => {
     let reader: FileContentReader;
     const testFilePath = path.join(__dirname, 'temp_test_file.txt');
 
-    setup(() => {
+    beforeEach(() => {
         reader = new FileContentReader();
         fs.writeFileSync(testFilePath, 'Line 1\nLine 2\nLine 3\nLine 4\nLine 5');
     });
 
-    teardown(() => {
+    afterEach(() => {
         if (fs.existsSync(testFilePath)) {
             fs.unlinkSync(testFilePath);
         }

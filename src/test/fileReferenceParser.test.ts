@@ -7,10 +7,10 @@ import { FileReferenceParser } from '../fileReference/fileReferenceParser';
 // Mock vscode.workspace
 const mockWorkspaceRoot = path.join(__dirname, '../../test-workspace');
 
-suite('FileReferenceParser Test Suite', () => {
+describe('FileReferenceParser Test Suite', () => {
     let parser: FileReferenceParser;
 
-    setup(() => {
+    beforeEach(() => {
         parser = new FileReferenceParser();
         // We might need to mock vscode.workspace.workspaceFolders and fs.stat
         // optimizing for "logic" testing mainly here as actual FS calls in unit tests 

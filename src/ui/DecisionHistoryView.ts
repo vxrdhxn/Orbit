@@ -100,10 +100,11 @@ export class DecisionHistoryView {
         );
 
         // Inject initial data
+        const safeDecisions = JSON.stringify(decisions).replace(/<\/script>/g, '<\\/script>');
         html = html.replace(
             '<script>',
             `<script>
-                window.initialData = { type: 'history', value: ${JSON.stringify(decisions)} };
+                window.initialData = { type: 'history', value: ${safeDecisions} };
             `
         );
 
