@@ -24,6 +24,7 @@ import { DiffApprovalView } from './ui/DiffApprovalView';
 import { runEditCommand } from './editCommand';
 import { PerformanceAnalyzer } from './performance/PerformanceAnalyzer';
 import { runAnalyzePerformance } from './commands/analyzePerformance';
+import { EnhancedContextCollector } from './context/EnhancedContextCollector';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Orbit is active!');
@@ -80,13 +81,14 @@ export function activate(context: vscode.ExtensionContext) {
     const reviewCommand = new ReviewCommand(reviewService, presetManager);
 
     // UI Providers
+    const contextCollector = new EnhancedContextCollector(decisionJournal, index);
     const codeLensProvider = new ReviewCodeLensProvider(annotationManager);
     context.subscriptions.push(
         vscode.languages.registerCodeLensProvider({ scheme: 'file' }, codeLensProvider)
     );
 
     // Register Chat View
-    const chatViewProvider = new ChatViewProvider(context.extensionUri, resolver);
+    const chatViewProvider = new ChatViewProvider(context.extensionUri, resolver, contextCollector);
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(ChatViewProvider.viewType, chatViewProvider)
     );

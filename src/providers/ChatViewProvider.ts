@@ -3,13 +3,15 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { ProviderResolver } from './ProviderResolver';
 import { Message, Context } from './types';
+import { EnhancedContextCollector } from '../context/EnhancedContextCollector';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'orbit.chatView';
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
-        private readonly _resolver: ProviderResolver
+        private readonly _resolver: ProviderResolver,
+        private readonly _contextCollector: EnhancedContextCollector
     ) { }
 
     public resolveWebviewView(
@@ -45,6 +47,29 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                         selection: vscode.window.activeTextEditor?.document.getText(vscode.window.activeTextEditor.selection),
                         language: vscode.window.activeTextEditor?.document.languageId
                     };
+
+                    // Enhanced Context Gathering (Phase 6)
+                    const enhancedContext = await this._contextCollector.collectContext('chat');
+
+                    // Inject enhanced context into the request
+                    // We can append it to the context or system message
+                    if (enhancedContext.pastDecisions.length > 0) {
+                        const decisionsText = enhancedContext.pastDecisions
+                            .map(d => `- ${d.change_type}: ${d.why}`)
+                            .join('\n');
+                        messages.push({
+                            role: 'user',
+                            content: `[CONTEXT] Recent decisions in this project:\n${decisionsText}\n\nPlease consider these decisions when answering.`
+                        });
+                    }
+
+                    if (enhancedContext.fileStructure.files.length > 0) {
+                        const filesText = enhancedContext.fileStructure.files.join(', ');
+                        messages.push({
+                            role: 'user',
+                            content: `[CONTEXT] Related files in current view: ${filesText}`
+                        });
+                    }
 
                     try {
                         const provider = await this._resolver.getProvider();
