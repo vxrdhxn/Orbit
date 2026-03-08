@@ -2,7 +2,7 @@
   "name": "orbit",
   "displayName": "Orbit",
   "description": "Offline-first AI coding assistant",
-  "version": "0.0.1",
+  "version": "2.0.0",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -77,7 +77,8 @@
         {
           "type": "webview",
           "id": "orbit.chatView",
-          "name": "Chat"
+          "name": "Chat",
+          "icon": "resources/icon.svg"
         }
       ]
     },
