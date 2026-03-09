@@ -46,6 +46,28 @@ export class DecisionJournal {
     }
 
     /**
+     * Records a manual or system-generated decision without needing a full StructuredResponse.
+     */
+    public recordManualDecision(record: Partial<DecisionRecord> & { project_id: string, file_path: string }): DecisionRecord | null {
+        const fullRecord: DecisionRecord = {
+            id: record.id || safeRandomUUID(),
+            timestamp: record.timestamp || Date.now(),
+            project_id: record.project_id,
+            file_path: record.file_path,
+            change_type: record.change_type || 'implementation',
+            what: Array.isArray(record.what) ? JSON.stringify(record.what) : (record.what || '[]'),
+            why: record.why || '',
+            improvements: record.improvements || '',
+            tradeoffs: record.tradeoffs || '',
+            production: record.production || '',
+            approved: record.approved !== undefined ? record.approved : true
+        };
+
+        const success = this.db.insert(fullRecord);
+        return success ? fullRecord : null;
+    }
+
+    /**
      * Direct query wrapper, automatically parsing JSON properties.
      */
     public queryDecisions(filter: DecisionQuery): DecisionRecord[] {

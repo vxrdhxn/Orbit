@@ -27,6 +27,8 @@ import { runAnalyzePerformance } from './commands/analyzePerformance';
 import { EnhancedContextCollector } from './context/EnhancedContextCollector';
 import { DecisionHistoryView } from './ui/DecisionHistoryView';
 import { runViewDecisionHistory } from './commands/viewDecisionHistory';
+import { BackgroundAnalyzer } from './services/BackgroundAnalyzer';
+import { AutoFixEngine } from './services/AutoFixEngine';
 
 export function activate(context: vscode.ExtensionContext) {
     try {
@@ -83,6 +85,11 @@ export function activate(context: vscode.ExtensionContext) {
         const annotationManager = new AnnotationManager();
         const reviewCommand = new ReviewCommand(reviewService, presetManager);
 
+        // Pilot Components (Phase 11)
+        const autoFixEngine = new AutoFixEngine(decisionJournal);
+        const pilotAnalyzer = new BackgroundAnalyzer(reviewService, autoFixEngine);
+        pilotAnalyzer.activate(context.subscriptions);
+
         // UI Providers
         const contextCollector = new EnhancedContextCollector(decisionJournal, index);
         const historyView = new DecisionHistoryView(context.extensionUri, (path) => {
@@ -102,6 +109,14 @@ export function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(
             vscode.window.registerWebviewViewProvider(ChatViewProvider.viewType, chatViewProvider)
         );
+
+        // Status Bar (Pilot)
+        const pilotStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+        pilotStatusBar.command = 'orbit.pilot.toggle';
+        pilotStatusBar.text = '$(pulse) Orbit: Pilot Active';
+        pilotStatusBar.tooltip = 'Click to toggle Orbit Pilot (Background Analysis)';
+        pilotStatusBar.show();
+        context.subscriptions.push(pilotStatusBar);
 
         // Commands
         context.subscriptions.push(
@@ -125,7 +140,18 @@ export function activate(context: vscode.ExtensionContext) {
                 }
             }),
             vscode.commands.registerCommand('orbit.analyzePerformance', () => runAnalyzePerformance(performanceAnalyzer, performanceOutputChannel)),
-            vscode.commands.registerCommand('orbit.viewDecisionHistory', () => runViewDecisionHistory(decisionJournal, historyView))
+            vscode.commands.registerCommand('orbit.viewDecisionHistory', () => runViewDecisionHistory(decisionJournal, historyView)),
+
+            // Pilot Commands
+            vscode.commands.registerCommand('orbit.pilot.toggle', () => {
+                const current = vscode.workspace.getConfiguration('orbit').get<boolean>('pilot.enabled', true);
+                vscode.workspace.getConfiguration('orbit').update('pilot.enabled', !current, vscode.ConfigurationTarget.Global);
+                pilotStatusBar.text = !current ? '$(pulse) Orbit: Pilot Active' : '$(circle-slash) Orbit: Pilot Paused';
+                if (current) {
+                    pilotAnalyzer.clear();
+                }
+            }),
+            vscode.commands.registerCommand('orbit.pilot.undo', () => autoFixEngine.undoLastFix())
         );
     } catch (error) {
         console.error('Orbit activation failed:', error);

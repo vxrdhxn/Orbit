@@ -42,7 +42,18 @@
       },
       {
         "command": "orbit.analyzePerformance",
-        "title": "Orbit: Analyze Performance"
+        "title": "Orbit: Analyze Algorithmic Performance",
+        "category": "Orbit"
+      },
+      {
+        "command": "orbit.pilot.toggle",
+        "title": "Orbit: Toggle Pilot Mode",
+        "category": "Orbit"
+      },
+      {
+        "command": "orbit.pilot.undo",
+        "title": "Orbit: Undo Last Pilot Fix",
+        "category": "Orbit"
       },
       {
         "command": "orbit.viewDecisionHistory",
@@ -144,6 +155,17 @@
           "type": "boolean",
           "default": true,
           "description": "Show uncertainty levels in performance analysis results"
+        },
+        "orbit.pilot.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Orbit Pilot for proactive background analysis and auto-fixes"
+        },
+        "orbit.pilot.autoFixLevel": {
+          "type": "string",
+          "enum": ["none", "suggestion", "info"],
+          "default": "none",
+          "description": "Level of findings to automatically fix"
         }
       }
     }
