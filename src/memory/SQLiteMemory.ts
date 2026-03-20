@@ -133,6 +133,45 @@ export class SQLiteMemory {
     }
 
     /**
+     * Upserts a decision record (inserts or replaces based on primary key).
+     */
+    public upsert(record: any): boolean {
+        if (!this.db) return false;
+
+        if (!record.id || !record.project_id || !record.file_path || !record.change_type) {
+            console.error('Invalid decision record for upsert: missing required fields');
+            return false;
+        }
+
+        try {
+            const stmt = this.db.prepare(`
+                INSERT OR REPLACE INTO decisions (
+                    id, timestamp, project_id, file_path, change_type, 
+                    what, why, improvements, tradeoffs, production, approved
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `);
+
+            stmt.run(
+                record.id,
+                record.timestamp,
+                record.project_id,
+                record.file_path,
+                record.change_type,
+                Array.isArray(record.what) ? JSON.stringify(record.what) : (record.what || '[]'),
+                record.why || '',
+                record.improvements || '',
+                record.tradeoffs || '',
+                record.production || '',
+                record.approved ? 1 : 0
+            );
+            return true;
+        } catch (error) {
+            console.error('Failed to upsert decision record:', error);
+            return false;
+        }
+    }
+
+    /**
      * Queries decision records with dynamic filtering.
      */
     public query(filter: DecisionQuery): DecisionRecord[] {

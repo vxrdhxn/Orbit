@@ -56,6 +56,16 @@
         "category": "Orbit"
       },
       {
+        "command": "orbit.sync.export",
+        "title": "Orbit: Export Journal to Workspace",
+        "category": "Orbit"
+      },
+      {
+        "command": "orbit.sync.import",
+        "title": "Orbit: Import Journal from Workspace",
+        "category": "Orbit"
+      },
+      {
         "command": "orbit.viewDecisionHistory",
         "title": "Orbit: View Decision History"
       }
@@ -166,6 +176,11 @@
           "enum": ["none", "suggestion", "info"],
           "default": "none",
           "description": "Level of findings to automatically fix"
+        },
+        "orbit.sync.enableWorkspaceSync": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable automatic syncing of the Orbit Decision Journal to .orbit/journal.json in your workspace"
         }
       }
     }

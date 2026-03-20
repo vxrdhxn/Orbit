@@ -6,27 +6,30 @@ Orbit is a powerful, offline-capable AI coding assistant for VS Code. It leverag
 
 ## 🚀 Features
 
-### 🤖 AI Chat
+### 🤖 AI Chat & Context
 Interact with your codebase using a chat interface. Ask questions, request code snippets, or discuss architectural decisions without leaving your editor.
-- **Context-Aware:** Orbit understands your active file and project structure.
+- **Context-Aware:** Orbit deeply understands your active file and dynamically resolves complex dependency graphs.
 - **Image Support:** Paste images directly into the chat for multimodal context.
-
-### 🔍 Semantic Search
-Go beyond simple text matching. Orbit indexes your codebase to allow for semantic queries, helping you find relevant code based on *meaning* rather than just keywords.
-- **Customizable Indexing:** Configure which files to include/exclude.
-- **Powered by Embeddings:** Uses local embedding models (default: `nomic-embed-text`) for accurate retrieval.
 
 ### 📝 AI Code Review
 Get instant feedback on your code or Git changes.
 - **Review Code:** Analyze the current file for bugs, improved practices, and readability.
 - **Review Git Changes:** Automatically review uncommitted changes in your git repository.
-- **Inline Annotations:** View AI feedback directly in your editor with inline decorations and CodeLens actions.
-- **Review Presets:** Choose from different review personas and strictness levels.
 
-### 🛠️ Smart Commands
-- **Explain Selection:** Highlight code and ask Orbit to explain it in plain English.
-- **Edit Code (Diff):** Describe a change, and let Orbit generate a diff for you to apply.
-- **MCP Servers:** Support for Model Context Protocol to extend capabilities.
+### ✈️ Orbit Pilot (Agentic Capabilities)
+Transform Orbit into a proactive agent watching over your work.
+- **Background Analysis:** Orbit silently analyzes your active files and reports hidden issues directly to the VS Code Problems tab.
+- **Auto-Fix Engine:** Automatically repair low-risk issues as you type.
+- **Instant Undo:** Mistakes happen. Every auto-fix can be undone with a single command.
+
+### 🧠 Decision Journal & Team Sync
+Orbit remembers why code was changed.
+- **Memory:** All AI-driven edits and auto-fixes are securely logged into a local SQLite database (`.orbit/decisions.db`).
+- **Workspace Sync:** Enable `orbit.sync.enableWorkspaceSync` to export your journal to `.orbit/journal.json`. Commit this file to Git so your entire team shares the same AI context!
+
+### ⚙️ Enhanced Controls
+- **Diff Approval View:** Review and approve code diffs interactively before applying them.
+- **Performance Analytics:** Analyze your algorithms for Big-O notation and detailed efficiency bottlenecks.
 
 ## 📋 Prerequisites
 

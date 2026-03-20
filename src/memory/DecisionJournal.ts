@@ -90,6 +90,27 @@ export class DecisionJournal {
     }
 
     /**
+     * Exports all decisions for a given project to a JSON-serializable array.
+     */
+    public exportDecisions(projectId: string): DecisionRecord[] {
+        return this.queryDecisions({ project_id: projectId });
+    }
+
+    /**
+     * Imports a list of decisions, upserting them into the database.
+     * Returns the number of successfully imported decisions.
+     */
+    public importDecisions(records: any[]): number {
+        let count = 0;
+        for (const record of records) {
+            if (this.db.upsert(record)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
      * Parses the stringified arrays back into arrays safely.
      */
     private parseRecord(record: any): DecisionRecord {

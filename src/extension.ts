@@ -29,6 +29,7 @@ import { DecisionHistoryView } from './ui/DecisionHistoryView';
 import { runViewDecisionHistory } from './commands/viewDecisionHistory';
 import { BackgroundAnalyzer } from './services/BackgroundAnalyzer';
 import { AutoFixEngine } from './services/AutoFixEngine';
+import { JournalSyncService } from './memory/JournalSyncService';
 
 export function activate(context: vscode.ExtensionContext) {
     try {
@@ -57,6 +58,10 @@ export function activate(context: vscode.ExtensionContext) {
         const sqliteMemory = new SQLiteMemory(workspaceFolder.fsPath);
         sqliteMemory.initialize();
         const decisionJournal = new DecisionJournal(sqliteMemory);
+
+        // Sync & Collaboration (Phase 12)
+        const syncService = new JournalSyncService(decisionJournal, workspaceFolder.fsPath);
+        syncService.activate(context.subscriptions);
 
         // Diff & Approval System (Phase 4)
         const diffEngine = new EnhancedDiffEngine(ollamaClient, router);
