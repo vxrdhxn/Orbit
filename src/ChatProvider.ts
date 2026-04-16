@@ -479,6 +479,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
 
     const baseUri = webview.asWebviewUri(vscode.Uri.file(uiDistPath));
     const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'media', 'codicon.css'));
+    const codiconFontUri = webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'media', 'codicon.ttf'));
 
     // Relax CSP to allow Vite modules to load correctly
     const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-eval'; font-src ${webview.cspSource}; img-src ${webview.cspSource} data: https:; connect-src ${webview.cspSource} https:;`;
@@ -487,8 +488,9 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     // 1. Inject CSP
     html = html.replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="${csp}">`);
     
-    // 2. Inject codicons
-    html = html.replace('</head>', `<link href="${codiconsUri}" rel="stylesheet"></head>`);
+    // 2. Inject codicons - override @font-face with correct webview URI for the .ttf font,
+    //    then load the CSS for icon class definitions
+    html = html.replace('</head>', `<style>@font-face { font-family: "codicon"; font-display: block; src: url("${codiconFontUri}") format("truetype"); }</style><link href="${codiconsUri}" rel="stylesheet"></head>`);
 
     // 3. Convert root-relative paths to webview URIs
     // Matches src="/index.js" or href="/index.css"
