@@ -20,7 +20,7 @@ function cfg() {
   const c = vscode.workspace.getConfiguration('orbit');
   return {
     baseUrl: c.get<string>('ollamaEndpoint', 'http://localhost:11434'),
-    model: c.get<string>('ollamaModel', 'codellama'),
+    model: c.get<string>('ollamaModel', 'qwen2.5-coder:7b'),
     temperature: c.get<number>('temperature', 0.2),
   };
 }

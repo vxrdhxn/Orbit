@@ -451,7 +451,14 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     try {
       const models = await listModels();
       const config = vscode.workspace.getConfiguration('orbit');
-      const currentModel = config.get<string>('ollamaModel') || (models.length > 0 ? models[0] : '');
+      let currentModel = config.get<string>('ollamaModel') || '';
+
+      // Auto-sync: if the configured model isn't installed, switch to the first available one
+      if (models.length > 0 && (!currentModel || !models.includes(currentModel))) {
+        currentModel = models[0];
+        await config.update('ollamaModel', currentModel, vscode.ConfigurationTarget.Global);
+        console.log(`Orbit: Auto-selected model "${currentModel}" (previous model not found)`);
+      }
 
       webview.postMessage({
         type: 'updateModels',
