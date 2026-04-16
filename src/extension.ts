@@ -35,8 +35,32 @@ export function activate(context: vscode.ExtensionContext) {
     try {
         console.log('Orbit is active!');
 
+        // ============================================================
+        // CRITICAL: Register the Chat View FIRST, unconditionally.
+        // This must happen regardless of workspace state so the
+        // sidebar panel always loads its UI.
+        // ============================================================
+        const chatViewProvider = new ChatProvider(context);
+        context.subscriptions.push(
+            vscode.window.registerWebviewViewProvider(ChatProvider.viewType, chatViewProvider)
+        );
+
+        // Register the chat focus command unconditionally too
+        context.subscriptions.push(
+            vscode.commands.registerCommand('orbit.chat', () => {
+                vscode.commands.executeCommand('orbit.chatView.focus');
+            })
+        );
+
+        // ============================================================
+        // Workspace-dependent features below.
+        // These gracefully skip if no folder is open.
+        // ============================================================
         const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) return;
+        if (!workspaceFolders) {
+            console.log('Orbit: No workspace folders found. Chat is available, but advanced features (review, pilot, etc.) require an open folder.');
+            return;
+        }
         const workspaceFolder = workspaceFolders[0].uri;
 
         const config = vscode.workspace.getConfiguration('orbit');
@@ -116,12 +140,6 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.languages.registerCodeLensProvider({ scheme: 'file' }, codeLensProvider)
         );
 
-        // Register Chat View
-        const chatViewProvider = new ChatProvider(context);
-        context.subscriptions.push(
-            vscode.window.registerWebviewViewProvider(ChatProvider.viewType, chatViewProvider)
-        );
-
         // Status Bar (Pilot)
         const pilotStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
         pilotStatusBar.command = 'orbit.pilot.toggle';
@@ -130,11 +148,8 @@ export function activate(context: vscode.ExtensionContext) {
         pilotStatusBar.show();
         context.subscriptions.push(pilotStatusBar);
 
-        // Commands
+        // Workspace-dependent Commands
         context.subscriptions.push(
-            vscode.commands.registerCommand('orbit.chat', () => {
-                vscode.commands.executeCommand('orbit.chatView.focus');
-            }),
             vscode.commands.registerCommand('orbit.health', async () => {
                 const health = await resolver.checkHealth();
                 vscode.window.showInformationMessage(`Orbit Health: Online=${health.online}, Local=${health.local}`);
