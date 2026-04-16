@@ -183,7 +183,7 @@ export const InputArea = ({
                             <span className="codicon codicon-file-media" style={{ fontSize: '18px' }}></span>
                         </VSCodeButton>
                         <VSCodeButton appearance="icon" onClick={onFilePicker} disabled={disabled || isGenerating} title="Attach File" style={{ opacity: 0.7 }}>
-                            <span className="codicon codicon-paperclip" style={{ fontSize: '18px' }}></span>
+                            <span className="codicon codicon-attach" style={{ fontSize: '18px' }}></span>
                         </VSCodeButton>
 
                         <div className="model-selector-pill" style={{
