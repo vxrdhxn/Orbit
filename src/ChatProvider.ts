@@ -7,6 +7,7 @@ import { performSearch } from './searchCommand';
 import { FileReferenceParser } from './fileReference/fileReferenceParser';
 import { FileContentReader } from './fileReference/fileContentReader';
 import { FileReferenceManager } from './fileReference/fileReferenceManager';
+import { InlineApplyService } from './services/InlineApplyService';
 
 export interface ChatMessage {
   role: 'user' | 'ai';
@@ -31,12 +32,14 @@ export class ChatProvider implements vscode.WebviewViewProvider {
   private _fileParser: FileReferenceParser;
   private _fileReader: FileContentReader;
   private _fileManager: FileReferenceManager;
+  private _inlineApply: InlineApplyService;
 
   constructor(private readonly _context: vscode.ExtensionContext) {
     this._currentSession = this._createNewSession();
     this._fileParser = new FileReferenceParser();
     this._fileReader = new FileContentReader();
     this._fileManager = new FileReferenceManager(_context);
+    this._inlineApply = new InlineApplyService();
   }
 
   private _createNewSession(): ChatSession {
@@ -339,6 +342,38 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         case 'copyCode': {
           vscode.env.clipboard.writeText(data.value);
           vscode.window.showInformationMessage('Code copied to clipboard');
+          break;
+        }
+        case 'applyCode': {
+          const activeEditor = vscode.window.activeTextEditor;
+          if (!activeEditor) {
+            vscode.window.showWarningMessage('Orbit: Open a file first to apply code changes.');
+            break;
+          }
+
+          const targetPath = activeEditor.document.uri.fsPath;
+          const proposedCode = data.value;
+
+          // If there's already a pending proposal, reject it first
+          if (this._inlineApply.hasPendingProposal) {
+            await this._inlineApply.reject();
+          }
+
+          webviewView.webview.postMessage({ type: 'status', value: 'Applying changes...' });
+
+          try {
+            const accepted = await this._inlineApply.proposeChange(targetPath, proposedCode);
+            webviewView.webview.postMessage({
+              type: 'addResponse',
+              value: accepted
+                ? '✅ Changes accepted and applied.'
+                : '❌ Changes rejected — file restored.'
+            });
+          } catch (e: any) {
+            webviewView.webview.postMessage({ type: 'addResponse', value: `Error applying code: ${e.message}` });
+          } finally {
+            webviewView.webview.postMessage({ type: 'status', value: '' });
+          }
           break;
         }
         case 'newChat': {
