@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import { OllamaClient } from '../ollamaClient';
 import { LLMRouter } from '../reasoning/LLMRouter';
 import { DiffProposal } from '../reasoning/types';
@@ -16,8 +17,9 @@ export class EnhancedDiffEngine {
         const prompt = this.buildPrompt(filePath, originalContent, instruction);
 
         // We use json: false because we want the LLM to output a mix of Markdown and Diff
+        const model = vscode.workspace.getConfiguration('orbit').get<string>('ollamaModel', 'codellama');
         const response = await this.ollamaClient.generate(prompt, {
-            model: 'qwen2.5-coder:7b'
+            model: model
         });
 
         // 1. Extract reasoning using LLMRouter

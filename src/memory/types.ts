@@ -19,4 +19,5 @@ export interface DecisionQuery {
     startDate?: number;
     endDate?: number;
     limit?: number;
+    offset?: number;
 }

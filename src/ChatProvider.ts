@@ -22,7 +22,7 @@ export interface ChatSession {
 }
 
 export class ChatProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'offlineDevAssistant.chatView';
+  public static readonly viewType = 'orbit.chatView';
   private _abortController: AbortController | null = null;
   private _currentImage: string | null = null;
   private _webviewView: vscode.WebviewView | undefined;
@@ -114,8 +114,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
           break;
         }
         case 'changeModel': {
-          const config = vscode.workspace.getConfiguration('offlineDevAssistant');
-          await config.update('model', data.value, vscode.ConfigurationTarget.Global);
+          const config = vscode.workspace.getConfiguration('orbit');
+          await config.update('ollamaModel', data.value, vscode.ConfigurationTarget.Global);
           vscode.window.showInformationMessage(`Orbit: Model changed to ${data.value}`);
           break;
         }
@@ -450,8 +450,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
   private async _sendModelList(webview: vscode.Webview) {
     try {
       const models = await listModels();
-      const config = vscode.workspace.getConfiguration('offlineDevAssistant');
-      const currentModel = config.get<string>('model') || (models.length > 0 ? models[0] : '');
+      const config = vscode.workspace.getConfiguration('orbit');
+      const currentModel = config.get<string>('ollamaModel') || (models.length > 0 ? models[0] : '');
 
       webview.postMessage({
         type: 'updateModels',
@@ -467,28 +467,40 @@ export class ChatProvider implements vscode.WebviewViewProvider {
   }
 
   private _getHtmlForWebview(webview: vscode.Webview): string {
-    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'out', 'webview', 'index.js'));
-    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'out', 'webview', 'index.css'));
+    const uiDistPath = path.join(this._context.extensionUri.fsPath, 'out', 'webview');
+    const htmlPath = path.join(uiDistPath, 'index.html');
+
+    let html = '';
+    try {
+      html = fs.readFileSync(htmlPath, 'utf8');
+    } catch (err) {
+      return `<html><body><h1>Error loading UI</h1><p>${err}</p></body></html>`;
+    }
+
+    const baseUri = webview.asWebviewUri(vscode.Uri.file(uiDistPath));
     const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, 'media', 'codicon.css'));
 
-    // Use a nonce to only allow specific scripts to be run
-    const nonce = getNonce();
+    // Relax CSP to allow Vite modules to load correctly
+    const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-eval'; font-src ${webview.cspSource}; img-src ${webview.cspSource} data: https:; connect-src ${webview.cspSource} https:;`;
 
-    return `<!DOCTYPE html>
-      <html lang="en">
-      <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; font-src ${webview.cspSource}; img-src ${webview.cspSource} data: https:;">
-          <link href="${styleUri}" rel="stylesheet">
-          <link href="${codiconsUri}" rel="stylesheet">
-          <title>Orbit Chat</title>
-      </head>
-      <body>
-          <div id="root"></div>
-          <script nonce="${nonce}" type="module" src="${scriptUri}"></script>
-      </body>
-      </html>`;
+    // Patch the HTML
+    // 1. Inject CSP
+    html = html.replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="${csp}">`);
+    
+    // 2. Inject codicons
+    html = html.replace('</head>', `<link href="${codiconsUri}" rel="stylesheet"></head>`);
+
+    // 3. Convert root-relative paths to webview URIs
+    // Matches src="/index.js" or href="/index.css"
+    html = html.replace(
+      /(src|href)="(?:\.\/|\/)?([^"]+)"/g,
+      (match, attr, filePath) => {
+        if (filePath.startsWith('http') || filePath.startsWith('data:')) return match;
+        return `${attr}="${baseUri}/${filePath}"`;
+      }
+    );
+
+    return html;
   }
 }
 

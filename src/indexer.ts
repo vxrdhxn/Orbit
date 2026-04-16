@@ -3,7 +3,7 @@ import { embedTexts } from './embeddings';
 import { SimpleIndex, IndexEntry, relativePath } from './store';
 
 function cfg() {
-  const c = vscode.workspace.getConfiguration('offlineDevAssistant');
+  const c = vscode.workspace.getConfiguration('orbit');
   return {
     include: c.get<string[]>('indexIncludeGlobs', ['**/*.{ts,tsx,js,jsx,py,java,go,rs,cpp,c,cs,md}']),
     exclude: c.get<string[]>('indexExcludeGlobs', ['**/node_modules/**', '**/.git/**', '**/out/**', '**/dist/**', '**/.devmind/**']),

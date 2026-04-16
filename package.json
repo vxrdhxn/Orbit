@@ -195,8 +195,8 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "jest",
-    "build:ui": "vite build",
-    "watch:ui": "vite build --watch"
+    "build:ui": "npm run build --prefix webview-ui",
+    "watch:ui": "npm run watch --prefix webview-ui"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

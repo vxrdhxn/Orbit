@@ -76,68 +76,86 @@ export const DecisionHistory: React.FC<DecisionHistoryProps> = ({ decisions }) =
                         No decisions found matching filter.
                     </div>
                 ) : (
-                    filteredDecisions.map(decision => (
-                        <div
-                            key={decision.id}
-                            style={{
-                                border: '1px solid var(--vscode-widget-border)',
-                                borderRadius: '6px',
-                                overflow: 'hidden',
-                                backgroundColor: 'var(--vscode-sideBar-background)'
-                            }}
-                        >
+                    <>
+                        {filteredDecisions.map(decision => (
                             <div
-                                onClick={() => setSelectedId(selectedId === decision.id ? null : decision.id)}
+                                key={decision.id}
                                 style={{
-                                    padding: '10px 12px',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '4px'
+                                    border: '1px solid var(--vscode-widget-border)',
+                                    borderRadius: '6px',
+                                    overflow: 'hidden',
+                                    backgroundColor: 'var(--vscode-sideBar-background)'
                                 }}
                             >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <span style={{ fontWeight: 600, color: 'var(--vscode-textLink-foreground)' }}>
-                                        {decision.change_type}
-                                    </span>
-                                    <span style={{ fontSize: '0.8em', opacity: 0.6 }}>
-                                        {new Date(decision.timestamp).toLocaleString()}
-                                    </span>
-                                </div>
-                                <div style={{ fontSize: '0.9em', opacity: 0.8, wordBreak: 'break-all' }}>
-                                    {decision.file_path}
-                                </div>
-                            </div>
-
-                            {selectedId === decision.id && (
-                                <div style={{ padding: '12px', borderTop: '1px solid var(--vscode-widget-border)', backgroundColor: 'var(--vscode-editor-background)' }}>
-                                    <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'flex-end' }}>
-                                        <button
-                                            onClick={() => handleNavigate(decision.file_path)}
-                                            style={{
-                                                backgroundColor: 'var(--vscode-button-secondaryBackground)',
-                                                color: 'var(--vscode-button-secondaryForeground)',
-                                                border: 'none',
-                                                padding: '4px 12px',
-                                                borderRadius: '2px',
-                                                cursor: 'pointer',
-                                                fontSize: '0.9em'
-                                            }}
-                                        >
-                                            Go to File
-                                        </button>
+                                <div
+                                    onClick={() => setSelectedId(selectedId === decision.id ? null : decision.id)}
+                                    style={{
+                                        padding: '10px 12px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '4px'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <span style={{ fontWeight: 600, color: 'var(--vscode-textLink-foreground)' }}>
+                                            {decision.change_type}
+                                        </span>
+                                        <span style={{ fontSize: '0.8em', opacity: 0.6 }}>
+                                            {new Date(decision.timestamp).toLocaleString()}
+                                        </span>
                                     </div>
-                                    <StructuredReasoning reasoning={{
-                                        what: decision.what,
-                                        why: decision.why,
-                                        improvements: decision.improvements,
-                                        tradeoffs: decision.tradeoffs,
-                                        production: decision.production
-                                    }} />
+                                    <div style={{ fontSize: '0.9em', opacity: 0.8, wordBreak: 'break-all' }}>
+                                        {decision.file_path}
+                                    </div>
                                 </div>
-                            )}
-                        </div>
-                    ))
+
+                                {selectedId === decision.id && (
+                                    <div style={{ padding: '12px', borderTop: '1px solid var(--vscode-widget-border)', backgroundColor: 'var(--vscode-editor-background)' }}>
+                                        <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+                                            <button
+                                                onClick={() => handleNavigate(decision.file_path)}
+                                                style={{
+                                                    backgroundColor: 'var(--vscode-button-secondaryBackground)',
+                                                    color: 'var(--vscode-button-secondaryForeground)',
+                                                    border: 'none',
+                                                    padding: '4px 12px',
+                                                    borderRadius: '2px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.9em'
+                                                }}
+                                            >
+                                                Go to File
+                                            </button>
+                                        </div>
+                                        <StructuredReasoning reasoning={{
+                                            what: decision.what,
+                                            why: decision.why,
+                                            improvements: decision.improvements,
+                                            tradeoffs: decision.tradeoffs,
+                                            production: decision.production
+                                        }} />
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                        {!filter && decisions.length >= 50 && (
+                            <button
+                                onClick={() => vscode.postMessage({ type: 'fetchMoreDecisions', offset: decisions.length })}
+                                style={{
+                                    backgroundColor: 'transparent',
+                                    color: 'var(--vscode-textLink-foreground)',
+                                    border: '1px solid var(--vscode-textLink-foreground)',
+                                    padding: '8px',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    marginTop: '8px'
+                                }}
+                            >
+                                Load More Decisions
+                            </button>
+                        )}
+                    </>
                 )}
             </div>
 

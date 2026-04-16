@@ -11,7 +11,8 @@ export class DecisionHistoryView {
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
-        private readonly _onNavigate: (path: string) => void
+        private readonly _onNavigate: (path: string) => void,
+        private readonly _onLoadMore?: (offset: number) => DecisionRecord[]
     ) { }
 
     /**
@@ -49,6 +50,12 @@ export class DecisionHistoryView {
                         case 'closeHistory':
                             this.dispose();
                             return;
+                        case 'fetchMoreDecisions':
+                            if (this._onLoadMore) {
+                                const moreDecisions = this._onLoadMore(message.offset);
+                                this._panel?.webview.postMessage({ type: 'appendDecisions', value: moreDecisions });
+                            }
+                            return;
                         case 'webviewReady':
                             // Send initial decisions when ready
                             this._panel?.webview.postMessage({ type: 'showHistory', value: decisions });
@@ -75,11 +82,11 @@ export class DecisionHistoryView {
     }
 
     private _getHtmlForWebview(webview: vscode.Webview, decisions: DecisionRecord[]) {
-        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist', 'index.html'));
+        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'out', 'webview', 'index.html'));
         // In a real setup, we use the same loader as extension.ts or ChatViewProvider
         // For simplicity here, let's reuse the logic from ChatViewProvider
 
-        const uiDistPath = vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'dist');
+        const uiDistPath = vscode.Uri.joinPath(this._extensionUri, 'out', 'webview');
         const indexHtmlUri = vscode.Uri.joinPath(uiDistPath, 'index.html');
 
         let html = '';

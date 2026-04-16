@@ -93,6 +93,11 @@ function App() {
                 case 'updateDecisions':
                     setDecisions(message.value);
                     break;
+                case 'appendDecisions':
+                    if (message.value && message.value.length > 0) {
+                        setDecisions(prev => [...prev, ...message.value]);
+                    }
+                    break;
             }
         };
 

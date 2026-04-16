@@ -78,15 +78,15 @@ export class DecisionJournal {
     /**
      * Gets the most recent decisions.
      */
-    public getRecentDecisions(projectId: string, limit: number = 10): DecisionRecord[] {
-        return this.queryDecisions({ project_id: projectId, limit });
+    public getRecentDecisions(projectId: string, limit: number = 20, offset: number = 0): DecisionRecord[] {
+        return this.queryDecisions({ project_id: projectId, limit, offset });
     }
 
     /**
      * Gets history for a specific file.
      */
-    public getDecisionsForFile(projectId: string, filePath: string, limit: number = 10): DecisionRecord[] {
-        return this.queryDecisions({ project_id: projectId, file_path: filePath, limit });
+    public getDecisionsForFile(projectId: string, filePath: string, limit: number = 20, offset: number = 0): DecisionRecord[] {
+        return this.queryDecisions({ project_id: projectId, file_path: filePath, limit, offset });
     }
 
     /**

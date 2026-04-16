@@ -204,9 +204,14 @@ export class SQLiteMemory {
 
             sql += ' ORDER BY timestamp DESC';
 
-            if (filter.limit) {
+            if (filter.limit !== undefined) {
                 sql += ' LIMIT ?';
                 params.push(filter.limit);
+            }
+
+            if (filter.offset !== undefined) {
+                sql += ' OFFSET ?';
+                params.push(filter.offset);
             }
 
             const rows = this.db.prepare(sql).all(...params) as any[];

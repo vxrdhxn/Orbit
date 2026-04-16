@@ -9,7 +9,7 @@ export async function performSearch(query: string, workspaceFolder: vscode.Uri):
   const entries = index.getEntries();
   if (!entries.length) return [];
 
-  const c = vscode.workspace.getConfiguration('offlineDevAssistant');
+  const c = vscode.workspace.getConfiguration('orbit');
   const topK = c.get<number>('searchTopK', 5);
 
   const qvec = await embedOne(query);

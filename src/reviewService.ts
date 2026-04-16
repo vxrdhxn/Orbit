@@ -29,10 +29,15 @@ export class ReviewService {
         // 2. Build Prompt
         const prompt = this.buildPrompt(code, context);
 
+        const currentConfig = vscode.workspace.getConfiguration('orbit');
+        const onlineSelected = currentConfig.get<boolean>('preferOnline', false); 
+        // Technically this uses the ollamaClient, so we rely on the ollamaModel.
+        const model = currentConfig.get<string>('ollamaModel', 'codellama');
+
         // 3. Call Ollama
         const startTime = Date.now();
         const response = await this.ollamaClient.generate(prompt, {
-            model: 'qwen2.5-coder:7b', // This should come from config, need to wire that up
+            model: model,
             json: true
         });
         const durationMs = Date.now() - startTime;
@@ -46,7 +51,7 @@ export class ReviewService {
             filesReviewed: code.map(c => c.fileName),
             linesAnalyzed: code.reduce((acc, c) => acc + (c.content.split('\n').length), 0),
             durationMs: durationMs,
-            modelUsed: 'qwen2.5-coder:7b' // TODO: wire up from config
+            modelUsed: vscode.workspace.getConfiguration('orbit').get<string>('ollamaModel', 'codellama')
         };
 
         // 6. Filter based on options

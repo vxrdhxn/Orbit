@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { ProviderResolver } from './providers/ProviderResolver';
 import { OnlineProvider } from './providers/OnlineProvider';
 import { LocalProvider } from './providers/LocalProvider';
-import { ChatViewProvider } from './providers/ChatViewProvider';
+import { ChatProvider } from './ChatProvider';
 import { ReviewService } from './reviewService';
 import { EnhancedReviewService } from './services/EnhancedReviewService';
 import { LLMRouter } from './reasoning/LLMRouter';
@@ -97,22 +97,29 @@ export function activate(context: vscode.ExtensionContext) {
 
         // UI Providers
         const contextCollector = new EnhancedContextCollector(decisionJournal, index);
-        const historyView = new DecisionHistoryView(context.extensionUri, (path) => {
-            // Handle navigation to file
-            const uri = vscode.Uri.file(path);
-            vscode.workspace.openTextDocument(uri).then(doc => {
-                vscode.window.showTextDocument(doc);
-            });
-        });
+        const historyView = new DecisionHistoryView(
+            context.extensionUri,
+            (path) => {
+                // Handle navigation to file
+                const uri = vscode.Uri.file(path);
+                vscode.workspace.openTextDocument(uri).then(doc => {
+                    vscode.window.showTextDocument(doc);
+                });
+            },
+            (offset: number) => {
+                const projectId = vscode.workspace.name || 'default-project';
+                return decisionJournal.getRecentDecisions(projectId, 50, offset);
+            }
+        );
         const codeLensProvider = new ReviewCodeLensProvider(annotationManager);
         context.subscriptions.push(
             vscode.languages.registerCodeLensProvider({ scheme: 'file' }, codeLensProvider)
         );
 
         // Register Chat View
-        const chatViewProvider = new ChatViewProvider(context.extensionUri, resolver, contextCollector);
+        const chatViewProvider = new ChatProvider(context);
         context.subscriptions.push(
-            vscode.window.registerWebviewViewProvider(ChatViewProvider.viewType, chatViewProvider)
+            vscode.window.registerWebviewViewProvider(ChatProvider.viewType, chatViewProvider)
         );
 
         // Status Bar (Pilot)
