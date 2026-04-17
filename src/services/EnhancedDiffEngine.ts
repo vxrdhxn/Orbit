@@ -17,7 +17,7 @@ export class EnhancedDiffEngine {
         const prompt = this.buildPrompt(filePath, originalContent, instruction);
 
         // We use json: false because we want the LLM to output a mix of Markdown and Diff
-        const model = vscode.workspace.getConfiguration('orbit').get<string>('ollamaModel', 'codellama');
+        const model = vscode.workspace.getConfiguration('orbit').get<string>('ollamaModel', 'qwen2.5-coder:7b');
         const response = await this.ollamaClient.generate(prompt, {
             model: model
         });

@@ -14,6 +14,11 @@ describe('EnhancedDiffEngine', () => {
         const formatter = new ResponseFormatter();
         router = new LLMRouter(formatter, { maxRetries: 0, enforceFormat: false });
         engine = new EnhancedDiffEngine(mockOllamaClient, router);
+        jest.spyOn(console, 'error').mockImplementation(() => { });
+    });
+
+    afterEach(() => {
+        jest.restoreAllMocks();
     });
 
     it('should generate a valid proposal from structured LLM response', async () => {

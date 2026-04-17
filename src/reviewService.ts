@@ -32,7 +32,7 @@ export class ReviewService {
         const currentConfig = vscode.workspace.getConfiguration('orbit');
         const onlineSelected = currentConfig.get<boolean>('preferOnline', false); 
         // Technically this uses the ollamaClient, so we rely on the ollamaModel.
-        const model = currentConfig.get<string>('ollamaModel', 'codellama');
+        const model = currentConfig.get<string>('ollamaModel', 'qwen2.5-coder:7b');
 
         // 3. Call Ollama
         const startTime = Date.now();
@@ -51,7 +51,7 @@ export class ReviewService {
             filesReviewed: code.map(c => c.fileName),
             linesAnalyzed: code.reduce((acc, c) => acc + (c.content.split('\n').length), 0),
             durationMs: durationMs,
-            modelUsed: vscode.workspace.getConfiguration('orbit').get<string>('ollamaModel', 'codellama')
+            modelUsed: vscode.workspace.getConfiguration('orbit').get<string>('ollamaModel', 'qwen2.5-coder:7b')
         };
 
         // 6. Filter based on options

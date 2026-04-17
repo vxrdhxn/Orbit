@@ -158,4 +158,16 @@ export class OllamaClient {
 
     return json.response ?? '';
   }
+  public async checkConnection(): Promise<{ ok: boolean; message: string }> {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/tags`, { method: 'GET' });
+      if (!res.ok) {
+        return { ok: false, message: `Ollama server at ${this.baseUrl} returned error ${res.status}.` };
+      }
+      return { ok: true, message: 'Connected to Ollama ✅' };
+    } catch (e: any) {
+      if (e.name === 'AbortError') return { ok: false, message: 'Connection timed out.' };
+      return { ok: false, message: `Ollama server not reached at ${this.baseUrl}. Please ensure Ollama is running.` };
+    }
+  }
 }

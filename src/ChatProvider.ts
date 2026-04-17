@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { generate, listModels } from './ollamaClient';
+import { generate, listModels, OllamaClient } from './ollamaClient';
 import { performSearch } from './searchCommand';
 import { FileReferenceParser } from './fileReference/fileReferenceParser';
 import { FileContentReader } from './fileReference/fileContentReader';
@@ -118,6 +118,14 @@ export class ChatProvider implements vscode.WebviewViewProvider {
 
     if (appendToUI) {
       webview.postMessage({ type: 'addMessage', role: 'user', content: userMsg });
+    }
+
+    // 0. Proactive connection check
+    const ollama = new OllamaClient();
+    const status = await ollama.checkConnection();
+    if (!status.ok) {
+      webview.postMessage({ type: 'addResponse', value: `⚠️ **Connection Error**: ${status.message}\n\nTo use Orbit, please install Ollama and ensure the server is running. You can verify it by running \`ollama list\` in your terminal.` });
+      return;
     }
 
     // Add to current session
