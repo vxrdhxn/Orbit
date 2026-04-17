@@ -8,6 +8,8 @@ import { FileReferenceParser } from './fileReference/fileReferenceParser';
 import { FileContentReader } from './fileReference/fileContentReader';
 import { FileReferenceManager } from './fileReference/fileReferenceManager';
 import { InlineApplyService } from './services/InlineApplyService';
+import { TerminalService } from './services/TerminalService';
+import { parseCodeBlocks, languageMatchesFile, isTerminalLanguage } from './utils/codeBlockParser';
 
 export interface ChatMessage {
   role: 'user' | 'ai';
@@ -33,6 +35,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
   private _fileReader: FileContentReader;
   private _fileManager: FileReferenceManager;
   private _inlineApply: InlineApplyService;
+  private _terminalService: TerminalService;
 
   constructor(private readonly _context: vscode.ExtensionContext) {
     this._currentSession = this._createNewSession();
@@ -40,6 +43,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     this._fileReader = new FileContentReader();
     this._fileManager = new FileReferenceManager(_context);
     this._inlineApply = new InlineApplyService();
+    this._terminalService = new TerminalService();
   }
 
   private _createNewSession(): ChatSession {
@@ -222,7 +226,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
               contextText += `\n\nActive File (${doc.fileName}):\n\`\`\`\n${text}\n\`\`\``;
             }
 
-            const prompt = (contextText || fileContext) ? `${contextText}${fileContext}\n\nUser Question: ${userMsg}` : userMsg;
+            const systemPrompt = this._buildSystemPrompt(editor);
+            const prompt = `${systemPrompt}\n\n${(contextText || fileContext) ? `${contextText}${fileContext}\n\n` : ''}User Question: ${userMsg}`;
 
             // Handle Image
             let images: string[] | undefined;
@@ -254,6 +259,9 @@ export class ChatProvider implements vscode.WebviewViewProvider {
               timestamp: Date.now()
             });
             this._saveHistory();
+
+            // Auto-Apply: detect code blocks and auto-open diff if a single block targets the active file
+            this._tryAutoApply(aiResponse, webviewView.webview);
 
           } catch (e: any) {
             if (e.name === 'AbortError') {
@@ -371,6 +379,33 @@ export class ChatProvider implements vscode.WebviewViewProvider {
             });
           } catch (e: any) {
             webviewView.webview.postMessage({ type: 'addResponse', value: `Error applying code: ${e.message}` });
+          } finally {
+            webviewView.webview.postMessage({ type: 'status', value: '' });
+          }
+          break;
+        }
+        case 'runCommand': {
+          const cmd = data.value;
+          if (!cmd) break;
+
+          webviewView.webview.postMessage({ type: 'status', value: 'Running command...' });
+
+          try {
+            const result = await this._terminalService.runWithConfirmation(cmd);
+            if (result === null) {
+              webviewView.webview.postMessage({ type: 'addResponse', value: '⚠️ Command cancelled by user.' });
+            } else {
+              let output = '';
+              if (result.stdout) output += result.stdout;
+              if (result.stderr) output += (output ? '\n' : '') + result.stderr;
+              const exitLabel = result.exitCode === 0 ? '✅ Success' : `❌ Exit code: ${result.exitCode}`;
+              webviewView.webview.postMessage({
+                type: 'addResponse',
+                value: `${exitLabel}\n\`\`\`\n${output || '(no output)'}\n\`\`\``
+              });
+            }
+          } catch (e: any) {
+            webviewView.webview.postMessage({ type: 'addResponse', value: `Error running command: ${e.message}` });
           } finally {
             webviewView.webview.postMessage({ type: 'status', value: '' });
           }
@@ -505,6 +540,79 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     } catch (e: any) {
       // Just send empty list or error state
       webview.postMessage({ type: 'modelListError', value: e.message });
+    }
+  }
+
+  /**
+   * Builds a system prompt that guides the AI to produce apply-ready code responses.
+   */
+  private _buildSystemPrompt(editor?: vscode.TextEditor): string {
+    const parts = [
+      'You are Orbit, an AI coding assistant embedded in VS Code.',
+      'When the user asks you to modify, fix, or write code:',
+      '- Output the COMPLETE file content in a single fenced code block.',
+      '- Use the correct language identifier (e.g., ```typescript, ```python).',
+      '- If modifying a specific file, add the file path after the language: ```typescript:src/utils.ts',
+      '- After the code block, briefly explain what you changed and why.',
+      '- For terminal commands, use ```bash code blocks.',
+      'When the user asks a question (not a code change), respond normally in markdown.',
+    ];
+
+    if (editor) {
+      const lang = editor.document.languageId;
+      const fileName = path.basename(editor.document.fileName);
+      parts.push(`The user has "${fileName}" (${lang}) open in their editor.`);
+    }
+
+    return parts.join('\n');
+  }
+
+  /**
+   * After AI response completes, check if it contains a single code block
+   * that matches the active file — if so, auto-open the diff view.
+   */
+  private async _tryAutoApply(aiResponse: string, webview: vscode.Webview) {
+    try {
+      const blocks = parseCodeBlocks(aiResponse);
+      // Filter to non-terminal code blocks
+      const codeBlocks = blocks.filter(b => !isTerminalLanguage(b.language));
+
+      if (codeBlocks.length !== 1) return; // Only auto-apply for single code block responses
+
+      const block = codeBlocks[0];
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) return;
+
+      const activeFile = editor.document.fileName;
+
+      // Check if the block targets this file (by filepath annotation or language match)
+      const matchesByPath = block.filePath && activeFile.endsWith(block.filePath.replace(/\//g, path.sep));
+      const matchesByLang = !block.filePath && languageMatchesFile(block.language, activeFile);
+
+      if (!matchesByPath && !matchesByLang) return;
+
+      // Auto-apply: ask the user if they want to apply
+      const choice = await vscode.window.showInformationMessage(
+        `Orbit detected code changes for ${path.basename(activeFile)}. Apply them?`,
+        'Apply & Review Diff',
+        'Skip'
+      );
+
+      if (choice !== 'Apply & Review Diff') return;
+
+      if (this._inlineApply.hasPendingProposal) {
+        await this._inlineApply.reject();
+      }
+
+      const accepted = await this._inlineApply.proposeChange(activeFile, block.code);
+      webview.postMessage({
+        type: 'addResponse',
+        value: accepted
+          ? '✅ Changes accepted and applied.'
+          : '❌ Changes rejected — file restored.'
+      });
+    } catch (e) {
+      console.error('[ChatProvider] Auto-apply failed:', e);
     }
   }
 
