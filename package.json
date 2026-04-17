@@ -3,9 +3,16 @@
   "displayName": "Orbit",
   "description": "Offline-first AI coding assistant",
   "version": "2.0.0",
+  "publisher": "vxrdhxn",
+  "icon": "resources/icon.png",
   "engines": {
     "vscode": "^1.85.0"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vxrdhxn/Orbit.git"
+  },
+  "homepage": "https://github.com/vxrdhxn/Orbit#readme",
   "categories": [
     "AI",
     "Programming Languages"
@@ -185,7 +192,11 @@
         },
         "orbit.pilot.autoFixLevel": {
           "type": "string",
-          "enum": ["none", "suggestion", "info"],
+          "enum": [
+            "none",
+            "suggestion",
+            "info"
+          ],
           "default": "none",
           "description": "Level of findings to automatically fix"
         },
@@ -220,6 +231,7 @@
     "@typescript-eslint/eslint-plugin": "^6.18.0",
     "@typescript-eslint/parser": "^6.18.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "@vscode/vsce": "^3.9.0",
     "eslint": "^8.56.0",
     "fast-check": "^3.23.2",
     "jest": "^29.7.0",
