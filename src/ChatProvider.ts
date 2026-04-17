@@ -89,6 +89,148 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /**
+   * Handles instructions from outside the webview (e.g., from a VS Code command).
+   */
+  public async handleExternalInstruction(instruction: string) {
+    if (!this._webviewView) {
+      await vscode.commands.executeCommand('orbit.chatView.focus');
+    }
+
+    // Give it a moment to resolve if it was just opened
+    if (!this._webviewView) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    if (this._webviewView) {
+      // Sync UI first
+      this._webviewView.webview.postMessage({ type: 'loadChat', value: this._currentSession.messages });
+      // Clear status
+      this._webviewView.webview.postMessage({ type: 'status', value: '' });
+
+      // Then process
+      await this._processMessage(instruction, this._webviewView.webview, true);
+    }
+  }
+
+  private async _processMessage(userMsg: string, webview: vscode.Webview, appendToUI: boolean = false) {
+    console.log('Processing message:', userMsg);
+
+    if (appendToUI) {
+      webview.postMessage({ type: 'addMessage', role: 'user', content: userMsg });
+    }
+
+    // Add to current session
+    this._currentSession.messages.push({
+      role: 'user',
+      content: userMsg,
+      timestamp: Date.now()
+    });
+
+    // Check for file references
+    let fileContext = '';
+    const detectedRefs = await this._fileParser.parse(userMsg);
+
+    if (detectedRefs.length > 0) {
+      for (const ref of detectedRefs) {
+        if (ref.isValid) {
+          try {
+            const content = await this._fileReader.read(ref.path, {
+              lineRange: ref.lineRange
+            });
+            fileContext += `\n\nReference: ${ref.raw}\nFile: ${ref.path}\n\`\`\`\n${content.content}\n\`\`\``;
+            this._fileManager.addRecentFile(ref.path);
+          } catch (e: any) {
+            webview.postMessage({ type: 'addResponse', value: `Error reading ${ref.path}: ${e.message}` });
+          }
+        }
+      }
+    }
+
+    this._saveHistory();
+
+    // Cancel previous generation if any
+    if (this._abortController) {
+      this._abortController.abort();
+    }
+    this._abortController = new AbortController();
+
+    // Send "thinking" status
+    webview.postMessage({ type: 'status', value: 'Thinking...' });
+
+    try {
+      // RAG: Search for context
+      const ws = vscode.workspace.workspaceFolders?.[0];
+      let contextText = '';
+      if (ws) {
+        try {
+          const results = await performSearch(userMsg, ws.uri);
+          if (results.length > 0) {
+            contextText += "\n\nContext from codebase:\n" + results.map(r => `File: ${r.entry.file}\n${r.entry.text}`).join('\n\n');
+          }
+        } catch (e) {
+          console.error('Search failed', e);
+        }
+      }
+
+      // Add active editor content if available
+      const editor = vscode.window.activeTextEditor;
+      if (editor) {
+        const doc = editor.document;
+        const selection = editor.selection;
+        const text = selection.isEmpty ? doc.getText() : doc.getText(selection);
+        contextText += `\n\nActive File (${doc.fileName}):\n\`\`\`\n${text}\n\`\`\``;
+      }
+
+      const systemPrompt = this._buildSystemPrompt(editor);
+      const prompt = `${systemPrompt}\n\n${(contextText || fileContext) ? `${contextText}${fileContext}\n\n` : ''}User Question: ${userMsg}`;
+
+      // Handle Image
+      let images: string[] | undefined;
+      if (this._currentImage) {
+        try {
+          const imagePath = this._currentImage;
+          const imageBuffer = await vscode.workspace.fs.readFile(vscode.Uri.file(imagePath));
+          const base64Image = Buffer.from(imageBuffer).toString('base64');
+          images = [base64Image];
+          // Clear image after use
+          this._currentImage = null;
+        } catch (e) {
+          console.error('Failed to read image', e);
+          webview.postMessage({ type: 'addResponse', value: 'Error reading image file.' });
+        }
+      }
+
+      // Streaming Response
+      let aiResponse = '';
+      await generate(prompt, (chunk) => {
+        aiResponse += chunk;
+        webview.postMessage({ type: 'addResponseChunk', value: chunk });
+      }, this._abortController.signal, images);
+
+      // Save AI response to history
+      this._currentSession.messages.push({
+        role: 'ai',
+        content: aiResponse,
+        timestamp: Date.now()
+      });
+      this._saveHistory();
+
+      // Auto-Apply: detect code blocks and auto-open diff if a single block targets the active file
+      this._tryAutoApply(aiResponse, webview);
+
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        webview.postMessage({ type: 'status', value: 'Cancelled' });
+      } else {
+        webview.postMessage({ type: 'addResponse', value: `Error: ${e.message}` });
+      }
+    } finally {
+      this._abortController = null;
+      webview.postMessage({ type: 'status', value: '' });
+    }
+  }
+
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     context: vscode.WebviewViewResolveContext,
@@ -148,131 +290,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         }
         case 'sendMessage': {
           const userMsg = data.value;
-          console.log('Backend received sendMessage:', userMsg);
-
-          // Add to current session
-          this._currentSession.messages.push({
-            role: 'user',
-            content: userMsg,
-            timestamp: Date.now()
-          });
-
-          // Check for file references
-          const ws = vscode.workspace.workspaceFolders?.[0];
-          let fileContext = '';
-          const detectedRefs = await this._fileParser.parse(userMsg);
-          const validFiles: string[] = [];
-
-          if (detectedRefs.length > 0) {
-            for (const ref of detectedRefs) {
-              if (ref.isValid) {
-                try {
-                  const content = await this._fileReader.read(ref.path, {
-                    lineRange: ref.lineRange
-                  });
-                  fileContext += `\n\nReference: ${ref.raw}\nFile: ${ref.path}\n\`\`\`\n${content.content}\n\`\`\``;
-                  validFiles.push(ref.path);
-                  // Add to recent files
-                  this._fileManager.addRecentFile(ref.path);
-                } catch (e: any) {
-                  webviewView.webview.postMessage({ type: 'addResponse', value: `Error reading ${ref.path}: ${e.message}` });
-                }
-              } else {
-                webviewView.webview.postMessage({ type: 'addResponse', value: `Warning: File not found: ${ref.raw}` });
-              }
-            }
-          }
-
-          this._saveHistory();
-
-          // Cancel previous generation if any
-          if (this._abortController) {
-            this._abortController.abort();
-          }
-          this._abortController = new AbortController();
-
-          // Send "thinking" status
-          webviewView.webview.postMessage({ type: 'status', value: 'Thinking...' });
-
-          try {
-            // RAG: Search for context
-            const ws = vscode.workspace.workspaceFolders?.[0];
-            let contextText = '';
-            if (ws) {
-              try {
-                // Check for file references in the message - Legacy simple regex mostly replaced by new parser, but kept for fallback or specific cases?
-                // Actually, let's remove the legacy simple regex if we trust our parser, 
-                // OR process *other* context. 
-                // The new parser handles explicit references. 
-
-                // Let's rely on the new parser above for explicit file references.
-                // We keep search for RAG.
-
-                const results = await performSearch(userMsg, ws.uri);
-                if (results.length > 0) {
-                  contextText += "\n\nContext from codebase:\n" + results.map(r => `File: ${r.entry.file}\n${r.entry.text}`).join('\n\n');
-                }
-              } catch (e) {
-                console.error('Search failed', e);
-              }
-            }
-
-            // Add active editor content if available
-            const editor = vscode.window.activeTextEditor;
-            if (editor) {
-              const doc = editor.document;
-              const selection = editor.selection;
-              const text = selection.isEmpty ? doc.getText() : doc.getText(selection);
-              contextText += `\n\nActive File (${doc.fileName}):\n\`\`\`\n${text}\n\`\`\``;
-            }
-
-            const systemPrompt = this._buildSystemPrompt(editor);
-            const prompt = `${systemPrompt}\n\n${(contextText || fileContext) ? `${contextText}${fileContext}\n\n` : ''}User Question: ${userMsg}`;
-
-            // Handle Image
-            let images: string[] | undefined;
-            if (this._currentImage) {
-              try {
-                const imagePath = this._currentImage;
-                const imageBuffer = await vscode.workspace.fs.readFile(vscode.Uri.file(imagePath));
-                const base64Image = Buffer.from(imageBuffer).toString('base64');
-                images = [base64Image];
-                // Clear image after use
-                this._currentImage = null;
-              } catch (e) {
-                console.error('Failed to read image', e);
-                webviewView.webview.postMessage({ type: 'addResponse', value: 'Error reading image file.' });
-              }
-            }
-
-            // Streaming Response
-            let aiResponse = '';
-            await generate(prompt, (chunk) => {
-              aiResponse += chunk;
-              webviewView.webview.postMessage({ type: 'addResponseChunk', value: chunk });
-            }, this._abortController.signal, images);
-
-            // Save AI response to history
-            this._currentSession.messages.push({
-              role: 'ai',
-              content: aiResponse,
-              timestamp: Date.now()
-            });
-            this._saveHistory();
-
-            // Auto-Apply: detect code blocks and auto-open diff if a single block targets the active file
-            this._tryAutoApply(aiResponse, webviewView.webview);
-
-          } catch (e: any) {
-            if (e.name === 'AbortError') {
-              webviewView.webview.postMessage({ type: 'status', value: 'Cancelled' });
-            } else {
-              webviewView.webview.postMessage({ type: 'addResponse', value: `Error: ${e.message}` });
-            }
-          } finally {
-            this._abortController = null;
-            webviewView.webview.postMessage({ type: 'status', value: '' });
-          }
+          await this._processMessage(userMsg, webviewView.webview);
           break;
         }
         case 'selectImage': {
@@ -548,20 +566,25 @@ export class ChatProvider implements vscode.WebviewViewProvider {
    */
   private _buildSystemPrompt(editor?: vscode.TextEditor): string {
     const parts = [
-      'You are Orbit, an AI coding assistant embedded in VS Code.',
-      'When the user asks you to modify, fix, or write code:',
-      '- Output the COMPLETE file content in a single fenced code block.',
-      '- Use the correct language identifier (e.g., ```typescript, ```python).',
-      '- If modifying a specific file, add the file path after the language: ```typescript:src/utils.ts',
-      '- After the code block, briefly explain what you changed and why.',
-      '- For terminal commands, use ```bash code blocks.',
-      'When the user asks a question (not a code change), respond normally in markdown.',
+      'You are Orbit, an advanced AI coding assistant for VS Code.',
+      '## Code Modification Rules',
+      '- If the user asks for code, ALWAYS provide the FULL file content in one fenced block if possible.',
+      '- Specify the language and optionally the file path: ```typescript:src/index.ts',
+      '- Do not output partial snippets unless explicitly asked or for very large files.',
+      '- After the code block, briefly summarize what was changed and why.',
+      '',
+      '## Terminal & Commands',
+      '- For shell commands, use: ```bash',
+      '- Terminal blocks will show a "Run" button in the UI.',
+      '',
+      '## Context Awareness',
+      'You can see the current open file and any files the user explicitly references or attaches.',
     ];
 
     if (editor) {
-      const lang = editor.document.languageId;
       const fileName = path.basename(editor.document.fileName);
-      parts.push(`The user has "${fileName}" (${lang}) open in their editor.`);
+      const language = editor.document.languageId;
+      parts.push(`The user is currently editing: ${fileName} (${language})`);
     }
 
     return parts.join('\n');

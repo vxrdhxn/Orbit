@@ -72,6 +72,18 @@
     ],
     "keybindings": [
       {
+        "command": "orbit.chat",
+        "key": "ctrl+l",
+        "mac": "cmd+l",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "orbit.explain",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l",
+        "when": "editorTextFocus"
+      },
+      {
         "command": "orbit.analyzePerformance",
         "key": "ctrl+alt+p",
         "mac": "cmd+alt+p",

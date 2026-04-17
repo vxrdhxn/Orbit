@@ -56,12 +56,27 @@ body {
   }
 }
 
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 .animate-fade-in {
   animation: fadeIn var(--animation-speed) ease-out forwards;
 }
 
 .animate-pulse {
   animation: pulse 1.5s infinite ease-in-out;
+}
+
+.blinking-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.2em;
+  background-color: var(--vscode-editor-foreground);
+  margin-left: 4px;
+  vertical-align: middle;
+  animation: blink 1s step-end infinite;
 }
 
 /* Scrollbar Styling to match VS Code */

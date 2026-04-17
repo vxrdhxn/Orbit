@@ -38,6 +38,10 @@ function App() {
         const handleMessage = (event: MessageEvent) => {
             const message = event.data;
             switch (message.type) {
+                case 'addMessage':
+                    setMessages(prev => [...prev, { role: message.role, content: message.content }]);
+                    setIsGenerating(message.role === 'user'); // If adding a user message, we are likely starting generation
+                    break;
                 case 'addResponse':
                     setMessages(prev => [...prev, { role: 'ai', content: message.value }]);
                     setIsGenerating(false);
@@ -176,7 +180,7 @@ function App() {
                         <div style={{ fontSize: '0.9em' }}>Always watching your code</div>
                     </div>
                 ) : (
-                    <MessageList messages={messages} />
+                    <MessageList messages={messages} isGenerating={isGenerating} />
                 )}
 
                 {statusMessage && isGenerating && (

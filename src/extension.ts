@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { ProviderResolver } from './providers/ProviderResolver';
 import { OnlineProvider } from './providers/OnlineProvider';
 import { LocalProvider } from './providers/LocalProvider';
@@ -49,6 +50,18 @@ export function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(
             vscode.commands.registerCommand('orbit.chat', () => {
                 vscode.commands.executeCommand('orbit.chatView.focus');
+            }),
+            vscode.commands.registerCommand('orbit.explain', async () => {
+                const editor = vscode.window.activeTextEditor;
+                if (!editor) {
+                    vscode.window.showWarningMessage('Open a file to explain code.');
+                    return;
+                }
+                const selection = editor.selection;
+                const text = selection.isEmpty ? editor.document.getText() : editor.document.getText(selection);
+                const fileName = path.basename(editor.document.fileName);
+                
+                await chatViewProvider.handleExternalInstruction(`Explain this code from ${fileName}:\n\n\`\`\`\n${text}\n\`\`\``);
             })
         );
 
