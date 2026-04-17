@@ -164,7 +164,36 @@ function App() {
     }
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--vscode-editor-background)', color: 'var(--vscode-editor-foreground)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-main)', color: 'var(--text-main)' }}>
+            {/* Pro Header */}
+            <header className="glass" style={{
+                height: '48px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 16px',
+                zIndex: 100,
+                borderBottom: '1px solid var(--border-dim)'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="badge badge-primary" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Orbit Pro
+                    </div>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                        <span className={`codicon codicon-record ${isGenerating ? 'animate-pulse' : ''}`} 
+                              style={{ color: isGenerating ? 'var(--accent-primary)' : 'var(--text-dim)', fontSize: '10px' }}></span>
+                        {isGenerating ? 'Reasoning...' : 'Connected'}
+                    </div>
+                    <div style={{ width: '1px', height: '14px', background: 'var(--border-dim)' }}></div>
+                    <button className="clickable" title="Clear Chat" onClick={() => vscode.postMessage({ type: 'clearChat' })}>
+                        <span className="codicon codicon-trash" style={{ fontSize: '14px', color: 'var(--text-dim)' }}></span>
+                    </button>
+                </div>
+            </header>
+
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
                 {messages.length === 0 ? (
                     <div style={{
@@ -173,34 +202,46 @@ function App() {
                         flexDirection: 'column',
                         justifyContent: 'center',
                         alignItems: 'center',
-                        opacity: 0.8,
-                        gap: '10px'
+                        opacity: 0.9
                     }}>
-                        <div style={{ fontSize: '2em', fontWeight: 600 }}>Orbit</div>
-                        <div style={{ fontSize: '0.9em' }}>Always watching your code</div>
+                        <div style={{
+                            width: '80px',
+                            height: '80px',
+                            borderRadius: '50%',
+                            background: 'radial-gradient(circle, var(--accent-primary) 0%, transparent 70%)',
+                            position: 'absolute',
+                            filter: 'blur(30px)',
+                            opacity: 0.2
+                        }}></div>
+                        <div style={{ fontSize: '2.5rem', fontWeight: 600, letterSpacing: '-1.5px', color: 'var(--text-main)', marginBottom: '4px', position: 'relative' }}>
+                            Orbit
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                            Intelligent Development
+                        </div>
                     </div>
                 ) : (
                     <MessageList messages={messages} isGenerating={isGenerating} />
                 )}
 
                 {statusMessage && isGenerating && (
-                    <div className="glass animate-pulse" style={{
+                    <div className="glass animate-slide-up" style={{
                         position: 'absolute',
-                        bottom: '20px',
+                        bottom: '24px',
                         left: '50%',
                         transform: 'translateX(-50%)',
-                        padding: '8px 16px',
-                        borderRadius: '20px',
-                        fontSize: '0.85em',
+                        padding: '6px 14px',
+                        borderRadius: '100px',
+                        fontSize: '11px',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
-                        border: '1px solid var(--vscode-widget-border)',
-                        boxShadow: 'var(--shadow-md)',
-                        color: 'var(--vscode-descriptionForeground)',
-                        zIndex: 20
+                        boxShadow: 'var(--shadow-premium)',
+                        color: 'var(--text-main)',
+                        zIndex: 20,
+                        border: '1px solid hsla(190, 100%, 50%, 0.2)'
                     }}>
-                        <span className="codicon codicon-loading codicon-modifier-spin"></span>
+                        <span className="codicon codicon-loading codicon-modifier-spin" style={{ color: 'var(--accent-primary)' }}></span>
                         {statusMessage}
                     </div>
                 )}

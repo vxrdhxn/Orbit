@@ -79,50 +79,43 @@ export const InputArea = ({
     const isPreview = selectedImage && selectedImage.startsWith('data:');
 
     return (
-        <div className="input-container" onPaste={handlePaste} style={{
-            padding: '16px',
-            backgroundColor: 'transparent',
+        <div className="glass-dark" onPaste={handlePaste} style={{
+            padding: '20px',
+            background: 'transparent',
             display: 'flex',
             flexDirection: 'column',
-            gap: '10px'
+            gap: '12px',
+            borderTop: 'none',
+            zIndex: 30
         }}>
-            <div className="input-box" style={{
-                border: '1px solid var(--vscode-widget-border)',
-                borderRadius: '16px',
-                backgroundColor: 'var(--vscode-input-background)',
+            <div className="glow-on-focus" style={{
+                transition: 'var(--transition-smooth)',
+                borderRadius: 'var(--radius-lg)',
+                backgroundColor: 'var(--bg-surface)',
+                border: '1px solid var(--border-base)',
                 padding: '12px',
-                boxShadow: 'var(--shadow-md)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '4px'
+                gap: '8px'
             }}>
                 {selectedImage && (
                     <div className="image-preview" style={{
                         position: 'relative',
                         alignSelf: 'flex-start',
-                        marginBottom: '8px',
+                        marginBottom: '4px',
                         display: 'inline-block'
                     }}>
                         {isPreview ? (
                             <img src={selectedImage} alt="Selected" style={{
-                                maxHeight: '100px',
-                                maxWidth: '200px',
-                                borderRadius: '8px',
-                                border: '1px solid var(--vscode-widget-border)'
+                                maxHeight: '90px',
+                                maxWidth: '180px',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--border-base)'
                             }} />
                         ) : (
-                            <div style={{
-                                fontSize: '0.85em',
-                                color: 'var(--vscode-textLink-foreground)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                padding: '4px 8px',
-                                backgroundColor: 'var(--vscode-editor-inactiveSelectionBackground)',
-                                borderRadius: '4px',
-                            }}>
-                                <span className="codicon codicon-file-media"></span>
-                                <span style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div className="badge" style={{ backgroundColor: 'var(--bg-surface-lighter)', color: 'var(--accent-primary)', fontSize: '11px' }}>
+                                <span className="codicon codicon-file-media" style={{ fontSize: '12px' }}></span>
+                                <span style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {selectedImage.split(/[/\\]/).pop()}
                                 </span>
                             </div>
@@ -133,19 +126,19 @@ export const InputArea = ({
                             title="Remove Image"
                             style={{
                                 position: 'absolute',
-                                top: '-6px',
-                                right: '-6px',
-                                width: '20px',
-                                height: '20px',
+                                top: '-8px',
+                                right: '-8px',
+                                width: '18px',
+                                height: '18px',
                                 borderRadius: '50%',
-                                backgroundColor: 'var(--vscode-errorForeground)',
+                                backgroundColor: 'hsl(0, 70%, 50%)',
                                 color: 'white',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 cursor: 'pointer',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                                fontSize: '12px'
+                                fontSize: '10px',
+                                border: '2px solid var(--bg-surface)'
                             }}
                         >
                             <span className="codicon codicon-close"></span>
@@ -153,20 +146,24 @@ export const InputArea = ({
                     </div>
                 )}
 
-                <VSCodeTextArea
+                <textarea
                     value={value}
                     onInput={(e: any) => setValue(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Ask anything (Ctrl+L), @ to mention, / for workflows"
+                    placeholder="Ask Orbit everything (Ctrl+L)..."
                     disabled={disabled && !isGenerating}
                     rows={Math.min(10, Math.max(2, value.split('\n').length))}
-                    resize="none"
                     style={{
                         width: '100%',
                         border: 'none',
                         background: 'transparent',
                         outline: 'none',
-                        padding: '0'
+                        padding: '4px 0',
+                        color: 'var(--text-main)',
+                        resize: 'none',
+                        fontSize: '13px',
+                        fontFamily: 'inherit',
+                        lineHeight: '1.6'
                     }}
                 />
 
@@ -176,27 +173,22 @@ export const InputArea = ({
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    marginTop: '8px'
+                    marginTop: '4px'
                 }}>
-                    <div className="left-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <VSCodeButton appearance="icon" onClick={onImageSelect} disabled={disabled || isGenerating} title="Attach Image" style={{ opacity: 0.7 }}>
-                            <span className="codicon codicon-file-media" style={{ fontSize: '18px' }}></span>
-                        </VSCodeButton>
-                        <VSCodeButton appearance="icon" onClick={onFilePicker} disabled={disabled || isGenerating} title="Attach File" style={{ opacity: 0.7 }}>
-                            <span className="codicon codicon-attach" style={{ fontSize: '18px' }}></span>
-                        </VSCodeButton>
+                    <div className="left-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                            <button className="clickable" onClick={onImageSelect} disabled={disabled || isGenerating} title="Attach Image" 
+                                    style={{ padding: '6px', borderRadius: '6px', color: 'var(--text-dim)' }}>
+                                <span className="codicon codicon-file-media" style={{ fontSize: '16px' }}></span>
+                            </button>
+                            <button className="clickable" onClick={onFilePicker} disabled={disabled || isGenerating} title="Attach File"
+                                    style={{ padding: '6px', borderRadius: '6px', color: 'var(--text-dim)' }}>
+                                <span className="codicon codicon-attach" style={{ fontSize: '16px' }}></span>
+                            </button>
+                        </div>
 
-                        <div className="model-selector-pill" style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            backgroundColor: 'var(--vscode-badge-background)',
-                            color: 'var(--vscode-badge-foreground)',
-                            borderRadius: '12px',
-                            padding: '2px 8px',
-                            fontSize: '0.8em',
-                            cursor: 'pointer'
-                        }}>
-                            <span className="codicon codicon-sparkle" style={{ fontSize: '12px', marginRight: '4px' }}></span>
+                        <div className="badge badge-primary" style={{ borderRadius: '6px', cursor: 'pointer', padding: '4px 8px' }}>
+                            <span className="codicon codicon-sparkle" style={{ fontSize: '11px' }}></span>
                             <select
                                 value={currentModel}
                                 onChange={(e) => onModelChange(e.target.value)}
@@ -205,52 +197,55 @@ export const InputArea = ({
                                     border: 'none',
                                     color: 'inherit',
                                     fontFamily: 'inherit',
-                                    fontSize: 'inherit',
+                                    fontSize: '11px',
+                                    fontWeight: 500,
                                     cursor: 'pointer',
                                     outline: 'none',
                                     appearance: 'none',
-                                    maxWidth: '120px',
-                                    whiteSpace: 'nowrap',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis'
+                                    maxWidth: '130px',
+                                    paddingRight: '12px'
                                 }}
-                                title="Change Model"
                             >
-                                {models.map(m => <option key={m} value={m} style={{ background: 'var(--vscode-dropdown-background)', color: 'var(--vscode-dropdown-foreground)' }}>{m}</option>)}
+                                {models.map(m => <option key={m} value={m} style={{ background: 'var(--bg-surface)', color: 'var(--text-main)' }}>{m}</option>)}
                             </select>
-                            <span className="codicon codicon-chevron-down" style={{ fontSize: '10px', marginLeft: '4px' }}></span>
+                            <span className="codicon codicon-chevron-down" style={{ fontSize: '10px', marginLeft: '-8px', pointerEvents: 'none' }}></span>
                         </div>
                     </div>
 
                     <div className="right-controls">
                         {isGenerating ? (
-                            <VSCodeButton appearance="icon" onClick={onStop} title="Stop Generation" style={{
-                                borderRadius: '50%', width: '28px', height: '28px', backgroundColor: 'var(--vscode-button-secondaryBackground)', color: 'var(--vscode-button-secondaryForeground)'
+                            <button className="clickable" onClick={handleStop} title="Stop Generation" style={{
+                                width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-surface-lighter)', color: 'var(--text-main)', border: '1px solid var(--border-base)'
                             }}>
-                                <span className="codicon codicon-debug-stop"></span>
-                            </VSCodeButton>
+                                <span className="codicon codicon-debug-stop" style={{ fontSize: '14px' }}></span>
+                            </button>
                         ) : (
-                            <VSCodeButton
-                                appearance="primary"
+                            <button
+                                className="clickable"
                                 onClick={handleSend}
                                 disabled={disabled || !value.trim()}
                                 title="Send"
                                 style={{
-                                    borderRadius: '50%',
                                     width: '32px',
                                     height: '32px',
-                                    minWidth: '32px',
-                                    padding: 0,
+                                    borderRadius: '50%',
+                                    background: value.trim() ? 'var(--accent-primary)' : 'var(--bg-surface-lighter)',
+                                    color: value.trim() ? 'black' : 'var(--text-dim)',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'center'
+                                    justifyContent: 'center',
+                                    boxShadow: value.trim() ? 'var(--shadow-glow)' : 'none'
                                 }}
                             >
-                                <span className="codicon codicon-arrow-up"></span>
-                            </VSCodeButton>
+                                <span className="codicon codicon-arrow-up" style={{ fontSize: '18px', fontWeight: 'bold' }}></span>
+                            </button>
                         )}
                     </div>
                 </div>
+            </div>
+            
+            <div style={{ fontSize: '10px', color: 'var(--text-dim)', textAlign: 'center', marginTop: '4px' }}>
+                Orbit can make mistakes. Check important info.
             </div>
         </div>
     );

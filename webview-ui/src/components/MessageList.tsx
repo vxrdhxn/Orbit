@@ -28,51 +28,60 @@ export const MessageList = ({ messages, isGenerating }: MessageListProps) => {
         <div className="messages" style={{
             flexGrow: 1,
             overflowY: 'auto',
-            padding: '20px',
+            padding: '24px 16px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '24px'
+            gap: '32px'
         }}>
             {messages.map((msg, i) => {
                 const isLastAI = i === messages.length - 1 && msg.role === 'ai' && isGenerating;
                 
                 return (
-                    <div key={i} className={`message-container animate-fade-in`} style={{
+                    <div key={i} className="animate-slide-up" style={{
                         display: 'flex',
-                        flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
-                        gap: '12px',
-                        alignItems: 'flex-start'
+                        flexDirection: 'column',
+                        gap: '8px',
+                        alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start'
                     }}>
-                        <div className="avatar" style={{
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '4px',
+                        <div style={{
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: msg.role === 'user' ? 'var(--vscode-button-background)' : 'var(--vscode-editor-inactiveSelectionBackground)',
-                            color: msg.role === 'user' ? 'var(--vscode-button-foreground)' : 'var(--vscode-editor-foreground)',
-                            flexShrink: 0,
-                            marginTop: '2px'
+                            gap: '8px',
+                            padding: '0 4px',
+                            marginBottom: '4px'
                         }}>
-                            <span className={`codicon ${msg.role === 'user' ? 'codicon-account' : 'codicon-hubot'}`}></span>
+                            <div style={{
+                                width: '20px',
+                                height: '20px',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: msg.role === 'user' ? 'var(--bg-surface-lighter)' : 'hsla(190, 100%, 50%, 0.1)',
+                                border: '1px solid var(--border-dim)'
+                            }}>
+                                <span className={`codicon ${msg.role === 'user' ? 'codicon-account' : 'codicon-hubot'}`} 
+                                      style={{ fontSize: '12px', color: msg.role === 'user' ? 'var(--text-muted)' : 'var(--accent-primary)' }}></span>
+                            </div>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                {msg.role === 'user' ? 'You' : 'Orbit'}
+                            </span>
                         </div>
 
                         <div className={`message-bubble ${msg.role}`} style={{
-                            padding: '12px 16px',
-                            borderRadius: '12px',
-                            maxWidth: '85%',
-                            fontSize: 'var(--vscode-font-size)',
-                            lineHeight: '1.5',
-                            backgroundColor: msg.role === 'user' ? 'var(--vscode-button-secondaryBackground)' : 'var(--vscode-editor-inactiveSelectionBackground)',
-                            color: msg.role === 'user' ? 'var(--vscode-button-secondaryForeground)' : 'var(--vscode-editor-foreground)',
-                            border: '1px solid var(--vscode-widget-border)',
-                            boxShadow: 'var(--shadow-sm)'
+                            padding: msg.role === 'user' ? '10px 14px' : '0',
+                            borderRadius: 'var(--radius-md)',
+                            maxWidth: msg.role === 'user' ? '90%' : '100%',
+                            fontSize: '13px',
+                            lineHeight: '1.6',
+                            backgroundColor: msg.role === 'user' ? 'var(--bg-surface)' : 'transparent',
+                            color: 'var(--text-main)',
+                            border: msg.role === 'user' ? '1px solid var(--border-base)' : 'none',
                         }}>
                             {msg.role === 'user' ? (
                                 <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
                             ) : (
-                                <>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     <ReactMarkdown
                                         components={{
                                             code({ node, inline, className, children, ...props }: any) {
@@ -84,10 +93,12 @@ export const MessageList = ({ messages, isGenerating }: MessageListProps) => {
                                                     />
                                                 ) : (
                                                     <code className={className} {...props} style={{
-                                                        backgroundColor: 'rgba(128,128,128,0.2)',
-                                                        padding: '2px 4px',
+                                                        backgroundColor: 'var(--bg-surface)',
+                                                        padding: '2px 6px',
                                                         borderRadius: '4px',
-                                                        fontFamily: 'var(--vscode-editor-font-family)'
+                                                        color: 'var(--accent-primary)',
+                                                        fontFamily: 'var(--vscode-editor-font-family)',
+                                                        border: '1px solid var(--border-dim)'
                                                     }}>
                                                         {children}
                                                     </code>
@@ -98,7 +109,7 @@ export const MessageList = ({ messages, isGenerating }: MessageListProps) => {
                                         {msg.content}
                                     </ReactMarkdown>
                                     {isLastAI && <span className="blinking-cursor" />}
-                                </>
+                                </div>
                             )}
                         </div>
                     </div>

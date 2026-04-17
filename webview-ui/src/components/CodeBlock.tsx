@@ -38,27 +38,29 @@ export const CodeBlock = ({ language, value }: CodeBlockProps) => {
     };
 
     return (
-        <div className="code-block" style={{ margin: '8px 0', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--vscode-widget-border)' }}>
-            <div className="code-header" style={{
+        <div className="code-block-container" style={{
+            margin: '16px 0',
+            borderRadius: 'var(--radius-md)',
+            overflow: 'hidden',
+            border: '1px solid var(--border-base)',
+            boxShadow: 'var(--shadow-premium)',
+            backgroundColor: 'hsl(220, 15%, 8%)'
+        }}>
+            <div className="glass" style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '4px 8px',
-                backgroundColor: 'var(--vscode-editor-lineHighlightBackground)',
-                borderBottom: '1px solid var(--vscode-widget-border)',
-                fontSize: '0.85em'
+                padding: '6px 12px',
+                borderBottom: '1px solid var(--border-dim)',
+                background: 'hsla(220, 13%, 18%, 0.4)'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.7 }}>
-                    <span>{lang}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="badge badge-primary" style={{ fontSize: '10px', padding: '1px 6px' }}>
+                        {lang.toUpperCase()}
+                    </span>
                     {filePath && (
-                        <span style={{
-                            fontSize: '0.85em',
-                            padding: '1px 6px',
-                            borderRadius: '3px',
-                            backgroundColor: 'var(--vscode-badge-background)',
-                            color: 'var(--vscode-badge-foreground)'
-                        }}>
-                            {filePath}
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--vscode-editor-font-family)' }}>
+                            {filePath.split(/[/\\]/).pop()}
                         </span>
                     )}
                 </div>
