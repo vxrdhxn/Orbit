@@ -262,8 +262,36 @@ export class ChatProvider implements vscode.WebviewViewProvider {
           break;
         }
         case 'webviewReady': {
-          console.log('Received webviewReady, sending model list');
+          console.log('Received webviewReady, sending model list and history');
           await this._sendModelList(webviewView.webview);
+          await this._sendHistory(webviewView.webview);
+          break;
+        }
+        case 'getHistory': {
+          await this._sendHistory(webviewView.webview);
+          break;
+        }
+        case 'loadSession': {
+          const sessionId = data.value;
+          const history = this._context.globalState.get<ChatSession[]>('chatHistory', []);
+          const session = history.find(s => s.id === sessionId);
+          if (session) {
+            this._currentSession = session;
+            this._currentImage = null;
+            webviewView.webview.postMessage({ type: 'loadChat', value: session.messages });
+          }
+          break;
+        }
+        case 'deleteSession': {
+          const sessionId = data.value;
+          let history = this._context.globalState.get<ChatSession[]>('chatHistory', []);
+          history = history.filter(s => s.id !== sessionId);
+          await this._context.globalState.update('chatHistory', history);
+          // If we deleted the current session, start a new one
+          if (this._currentSession.id === sessionId) {
+            this.clearChat();
+          }
+          await this._sendHistory(webviewView.webview);
           break;
         }
         case 'error': {
@@ -567,6 +595,18 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       // Just send empty list or error state
       webview.postMessage({ type: 'modelListError', value: e.message });
     }
+  }
+
+  private async _sendHistory(webview: vscode.Webview) {
+    const history = this._context.globalState.get<ChatSession[]>('chatHistory', []);
+    // Send lightweight metadata for history list
+    const sessionList = history.map(s => ({
+      id: s.id,
+      title: s.title,
+      lastModified: s.lastModified,
+      messageCount: s.messages.length
+    }));
+    webview.postMessage({ type: 'updateHistory', value: sessionList });
   }
 
   /**

@@ -4,6 +4,7 @@ import { MessageList } from './components/MessageList';
 import { InputArea } from './components/InputArea';
 import { DiffApproval } from './components/DiffApproval';
 import { DecisionHistory } from './components/DecisionHistory';
+import { ChatHistory, ChatSessionMetadata } from './components/ChatHistory';
 import { DiffProposal } from './types';
 
 declare global {
@@ -18,15 +19,17 @@ interface Message {
 }
 
 function App() {
-    const [view, setView] = useState<'chat' | 'diff' | 'history'>(window.initialData ? 'diff' : 'chat');
+    const [view, setView] = useState<'chat' | 'diff' | 'history' | 'chatHistory'>(window.initialData ? 'diff' : 'chat');
     const [proposal, setProposal] = useState<DiffProposal | null>(window.initialData || null);
     const [decisions, setDecisions] = useState<any[]>([]);
     const [messages, setMessages] = useState<Message[]>([]);
+    const [chatHistory, setChatHistory] = useState<ChatSessionMetadata[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [models, setModels] = useState<string[]>([]);
     const [currentModel, setCurrentModel] = useState<string>('');
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [statusMessage, setStatusMessage] = useState<string>('');
+    const [hasAttemptedInitialHistoryLoad, setHasAttemptedInitialHistoryLoad] = useState(false);
 
     // To handle streaming updates correctly without dependency issues
     const messagesRef = useRef<Message[]>([]);
@@ -38,9 +41,19 @@ function App() {
         const handleMessage = (event: MessageEvent) => {
             const message = event.data;
             switch (message.type) {
+                case 'updateHistory':
+                    setChatHistory(message.value);
+                    // Startup logic: If on initial chat view with no messages, and we have history, show history
+                    if (!hasAttemptedInitialHistoryLoad) {
+                        if (message.value && message.value.length > 0 && messages.length === 0 && view === 'chat') {
+                            setView('chatHistory');
+                        }
+                        setHasAttemptedInitialHistoryLoad(true);
+                    }
+                    break;
                 case 'addMessage':
                     setMessages(prev => [...prev, { role: message.role, content: message.content }]);
-                    setIsGenerating(message.role === 'user'); // If adding a user message, we are likely starting generation
+                    setIsGenerating(message.role === 'user');
                     break;
                 case 'addResponse':
                     setMessages(prev => [...prev, { role: 'ai', content: message.value }]);
@@ -78,10 +91,12 @@ function App() {
                     setIsGenerating(false);
                     setSelectedImage(null);
                     setStatusMessage('');
+                    setView('chat');
                     break;
                 case 'loadChat':
                     setMessages(message.value);
                     setIsGenerating(false);
+                    setView('chat');
                     break;
                 case 'insertFileReference':
                     window.dispatchEvent(new CustomEvent('orbit-insert-text', { detail: message.value }));
@@ -106,11 +121,10 @@ function App() {
         };
 
         window.addEventListener('message', handleMessage);
-        // Tell extension we are ready
         vscode.postMessage({ type: 'webviewReady' });
 
         return () => window.removeEventListener('message', handleMessage);
-    }, []);
+    }, [hasAttemptedInitialHistoryLoad, view, messages.length]);
 
     const handleSend = (text: string) => {
         if (isGenerating) return;
@@ -118,9 +132,6 @@ function App() {
         setMessages(prev => [...prev, { role: 'user', content: text }]);
         setIsGenerating(true);
         vscode.postMessage({ type: 'sendMessage', value: text });
-        // Clear image selection as it is sent (handled by backend clearing, but UI should reflect?)
-        // Backend clears it after use. UI waits for 'imageSelected' or just assumes cleared?
-        // Actually backend clears ITs state. We should clear ours.
         setSelectedImage(null);
     };
 
@@ -146,7 +157,7 @@ function App() {
     };
 
     const handleRemoveImage = () => {
-        setIsGenerating(false); // Should not affect generating, but good safety
+        setIsGenerating(false);
         setSelectedImage(null);
         vscode.postMessage({ type: 'clearImage' });
     };
@@ -155,12 +166,35 @@ function App() {
         vscode.postMessage({ type: 'openFilePicker' });
     };
 
+    const handleLoadSession = (id: string) => {
+        vscode.postMessage({ type: 'loadSession', value: id });
+    };
+
+    const handleDeleteSession = (id: string) => {
+        vscode.postMessage({ type: 'deleteSession', value: id });
+    };
+
+    const handleNewChat = () => {
+        setMessages([]);
+        vscode.postMessage({ type: 'newChat' });
+        setView('chat');
+    };
+
     if (view === 'diff' && proposal) {
         return <DiffApproval proposal={proposal} />;
     }
 
     if (view === 'history') {
         return <DecisionHistory decisions={decisions} />;
+    }
+
+    if (view === 'chatHistory') {
+        return <ChatHistory 
+            sessions={chatHistory} 
+            onSelect={handleLoadSession} 
+            onNewChat={handleNewChat} 
+            onDelete={handleDeleteSession}
+        />;
     }
 
     return (
@@ -186,8 +220,11 @@ function App() {
                         {isGenerating ? 'Reasoning...' : 'Connected'}
                     </div>
                     <div style={{ width: '1px', height: '14px', background: 'var(--border-dim)' }}></div>
-                    <button className="clickable" title="Clear Chat" onClick={() => vscode.postMessage({ type: 'clearChat' })}>
-                        <span className="codicon codicon-trash" style={{ fontSize: '14px', color: 'var(--text-dim)' }}></span>
+                    <button className="clickable" title="Chat History" onClick={() => setView('chatHistory')}>
+                        <span className="codicon codicon-history" style={{ fontSize: '14px', color: 'var(--text-dim)' }}></span>
+                    </button>
+                    <button className="clickable" title="New Chat" onClick={handleNewChat}>
+                        <span className="codicon codicon-add" style={{ fontSize: '14px', color: 'var(--text-dim)' }}></span>
                     </button>
                 </div>
             </header>
