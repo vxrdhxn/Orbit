@@ -196,7 +196,12 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     const systemPrompt = this._buildSystemPrompt(editor);
     const toolInstructions = this._toolManager.getToolDefinitions();
     
-    return `${systemPrompt}\n\n${toolInstructions}\n\nUser Question: ${userMsg}\n\nResponse:`;
+    // Include past conversation history within this session
+    const history = this._currentSession.messages.map(m => 
+        `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`
+    ).join('\n\n');
+    
+    return `${systemPrompt}\n\n${toolInstructions}\n\nConversation History:\n${history}\n\nUser Question: ${userMsg}\n\nResponse:`;
   }
 
 

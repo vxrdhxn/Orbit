@@ -124,7 +124,7 @@ function App() {
         vscode.postMessage({ type: 'webviewReady' });
 
         return () => window.removeEventListener('message', handleMessage);
-    }, [hasAttemptedInitialHistoryLoad, view, messages.length]);
+    }, []); // Run once on mount to establish listener
 
     const handleSend = (text: string) => {
         if (isGenerating) return;
