@@ -176,9 +176,7 @@ function App() {
                 borderBottom: '1px solid var(--border-dim)'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div className="badge badge-primary" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Orbit Pro
-                    </div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, letterSpacing: '-0.5px' }}>Orbit</div>
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -217,7 +215,7 @@ function App() {
                             Orbit
                         </div>
                         <div style={{ fontSize: '12px', color: 'var(--text-muted)', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                            Intelligent Development
+                            Code at the speed of thought
                         </div>
                     </div>
                 ) : (
