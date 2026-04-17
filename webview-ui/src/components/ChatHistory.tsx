@@ -81,36 +81,47 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({ sessions, onSelect, on
               key={session.id}
               className="glass clickable animate-slide-up"
               onClick={() => onSelect(session.id)}
-              style={{
-                padding: '12px',
+             style={{
+                padding: '16px',
                 borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-base)',
+                border: '1px solid var(--border-dim)',
+                background: 'linear-gradient(145deg, hsla(220, 15%, 10%, 0.4), hsla(220, 15%, 5%, 0.4))',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '4px',
+                gap: '8px',
                 position: 'relative',
-                transition: 'var(--transition-smooth)'
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-base)';
+                e.currentTarget.style.background = 'hsla(220, 15%, 12%, 0.6)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-dim)';
+                e.currentTarget.style.background = 'linear-gradient(145deg, hsla(220, 15%, 10%, 0.4), hsla(220, 15%, 5%, 0.4))';
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <span style={{ 
                   fontWeight: 600, 
                   fontSize: '13px', 
                   color: 'var(--text-main)',
+                  lineHeight: '1.4',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  maxWidth: '70%'
+                  maxWidth: '75%'
                 }}>
-                  {session.title}
+                  {session.title || 'Untitled Session'}
                 </span>
-                <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
+                <span style={{ fontSize: '10px', color: 'var(--text-dim)', marginTop: '2px' }}>
                   {formatDate(session.lastModified)}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.6, fontSize: '11px' }}>
-                    <span className="codicon codicon-comment" style={{ fontSize: '10px' }}></span>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.5, fontSize: '10px' }}>
+                    <span className="codicon codicon-comment" style={{ fontSize: '11px' }}></span>
                     {session.messageCount} messages
                  </div>
                  
@@ -125,9 +136,13 @@ export const ChatHistory: React.FC<ChatHistoryProps> = ({ sessions, onSelect, on
                      padding: '4px',
                      borderRadius: '4px',
                      color: 'var(--text-dim)',
+                     background: 'transparent',
+                     display: 'flex',
+                     alignItems: 'center',
+                     justifyContent: 'center'
                    }}
                  >
-                    <span className="codicon codicon-trash" style={{ fontSize: '12px' }}></span>
+                    <span className="codicon codicon-trash" style={{ fontSize: '14px' }}></span>
                  </button>
               </div>
             </div>
