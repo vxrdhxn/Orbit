@@ -7,6 +7,7 @@ import { performSearch } from './searchCommand';
 import { FileReferenceParser } from './fileReference/fileReferenceParser';
 import { FileContentReader } from './fileReference/fileContentReader';
 import { FileReferenceManager } from './fileReference/fileReferenceManager';
+import { ToolManager } from './tools/ToolManager';
 import { InlineApplyService } from './services/InlineApplyService';
 import { TerminalService } from './services/TerminalService';
 import { parseCodeBlocks, languageMatchesFile, isTerminalLanguage } from './utils/codeBlockParser';
@@ -37,6 +38,9 @@ export class ChatProvider implements vscode.WebviewViewProvider {
   private _inlineApply: InlineApplyService;
   private _terminalService: TerminalService;
 
+  private _toolManager: ToolManager;
+  private _maxIterations = 5;
+
   constructor(private readonly _context: vscode.ExtensionContext) {
     this._currentSession = this._createNewSession();
     this._fileParser = new FileReferenceParser();
@@ -44,6 +48,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     this._fileManager = new FileReferenceManager(_context);
     this._inlineApply = new InlineApplyService();
     this._terminalService = new TerminalService();
+    this._toolManager = new ToolManager(this._terminalService, this._inlineApply);
   }
 
   private _createNewSession(): ChatSession {
@@ -60,7 +65,6 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     const index = history.findIndex(s => s.id === this._currentSession.id);
 
     if (this._currentSession.messages.length > 0) {
-      // Update title based on first message if it's "New Chat"
       if (this._currentSession.title === 'New Chat' && this._currentSession.messages.length > 0) {
         const firstMsg = this._currentSession.messages[0].content;
         this._currentSession.title = firstMsg.slice(0, 30) + (firstMsg.length > 30 ? '...' : '');
@@ -89,155 +93,112 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  /**
-   * Handles instructions from outside the webview (e.g., from a VS Code command).
-   */
   public async handleExternalInstruction(instruction: string) {
     if (!this._webviewView) {
       await vscode.commands.executeCommand('orbit.chatView.focus');
     }
 
-    // Give it a moment to resolve if it was just opened
     if (!this._webviewView) {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
     if (this._webviewView) {
-      // Sync UI first
       this._webviewView.webview.postMessage({ type: 'loadChat', value: this._currentSession.messages });
-      // Clear status
       this._webviewView.webview.postMessage({ type: 'status', value: '' });
-
-      // Then process
       await this._processMessage(instruction, this._webviewView.webview, true);
     }
   }
 
   private async _processMessage(userMsg: string, webview: vscode.Webview, appendToUI: boolean = false) {
-    console.log('Processing message:', userMsg);
+    console.log('Processing message (Agentic Loop):', userMsg);
 
     if (appendToUI) {
       webview.postMessage({ type: 'addMessage', role: 'user', content: userMsg });
     }
 
+    // Add to current session
+    this._currentSession.messages.push({ role: 'user', content: userMsg, timestamp: Date.now() });
+
     // 0. Proactive connection check
     const ollama = new OllamaClient();
     const status = await ollama.checkConnection();
     if (!status.ok) {
-      webview.postMessage({ type: 'addResponse', value: `⚠️ **Connection Error**: ${status.message}\n\nTo use Orbit, please install Ollama and ensure the server is running. You can verify it by running \`ollama list\` in your terminal.` });
-      return;
+        webview.postMessage({ type: 'addResponse', value: `⚠️ **Connection Error**: ${status.message}` });
+        return;
     }
 
-    // Add to current session
-    this._currentSession.messages.push({
-      role: 'user',
-      content: userMsg,
-      timestamp: Date.now()
-    });
-
-    // Check for file references
-    let fileContext = '';
-    const detectedRefs = await this._fileParser.parse(userMsg);
-
-    if (detectedRefs.length > 0) {
-      for (const ref of detectedRefs) {
-        if (ref.isValid) {
-          try {
-            const content = await this._fileReader.read(ref.path, {
-              lineRange: ref.lineRange
-            });
-            fileContext += `\n\nReference: ${ref.raw}\nFile: ${ref.path}\n\`\`\`\n${content.content}\n\`\`\``;
-            this._fileManager.addRecentFile(ref.path);
-          } catch (e: any) {
-            webview.postMessage({ type: 'addResponse', value: `Error reading ${ref.path}: ${e.message}` });
-          }
-        }
-      }
-    }
-
-    this._saveHistory();
-
-    // Cancel previous generation if any
-    if (this._abortController) {
-      this._abortController.abort();
-    }
+    if (this._abortController) this._abortController.abort();
     this._abortController = new AbortController();
 
-    // Send "thinking" status
-    webview.postMessage({ type: 'status', value: 'Thinking...' });
+    let iteration = 0;
+    let fullPrompt = this._buildInitialPrompt(userMsg);
+    let finalCombinedResponse = '';
 
-    try {
-      // RAG: Search for context
-      const ws = vscode.workspace.workspaceFolders?.[0];
-      let contextText = '';
-      if (ws) {
+    while (iteration < this._maxIterations) {
+        iteration++;
+        webview.postMessage({ type: 'status', value: iteration === 1 ? 'Reasoning...' : `Executing Step ${iteration}...` });
+
         try {
-          const results = await performSearch(userMsg, ws.uri);
-          if (results.length > 0) {
-            contextText += "\n\nContext from codebase:\n" + results.map(r => `File: ${r.entry.file}\n${r.entry.text}`).join('\n\n');
-          }
-        } catch (e) {
-          console.error('Search failed', e);
+            let currentTurnResponse = '';
+            await generate(fullPrompt, (chunk) => {
+                currentTurnResponse += chunk;
+                webview.postMessage({ type: 'addResponseChunk', value: chunk });
+            }, this._abortController.signal);
+
+            // Check for tool calls
+            const toolCallMatch = currentTurnResponse.match(/<tool_call name="([^"]+)">([\s\S]*?)<\/tool_call>/);
+            
+            if (toolCallMatch) {
+                const toolName = toolCallMatch[1];
+                let toolArgs = {};
+                try {
+                    toolArgs = JSON.parse(toolCallMatch[2].trim());
+                } catch (e) {
+                    console.error('Failed to parse tool args', e);
+                }
+
+                // UI notification
+                webview.postMessage({ type: 'status', value: `Calling ${toolName}...` });
+                
+                const result = await this._toolManager.callTool(toolName, toolArgs);
+                const observation = `\n<observation>\n${result.output}\n</observation>\n`;
+                
+                // Append to prompt for next iteration
+                fullPrompt += currentTurnResponse + observation;
+                finalCombinedResponse += currentTurnResponse + observation;
+            } else {
+                // No more tool calls, we are done
+                finalCombinedResponse += currentTurnResponse;
+                break;
+            }
+        } catch (e: any) {
+            if (e.name === 'AbortError') {
+                webview.postMessage({ type: 'status', value: 'Cancelled' });
+            } else {
+                webview.postMessage({ type: 'addResponse', value: `Error: ${e.message}` });
+            }
+            break;
         }
-      }
-
-      // Add active editor content if available
-      const editor = vscode.window.activeTextEditor;
-      if (editor) {
-        const doc = editor.document;
-        const selection = editor.selection;
-        const text = selection.isEmpty ? doc.getText() : doc.getText(selection);
-        contextText += `\n\nActive File (${doc.fileName}):\n\`\`\`\n${text}\n\`\`\``;
-      }
-
-      const systemPrompt = this._buildSystemPrompt(editor);
-      const prompt = `${systemPrompt}\n\n${(contextText || fileContext) ? `${contextText}${fileContext}\n\n` : ''}User Question: ${userMsg}`;
-
-      // Handle Image
-      let images: string[] | undefined;
-      if (this._currentImage) {
-        try {
-          const imagePath = this._currentImage;
-          const imageBuffer = await vscode.workspace.fs.readFile(vscode.Uri.file(imagePath));
-          const base64Image = Buffer.from(imageBuffer).toString('base64');
-          images = [base64Image];
-          // Clear image after use
-          this._currentImage = null;
-        } catch (e) {
-          console.error('Failed to read image', e);
-          webview.postMessage({ type: 'addResponse', value: 'Error reading image file.' });
-        }
-      }
-
-      // Streaming Response
-      let aiResponse = '';
-      await generate(prompt, (chunk) => {
-        aiResponse += chunk;
-        webview.postMessage({ type: 'addResponseChunk', value: chunk });
-      }, this._abortController.signal, images);
-
-      // Save AI response to history
-      this._currentSession.messages.push({
-        role: 'ai',
-        content: aiResponse,
-        timestamp: Date.now()
-      });
-      this._saveHistory();
-
-      // Auto-Apply: detect code blocks and auto-open diff if a single block targets the active file
-      this._tryAutoApply(aiResponse, webview);
-
-    } catch (e: any) {
-      if (e.name === 'AbortError') {
-        webview.postMessage({ type: 'status', value: 'Cancelled' });
-      } else {
-        webview.postMessage({ type: 'addResponse', value: `Error: ${e.message}` });
-      }
-    } finally {
-      this._abortController = null;
-      webview.postMessage({ type: 'status', value: '' });
     }
+
+    // Save final state
+    this._currentSession.messages.push({ role: 'ai', content: finalCombinedResponse, timestamp: Date.now() });
+    this._saveHistory();
+    this._abortController = null;
+    webview.postMessage({ type: 'status', value: '' });
+
+    // Final Auto-Apply check
+    this._tryAutoApply(finalCombinedResponse, webview);
   }
+
+  private _buildInitialPrompt(userMsg: string): string {
+    const editor = vscode.window.activeTextEditor;
+    const systemPrompt = this._buildSystemPrompt(editor);
+    const toolInstructions = this._toolManager.getToolDefinitions();
+    
+    return `${systemPrompt}\n\n${toolInstructions}\n\nUser Question: ${userMsg}\n\nResponse:`;
+  }
+
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
