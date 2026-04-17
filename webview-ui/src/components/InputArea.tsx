@@ -1,6 +1,7 @@
 import { useState, useEffect, KeyboardEvent, ClipboardEvent } from 'react';
 import { VSCodeButton, VSCodeTextArea } from '@vscode/webview-ui-toolkit/react';
 import { FileReferenceIndicator } from './FileReferenceIndicator';
+import { ModelSelector } from './ModelSelector';
 
 interface InputAreaProps {
     onSend: (text: string) => void;
@@ -178,38 +179,16 @@ export const InputArea = ({
                     <div className="left-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div style={{ display: 'flex', gap: '4px' }}>
                             <button className="clickable" onClick={onImageSelect} disabled={disabled || isGenerating} title="Attach Image" 
-                                    style={{ padding: '6px', borderRadius: '6px', color: 'var(--text-dim)' }}>
+                                    style={{ padding: '6px', borderRadius: '6px', color: 'var(--text-dim)', background: 'transparent' }}>
                                 <span className="codicon codicon-file-media" style={{ fontSize: '16px' }}></span>
                             </button>
                             <button className="clickable" onClick={onFilePicker} disabled={disabled || isGenerating} title="Attach File"
-                                    style={{ padding: '6px', borderRadius: '6px', color: 'var(--text-dim)' }}>
+                                    style={{ padding: '6px', borderRadius: '6px', color: 'var(--text-dim)', background: 'transparent' }}>
                                 <span className="codicon codicon-attach" style={{ fontSize: '16px' }}></span>
                             </button>
                         </div>
 
-                        <div className="badge badge-primary" style={{ borderRadius: '6px', cursor: 'pointer', padding: '4px 8px' }}>
-                            <span className="codicon codicon-sparkle" style={{ fontSize: '11px' }}></span>
-                            <select
-                                value={currentModel}
-                                onChange={(e) => onModelChange(e.target.value)}
-                                style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'inherit',
-                                    fontFamily: 'inherit',
-                                    fontSize: '11px',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
-                                    outline: 'none',
-                                    appearance: 'none',
-                                    maxWidth: '130px',
-                                    paddingRight: '12px'
-                                }}
-                            >
-                                {models.map(m => <option key={m} value={m} style={{ background: 'var(--bg-surface)', color: 'var(--text-main)' }}>{m}</option>)}
-                            </select>
-                            <span className="codicon codicon-chevron-down" style={{ fontSize: '10px', marginLeft: '-8px', pointerEvents: 'none' }}></span>
-                        </div>
+                        <ModelSelector models={models} current={currentModel} onSelect={onModelChange} />
                     </div>
 
                     <div className="right-controls">

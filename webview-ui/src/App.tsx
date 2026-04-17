@@ -220,10 +220,10 @@ function App() {
                         {isGenerating ? 'Reasoning...' : 'Connected'}
                     </div>
                     <div style={{ width: '1px', height: '14px', background: 'var(--border-dim)' }}></div>
-                    <button className="clickable" title="Chat History" onClick={() => setView('chatHistory')}>
+                    <button className="clickable" title="Chat History" onClick={() => setView('chatHistory')} style={{ background: 'transparent' }}>
                         <span className="codicon codicon-history" style={{ fontSize: '14px', color: 'var(--text-dim)' }}></span>
                     </button>
-                    <button className="clickable" title="New Chat" onClick={handleNewChat}>
+                    <button className="clickable" title="New Chat" onClick={handleNewChat} style={{ background: 'transparent' }}>
                         <span className="codicon codicon-add" style={{ fontSize: '14px', color: 'var(--text-dim)' }}></span>
                     </button>
                 </div>
