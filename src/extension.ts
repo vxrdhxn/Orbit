@@ -3,6 +3,8 @@ import * as path from 'path';
 import { SmartClient } from './providers/SmartClient';
 
 import { ChatProvider } from './ChatProvider';
+import { CompletionProvider } from './completionProvider';
+
 import { ReviewService } from './reviewService';
 import { EnhancedReviewService } from './services/EnhancedReviewService';
 import { LLMRouter } from './reasoning/LLMRouter';
@@ -147,8 +149,10 @@ export function activate(context: vscode.ExtensionContext) {
         );
         const codeLensProvider = new ReviewCodeLensProvider(annotationManager);
         context.subscriptions.push(
-            vscode.languages.registerCodeLensProvider({ scheme: 'file' }, codeLensProvider)
+            vscode.languages.registerCodeLensProvider({ scheme: 'file' }, codeLensProvider),
+            vscode.languages.registerInlineCompletionItemProvider({ scheme: 'file' }, new CompletionProvider(llmClient))
         );
+
 
         // Status Bar (Pilot)
         const pilotStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);

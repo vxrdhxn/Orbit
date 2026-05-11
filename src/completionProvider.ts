@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
-import { generate } from './ollamaClient';
+import { ILLMClient } from './providers/ILLMClient';
 
 export class CompletionProvider implements vscode.InlineCompletionItemProvider {
+    constructor(private llmClient: ILLMClient) { }
+
     async provideInlineCompletionItems(
         document: vscode.TextDocument,
         position: vscode.Position,
@@ -20,13 +22,7 @@ export class CompletionProvider implements vscode.InlineCompletionItemProvider {
         const prompt = `<|fim_prefix|>${prefix}<|fim_suffix|>${suffix}<|fim_middle|>`;
 
         try {
-            // Create an AbortController to handle cancellation
-            const abortController = new AbortController();
-            token.onCancellationRequested(() => {
-                abortController.abort();
-            });
-
-            const completion = await generate(prompt, undefined, abortController.signal, undefined);
+            const completion = await this.llmClient.generate(prompt);
 
             if (token.isCancellationRequested) return [];
             if (!completion) return [];
@@ -34,7 +30,6 @@ export class CompletionProvider implements vscode.InlineCompletionItemProvider {
             return [new vscode.InlineCompletionItem(completion, new vscode.Range(position, position))];
         } catch (e: any) {
             if (e.name === 'AbortError') {
-                // Request was cancelled, return empty
                 return [];
             }
             console.error('Completion error:', e);
