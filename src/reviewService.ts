@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { OllamaClient } from './ollamaClient';
+import { ILLMClient } from './providers/ILLMClient';
+
 import { ContextGatherer } from './reviewContext';
 import {
     ReviewReport,
@@ -17,10 +18,11 @@ import {
 
 export class ReviewService {
     constructor(
-        protected ollamaClient: OllamaClient,
+        protected llmClient: ILLMClient,
         protected contextGatherer: ContextGatherer,
         protected config: ReviewConfig
     ) { }
+
 
     async reviewCode(code: CodeInput[], options: ReviewOptions): Promise<ReviewReport> {
         // 1. Context Gathering
@@ -29,18 +31,13 @@ export class ReviewService {
         // 2. Build Prompt
         const prompt = this.buildPrompt(code, context);
 
-        const currentConfig = vscode.workspace.getConfiguration('orbit');
-        const onlineSelected = currentConfig.get<boolean>('preferOnline', false); 
-        // Technically this uses the ollamaClient, so we rely on the ollamaModel.
-        const model = currentConfig.get<string>('ollamaModel', 'qwen2.5-coder:7b');
-
-        // 3. Call Ollama
+        // 3. Call AI
         const startTime = Date.now();
-        const response = await this.ollamaClient.generate(prompt, {
-            model: model,
+        const response = await this.llmClient.generate(prompt, {
             json: true
         });
         const durationMs = Date.now() - startTime;
+
 
         // 4. Parse Response
         const report = this.parseResponse(response);

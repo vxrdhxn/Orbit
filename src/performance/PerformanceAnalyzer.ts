@@ -3,7 +3,9 @@ import { PerformanceAnalysis, EdgeCase, Optimization } from './types';
 import { ComplexityDetector } from './ComplexityDetector';
 import { EdgeCaseIdentifier } from './EdgeCaseIdentifier';
 import { OptimizationSuggester } from './OptimizationSuggester';
-import { AIProvider, Message, Context } from '../providers/types';
+import { ILLMClient } from '../providers/ILLMClient';
+import { Context } from '../providers/types';
+
 import { LLMRouter } from '../reasoning/LLMRouter';
 import { ResponseFormatter } from '../reasoning/ResponseFormatter';
 import { StructuredResponse } from '../reasoning/types';
@@ -14,10 +16,11 @@ export class PerformanceAnalyzer {
     private optimizationSuggester: OptimizationSuggester;
 
     constructor(
-        private provider: AIProvider,
+        private llmClient: ILLMClient,
         private router: LLMRouter,
         private formatter: ResponseFormatter
     ) {
+
         this.complexityDetector = new ComplexityDetector();
         this.edgeCaseIdentifier = new EdgeCaseIdentifier();
         this.optimizationSuggester = new OptimizationSuggester();
@@ -51,23 +54,16 @@ Please provide a detailed performance analysis. Include:
 
 Follow the mandatory structured reasoning format.`;
 
-        const messages: Message[] = [
-            { role: 'system', content: 'You are a performance analysis expert. Analyze code for algorithmic complexity and provide optimization suggestions.' },
-            { role: 'user', content: this.router.appendStructuredInstructions(prompt) }
-        ];
-
         // 3. Call AI
-        // We use the underlying provider but we want the structured response object.
-        // StructuredProvider.chat returns a string, so we'll call provider.chat directly 
-        // and then use router.transformResponse.
-        const response = await this.provider.chat(messages, context);
-        let structured = this.router.transformResponse(response.content);
+        const fullPrompt = `System: You are a performance analysis expert. Analyze code for algorithmic complexity and provide optimization suggestions.\n\nUser: ${this.router.appendStructuredInstructions(prompt)}`;
+        const response = await this.llmClient.generate(fullPrompt);
+        let structured = this.router.transformResponse(response);
 
         if (!structured) {
             // Fallback if transformation failed but we still want to give some result
             structured = {
                 what: ['Analyzed code for performance.'],
-                why: response.content,
+                why: response,
                 improvements: 'See AI response.',
                 tradeoffs: 'N/A',
                 production: 'Review AI response.'

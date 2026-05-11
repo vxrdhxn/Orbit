@@ -1,5 +1,6 @@
 import { ReviewService } from '../reviewService';
-import { OllamaClient } from '../ollamaClient';
+import { ILLMClient } from '../providers/ILLMClient';
+
 import { ContextGatherer } from '../reviewContext';
 import {
     ReviewReport,
@@ -12,13 +13,14 @@ import { LLMRouter } from '../reasoning/LLMRouter';
 
 export class EnhancedReviewService extends ReviewService {
     constructor(
-        ollamaClient: OllamaClient,
+        llmClient: ILLMClient,
         contextGatherer: ContextGatherer,
         config: ReviewConfig,
         private llmRouter: LLMRouter
     ) {
-        super(ollamaClient, contextGatherer, config);
+        super(llmClient, contextGatherer, config);
     }
+
 
     /**
      * Overrides the base buildPrompt to inject structured reasoning instructions for each finding.

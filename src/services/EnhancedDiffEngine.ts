@@ -1,14 +1,16 @@
 import * as vscode from 'vscode';
-import { OllamaClient } from '../ollamaClient';
+import { ILLMClient } from '../providers/ILLMClient';
+
 import { LLMRouter } from '../reasoning/LLMRouter';
 import { DiffProposal } from '../reasoning/types';
 import { HunkParser, extractUnifiedDiff } from '../diffUtils';
 
 export class EnhancedDiffEngine {
     constructor(
-        private ollamaClient: OllamaClient,
+        private llmClient: ILLMClient,
         private llmRouter: LLMRouter
     ) { }
+
 
     /**
      * Generates a diff proposal with structured reasoning based on a user instruction.
@@ -17,10 +19,8 @@ export class EnhancedDiffEngine {
         const prompt = this.buildPrompt(filePath, originalContent, instruction);
 
         // We use json: false because we want the LLM to output a mix of Markdown and Diff
-        const model = vscode.workspace.getConfiguration('orbit').get<string>('ollamaModel', 'qwen2.5-coder:7b');
-        const response = await this.ollamaClient.generate(prompt, {
-            model: model
-        });
+        const response = await this.llmClient.generate(prompt);
+
 
         // 1. Extract reasoning using LLMRouter
         const structured = this.llmRouter.transformResponse(response);

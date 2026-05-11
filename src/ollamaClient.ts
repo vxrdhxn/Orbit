@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { ILLMClient } from './providers/ILLMClient';
 
 // ---- Types for Ollama endpoints ----
 type OllamaTagsResponse = {
@@ -10,6 +11,7 @@ type GenerateReq = {
   prompt: string;
   images?: string[];
   stream?: boolean;
+  format?: string;
   options?: { temperature?: number; top_p?: number };
 };
 
@@ -25,93 +27,7 @@ function cfg() {
   };
 }
 
-// ---- Ollama helpers ----
-export async function listModels(): Promise<string[]> {
-  const { baseUrl } = cfg();
-  console.log(`[ollamaClient] listModels called, baseUrl: ${baseUrl}`);
-  try {
-    const res = await fetch(`${baseUrl}/api/tags`);
-    console.log(`[ollamaClient] fetch response status: ${res.status}`);
-    if (!res.ok) throw new Error(`Ollama not reachable at ${baseUrl}`);
-    const json = (await res.json()) as OllamaTagsResponse;
-    console.log(`[ollamaClient] models found: ${json.models?.length}`);
-    return (json.models ?? []).map((m) => m.name);
-  } catch (e) {
-    console.error('[ollamaClient] listModels failed:', e);
-    throw e;
-  }
-}
-
-export async function modelExists(name: string) {
-  const models = await listModels();
-  return models.includes(name);
-}
-
-export async function generate(prompt: string, onChunk?: (chunk: string) => void, signal?: AbortSignal, images?: string[]): Promise<string> {
-  const { baseUrl, model, temperature } = cfg();
-  const body: GenerateReq = { model, prompt, images, stream: !!onChunk, options: { temperature } };
-  const res = await fetch(`${baseUrl}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal,
-  });
-
-  if (!res.ok) throw new Error(`Generate failed: HTTP ${res.status}`);
-
-  if (!onChunk) {
-    // Non-streaming behavior
-    const json = (await res.json()) as GenerateResp;
-    if (json.error) throw new Error(json.error);
-    return json.response ?? '';
-  }
-
-  // Streaming behavior
-  if (!res.body) throw new Error('No response body');
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let fullResponse = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    // Ollama sends multiple JSON objects in one chunk sometimes
-    const lines = chunk.split('\n').filter(l => l.trim() !== '');
-    for (const line of lines) {
-      try {
-        const json = JSON.parse(line) as GenerateResp;
-        if (json.error) throw new Error(json.error);
-        if (json.done) break;
-        if (json.response) {
-          onChunk(json.response);
-          fullResponse += json.response;
-        }
-      } catch (e) {
-        console.error('Error parsing JSON chunk', e);
-      }
-    }
-  }
-  return fullResponse;
-}
-
-export async function healthCheck(): Promise<{ ok: boolean; message: string }> {
-  try {
-    const { model } = cfg();
-    await listModels();
-    const exists = await modelExists(model);
-    if (!exists) {
-      return { ok: false, message: `Model "${model}" not found. Run:  ollama pull ${model}` };
-    }
-    const resp = await generate('Say "ready".');
-    const ok = /ready/i.test(resp);
-    return { ok, message: ok ? 'Ollama is ready ✅' : 'Ollama responded, but not as expected.' };
-  } catch (e: any) {
-    return { ok: false, message: `Health check failed: ${e?.message ?? e}` };
-  }
-}
-
-export class OllamaClient {
+export class OllamaClient implements ILLMClient {
   private baseUrl: string;
 
   constructor(baseUrl?: string) {
@@ -123,15 +39,22 @@ export class OllamaClient {
     }
   }
 
+  public async listModels(): Promise<string[]> {
+    console.log(`[OllamaClient] listModels called, baseUrl: ${this.baseUrl}`);
+    try {
+      const res = await fetch(`${this.baseUrl}/api/tags`);
+      if (!res.ok) throw new Error(`Ollama not reachable at ${this.baseUrl}`);
+      const json = (await res.json()) as OllamaTagsResponse;
+      return (json.models ?? []).map((m) => m.name);
+    } catch (e) {
+      console.error('[OllamaClient] listModels failed:', e);
+      throw e;
+    }
+  }
+
   public async generate(prompt: string, params?: { model?: string; json?: boolean }): Promise<string> {
-    // Use provided model or config default
     const { model: configModel, temperature } = cfg();
     const model = params?.model || configModel;
-
-    // Construct body
-    // Note: The standalone generate function supports streaming and images.
-    // This class method supports the simple use case needed by ReviewService (JSON, no images, non-stream for now or stream internally).
-    // ReviewService currently waits for full response (non-streaming in MVP logic).
 
     const body: GenerateReq = {
       model,
@@ -141,8 +64,7 @@ export class OllamaClient {
     };
 
     if (params?.json) {
-      // Ollama supports format: 'json'
-      (body as any).format = 'json';
+      body.format = 'json';
     }
 
     const res = await fetch(`${this.baseUrl}/api/generate`, {
@@ -158,6 +80,53 @@ export class OllamaClient {
 
     return json.response ?? '';
   }
+
+  public async generateStream(prompt: string, onChunk: (chunk: string) => void, signal?: AbortSignal, images?: string[]): Promise<string> {
+    const { model, temperature } = cfg();
+    const body: GenerateReq = { 
+      model, 
+      prompt, 
+      images, 
+      stream: true, 
+      options: { temperature } 
+    };
+
+    const res = await fetch(`${this.baseUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal,
+    });
+
+    if (!res.ok) throw new Error(`Generate failed: HTTP ${res.status}`);
+    if (!res.body) throw new Error('No response body');
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let fullResponse = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n').filter(l => l.trim() !== '');
+      for (const line of lines) {
+        try {
+          const json = JSON.parse(line) as GenerateResp;
+          if (json.error) throw new Error(json.error);
+          if (json.done) break;
+          if (json.response) {
+            onChunk(json.response);
+            fullResponse += json.response;
+          }
+        } catch (e) {
+          console.error('Error parsing JSON chunk', e);
+        }
+      }
+    }
+    return fullResponse;
+  }
+
   public async checkConnection(): Promise<{ ok: boolean; message: string }> {
     try {
       const res = await fetch(`${this.baseUrl}/api/tags`, { method: 'GET' });
@@ -169,5 +138,19 @@ export class OllamaClient {
       if (e.name === 'AbortError') return { ok: false, message: 'Connection timed out.' };
       return { ok: false, message: `Ollama server not reached at ${this.baseUrl}. Please ensure Ollama is running.` };
     }
+  }
+}
+
+// Legacy exports for compatibility during refactoring
+export async function listModels(): Promise<string[]> {
+  return new OllamaClient().listModels();
+}
+
+export async function generate(prompt: string, onChunk?: (chunk: string) => void, signal?: AbortSignal, images?: string[]): Promise<string> {
+  const client = new OllamaClient();
+  if (onChunk) {
+    return client.generateStream(prompt, onChunk, signal, images);
+  } else {
+    return client.generate(prompt);
   }
 }

@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { ProviderResolver } from './providers/ProviderResolver';
-import { OnlineProvider } from './providers/OnlineProvider';
-import { LocalProvider } from './providers/LocalProvider';
+import { SmartClient } from './providers/SmartClient';
+
 import { ChatProvider } from './ChatProvider';
 import { ReviewService } from './reviewService';
 import { EnhancedReviewService } from './services/EnhancedReviewService';
@@ -15,6 +14,7 @@ import { ReviewCommand } from './reviewCommand';
 import { PresetManager } from './reviewPresets';
 import { FindingCategory, SeverityLevel } from './reviewTypes';
 import { OllamaClient } from './ollamaClient';
+
 import { SimpleIndex } from './store';
 
 import { SQLiteMemory } from './memory/SQLiteMemory';
@@ -41,10 +41,12 @@ export function activate(context: vscode.ExtensionContext) {
         // This must happen regardless of workspace state so the
         // sidebar panel always loads its UI.
         // ============================================================
-        const chatViewProvider = new ChatProvider(context);
+        const llmClient = new SmartClient();
+        const chatViewProvider = new ChatProvider(context, llmClient);
         context.subscriptions.push(
             vscode.window.registerWebviewViewProvider(ChatProvider.viewType, chatViewProvider)
         );
+
 
         // Register the chat focus command unconditionally too
         context.subscriptions.push(
@@ -76,16 +78,8 @@ export function activate(context: vscode.ExtensionContext) {
         }
         const workspaceFolder = workspaceFolders[0].uri;
 
-        const config = vscode.workspace.getConfiguration('orbit');
-        const onlineEndpoint = config.get<string>('onlineApiEndpoint') || '';
-        const onlineApiKey = config.get<string>('onlineApiKey') || '';
-        const ollamaEndpoint = config.get<string>('ollamaEndpoint') || 'http://localhost:11434';
-        const ollamaModel = config.get<string>('ollamaModel') || 'qwen2.5-coder:7b';
+        // All configurations are handled dynamically by SmartClient
 
-        const onlineProvider = new OnlineProvider(onlineEndpoint, onlineApiKey);
-        const localProvider = new LocalProvider(ollamaEndpoint, ollamaModel);
-        const resolver = new ProviderResolver(onlineProvider, localProvider);
-        const ollamaClient = new OllamaClient(ollamaEndpoint);
 
         // Reasoning Infrastructure
         const formatter = new ResponseFormatter();
@@ -101,7 +95,8 @@ export function activate(context: vscode.ExtensionContext) {
         syncService.activate(context.subscriptions);
 
         // Diff & Approval System (Phase 4)
-        const diffEngine = new EnhancedDiffEngine(ollamaClient, router);
+        const diffEngine = new EnhancedDiffEngine(llmClient, router);
+
         const approvalManager = new ApprovalManager(decisionJournal);
         const diffApprovalView = new DiffApprovalView(context.extensionUri,
             (ids) => approvalManager.approve(ids),
@@ -109,7 +104,8 @@ export function activate(context: vscode.ExtensionContext) {
         );
 
         // Performance Analyzer (Phase 5)
-        const performanceAnalyzer = new PerformanceAnalyzer(localProvider, router, formatter);
+        const performanceAnalyzer = new PerformanceAnalyzer(llmClient, router, formatter);
+
         const performanceOutputChannel = vscode.window.createOutputChannel('Orbit Performance');
 
         // Review System
@@ -122,7 +118,8 @@ export function activate(context: vscode.ExtensionContext) {
             maxFindings: 20,
             autoApplyFixes: false
         };
-        const reviewService = new EnhancedReviewService(ollamaClient, contextGatherer, reviewConfig, router);
+        const reviewService = new EnhancedReviewService(llmClient, contextGatherer, reviewConfig, router);
+
         const presetManager = new PresetManager(context);
         const annotationManager = new AnnotationManager();
         const reviewCommand = new ReviewCommand(reviewService, presetManager);
@@ -164,9 +161,10 @@ export function activate(context: vscode.ExtensionContext) {
         // Workspace-dependent Commands
         context.subscriptions.push(
             vscode.commands.registerCommand('orbit.health', async () => {
-                const health = await resolver.checkHealth();
-                vscode.window.showInformationMessage(`Orbit Health: Online=${health.online}, Local=${health.local}`);
+                const health = await llmClient.checkConnection();
+                vscode.window.showInformationMessage(`Orbit Health: ${health.message}`);
             }),
+
             vscode.commands.registerCommand('orbit.review', () => reviewCommand.execute()),
             vscode.commands.registerCommand('orbit.edit', () => runEditCommand(diffEngine, approvalManager, diffApprovalView)),
             vscode.commands.registerCommand('orbit.showFindings', (findings) => {

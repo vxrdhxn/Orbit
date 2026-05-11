@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { generate, listModels, OllamaClient } from './ollamaClient';
+import { ILLMClient } from './providers/ILLMClient';
+
 import { performSearch } from './searchCommand';
 import { FileReferenceParser } from './fileReference/fileReferenceParser';
 import { FileContentReader } from './fileReference/fileContentReader';
@@ -41,7 +42,11 @@ export class ChatProvider implements vscode.WebviewViewProvider {
   private _toolManager: ToolManager;
   private _maxIterations = 5;
 
-  constructor(private readonly _context: vscode.ExtensionContext) {
+  constructor(
+    private readonly _context: vscode.ExtensionContext,
+    private readonly _llmClient: ILLMClient
+  ) {
+
     this._currentSession = this._createNewSession();
     this._fileParser = new FileReferenceParser();
     this._fileReader = new FileContentReader();
@@ -120,12 +125,12 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     this._currentSession.messages.push({ role: 'user', content: userMsg, timestamp: Date.now() });
 
     // 0. Proactive connection check
-    const ollama = new OllamaClient();
-    const status = await ollama.checkConnection();
+    const status = await this._llmClient.checkConnection();
     if (!status.ok) {
         webview.postMessage({ type: 'addResponse', value: `⚠️ **Connection Error**: ${status.message}` });
         return;
     }
+
 
     if (this._abortController) this._abortController.abort();
     this._abortController = new AbortController();
@@ -140,10 +145,11 @@ export class ChatProvider implements vscode.WebviewViewProvider {
 
         try {
             let currentTurnResponse = '';
-            await generate(fullPrompt, (chunk) => {
+            await this._llmClient.generateStream(fullPrompt, (chunk) => {
                 currentTurnResponse += chunk;
                 webview.postMessage({ type: 'addResponseChunk', value: chunk });
             }, this._abortController.signal);
+
 
             // Check for tool calls
             const toolCallMatch = currentTurnResponse.match(/<tool_call name="([^"]+)">([\s\S]*?)<\/tool_call>/);
@@ -539,7 +545,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
 
   private async _sendModelList(webview: vscode.Webview) {
     try {
-      const models = await listModels();
+      const models = await this._llmClient.listModels();
+
       const config = vscode.workspace.getConfiguration('orbit');
       let currentModel = config.get<string>('ollamaModel') || '';
 
