@@ -4,7 +4,6 @@ dist
 .vscode-test
 *.vsix
 .DS_Store
-.vscode
 .devmind
 *.db
 *.log
