@@ -19,18 +19,58 @@ export class SmartClient implements ILLMClient {
   }
 
   public async generate(prompt: string, params?: { model?: string; json?: boolean }): Promise<string> {
-    return this.getClient().generate(prompt, params);
+    try {
+      return await this.getClient().generate(prompt, params);
+    } catch (e) {
+      const config = vscode.workspace.getConfiguration('orbit');
+      const preferOnline = config.get<boolean>('preferOnline', false);
+      if (preferOnline) {
+        console.warn('Online AI failed, falling back to local Ollama:', e);
+        const endpoint = config.get<string>('ollamaEndpoint', 'http://localhost:11434');
+        return new OllamaClient(endpoint).generate(prompt, params);
+      }
+      throw e;
+    }
   }
 
   public async generateStream(prompt: string, onChunk: (chunk: string) => void, signal?: AbortSignal, images?: string[]): Promise<string> {
-    return this.getClient().generateStream(prompt, onChunk, signal, images);
+    try {
+      return await this.getClient().generateStream(prompt, onChunk, signal, images);
+    } catch (e) {
+      const config = vscode.workspace.getConfiguration('orbit');
+      const preferOnline = config.get<boolean>('preferOnline', false);
+      if (preferOnline) {
+        console.warn('Online AI stream failed, falling back to local Ollama:', e);
+        const endpoint = config.get<string>('ollamaEndpoint', 'http://localhost:11434');
+        return new OllamaClient(endpoint).generateStream(prompt, onChunk, signal, images);
+      }
+      throw e;
+    }
   }
 
   public async checkConnection(): Promise<{ ok: boolean; message: string }> {
-    return this.getClient().checkConnection();
+    const client = this.getClient();
+    const result = await client.checkConnection();
+    
+    // If online connection fails, also check local to provide a better status
+    if (!result.ok && client instanceof OnlineClient) {
+        const config = vscode.workspace.getConfiguration('orbit');
+        const ollamaEndpoint = config.get<string>('ollamaEndpoint', 'http://localhost:11434');
+        const local = new OllamaClient(ollamaEndpoint);
+        const localStatus = await local.checkConnection();
+        return { 
+            ok: localStatus.ok, 
+            message: `Online failed (${result.message}). Local is ${localStatus.ok ? 'Ready ✅' : 'Unreachable ❌'}`
+        };
+    }
+    return result;
   }
 
   public async listModels(): Promise<string[]> {
-    return this.getClient().listModels();
+    try {
+      return await this.getClient().listModels();
+    } catch {
+      return [];
+    }
   }
 }

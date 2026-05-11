@@ -31,21 +31,30 @@ export class OnlineClient implements ILLMClient {
       body.response_format = { type: 'json_object' };
     }
 
-    const res = await fetch(`${this.endpoint}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`
-      },
-      body: JSON.stringify(body),
-    });
+    // 30s timeout by default
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
 
-    if (!res.ok) {
+    try {
+      const res = await fetch(`${this.endpoint}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+
+      if (!res.ok) {
         const errorText = await res.text();
         throw new Error(`Online generate failed: HTTP ${res.status} - ${errorText}`);
+      }
+      const data = await res.json();
+      return data.choices[0].message.content;
+    } finally {
+      clearTimeout(timeout);
     }
-    const data = await res.json();
-    return data.choices[0].message.content;
   }
 
   public async generateStream(prompt: string, onChunk: (chunk: string) => void, signal?: AbortSignal): Promise<string> {
@@ -69,23 +78,23 @@ export class OnlineClient implements ILLMClient {
     });
 
     if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Online stream failed: HTTP ${res.status} - ${errorText}`);
+      const errorText = await res.text();
+      throw new Error(`Online stream failed: HTTP ${res.status} - ${errorText}`);
     }
     if (!res.body) throw new Error('No response body');
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let fullResponse = '';
-    let leftover = '';
+    let buffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      
-      const chunk = leftover + decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n');
-      leftover = lines.pop() || '';
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // Keep the last partial line in buffer
 
       for (const line of lines) {
         const trimmed = line.trim();
@@ -99,7 +108,9 @@ export class OnlineClient implements ILLMClient {
               fullResponse += content;
             }
           } catch (e) {
-            // Probably a partial line, will be handled by leftover
+            // If parsing fails, it might be a split line across chunks.
+            // We'll prepend 'data: ' back to buffer for the next chunk.
+            buffer = line + '\n' + buffer;
           }
         }
       }
