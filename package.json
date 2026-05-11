@@ -135,6 +135,11 @@
           "default": "",
           "description": "API Key for the Online AI Provider"
         },
+        "orbit.onlineModel": {
+          "type": "string",
+          "default": "gpt-4o",
+          "description": "Model ID to use for the Online AI Provider (e.g., gpt-4o, claude-3-opus)"
+        },
         "orbit.ollamaEndpoint": {
           "type": "string",
           "default": "http://localhost:11434",
