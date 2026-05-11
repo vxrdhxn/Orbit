@@ -162,6 +162,18 @@ export function activate(context: vscode.ExtensionContext) {
         pilotStatusBar.show();
         context.subscriptions.push(pilotStatusBar);
 
+        // AI Status Bar
+        const aiStatusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 101);
+        const updateAIStatus = () => {
+            const config = vscode.workspace.getConfiguration('orbit');
+            const preferOnline = config.get<boolean>('preferOnline', false);
+            aiStatusItem.text = preferOnline ? '$(cloud) Orbit: Online' : '$(device-desktop) Orbit: Local';
+            aiStatusItem.tooltip = preferOnline ? 'Orbit is using the Online AI provider' : 'Orbit is using local Ollama';
+            aiStatusItem.show();
+        };
+        updateAIStatus();
+        context.subscriptions.push(aiStatusItem);
+
         // Workspace-dependent Commands
         context.subscriptions.push(
             vscode.commands.registerCommand('orbit.health', async () => {
@@ -193,8 +205,19 @@ export function activate(context: vscode.ExtensionContext) {
                     pilotAnalyzer.clear();
                 }
             }),
-            vscode.commands.registerCommand('orbit.pilot.undo', () => autoFixEngine.undoLastFix())
+            vscode.commands.registerCommand('orbit.pilot.undo', () => autoFixEngine.undoLastFix()),
+            vscode.commands.registerCommand('orbit.toggleMode', () => {
+                const config = vscode.workspace.getConfiguration('orbit');
+                const current = config.get<boolean>('preferOnline', false);
+                config.update('preferOnline', !current, vscode.ConfigurationTarget.Global);
+            })
         );
+
+        vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration('orbit.preferOnline')) {
+                updateAIStatus();
+            }
+        });
     } catch (error) {
         console.error('Orbit activation failed:', error);
         vscode.window.showErrorMessage('Orbit failed to activate. Please check the Developer Tools console for details.');
