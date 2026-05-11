@@ -119,16 +119,30 @@ export class OnlineClient implements ILLMClient {
   }
 
   public async checkConnection(): Promise<{ ok: boolean; message: string }> {
+    if (!this.endpoint || !this.apiKey) {
+      return { ok: false, message: 'Online AI not configured. Please set endpoint and API key in settings.' };
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
     try {
       const res = await fetch(`${this.endpoint}/models`, {
-        headers: { 'Authorization': `Bearer ${this.apiKey}` }
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        signal: controller.signal
       });
+
       if (res.ok) {
-        return { ok: true, message: 'Connected to Online AI ✅' };
+        return { ok: true, message: 'Online AI is Ready ✅' };
       }
       return { ok: false, message: `Online AI returned ${res.status}` };
     } catch (e: any) {
-      return { ok: false, message: `Failed to connect to Online AI: ${e.message}` };
+      return { ok: false, message: `Online AI unreachable: ${e.message}` };
+    } finally {
+      clearTimeout(timeout);
     }
   }
 }

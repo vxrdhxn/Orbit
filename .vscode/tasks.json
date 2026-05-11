@@ -18,7 +18,7 @@
     {
       "label": "npm: compile",
       "type": "shell",
-      "command": "cmd /c npm run compile",
+      "command": "cmd /c \"npm run compile && npm run compile-webview\"",
       "problemMatcher": [],
       "group": "build"
     }

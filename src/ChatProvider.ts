@@ -124,13 +124,18 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     // Add to current session
     this._currentSession.messages.push({ role: 'user', content: userMsg, timestamp: Date.now() });
 
+    webview.postMessage({ type: 'status', value: 'Initializing...' });
+    console.log('0. Performing connection check...');
+
     // 0. Proactive connection check
     const status = await this._llmClient.checkConnection();
+    console.log('Connection check result:', status);
+    
     if (!status.ok) {
+        console.warn('Connection failed:', status.message);
         webview.postMessage({ type: 'addResponse', value: `⚠️ **Connection Error**: ${status.message}` });
         return;
     }
-
 
     if (this._abortController) this._abortController.abort();
     this._abortController = new AbortController();
@@ -141,14 +146,19 @@ export class ChatProvider implements vscode.WebviewViewProvider {
 
     while (iteration < this._maxIterations) {
         iteration++;
-        webview.postMessage({ type: 'status', value: iteration === 1 ? 'Reasoning...' : `Executing Step ${iteration}...` });
+        const statusVal = iteration === 1 ? 'Reasoning...' : `Executing Step ${iteration}...`;
+        console.log(`Agent Loop Iteration ${iteration}: ${statusVal}`);
+        webview.postMessage({ type: 'status', value: statusVal });
 
         try {
             let currentTurnResponse = '';
+            console.log('Starting stream generation...');
             await this._llmClient.generateStream(fullPrompt, (chunk) => {
                 currentTurnResponse += chunk;
                 webview.postMessage({ type: 'addResponseChunk', value: chunk });
             }, this._abortController.signal);
+            
+            console.log('Stream generation completed. Length:', currentTurnResponse.length);
 
 
             // Check for tool calls

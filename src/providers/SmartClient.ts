@@ -21,11 +21,11 @@ export class SmartClient implements ILLMClient {
   public async generate(prompt: string, params?: { model?: string; json?: boolean }): Promise<string> {
     try {
       return await this.getClient().generate(prompt, params);
-    } catch (e) {
+    } catch (e: any) {
       const config = vscode.workspace.getConfiguration('orbit');
       const preferOnline = config.get<boolean>('preferOnline', false);
       if (preferOnline) {
-        console.warn('Online AI failed, falling back to local Ollama:', e);
+        console.warn(`[SmartClient] Online AI failed (${e.message || e}), falling back to local Ollama...`);
         const endpoint = config.get<string>('ollamaEndpoint', 'http://localhost:11434');
         return new OllamaClient(endpoint).generate(prompt, params);
       }
@@ -36,11 +36,11 @@ export class SmartClient implements ILLMClient {
   public async generateStream(prompt: string, onChunk: (chunk: string) => void, signal?: AbortSignal, images?: string[]): Promise<string> {
     try {
       return await this.getClient().generateStream(prompt, onChunk, signal, images);
-    } catch (e) {
+    } catch (e: any) {
       const config = vscode.workspace.getConfiguration('orbit');
       const preferOnline = config.get<boolean>('preferOnline', false);
       if (preferOnline) {
-        console.warn('Online AI stream failed, falling back to local Ollama:', e);
+        console.warn(`[SmartClient] Online AI stream failed (${e.message || e}), falling back to local Ollama...`);
         const endpoint = config.get<string>('ollamaEndpoint', 'http://localhost:11434');
         return new OllamaClient(endpoint).generateStream(prompt, onChunk, signal, images);
       }
