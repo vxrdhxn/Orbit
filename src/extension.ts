@@ -36,7 +36,7 @@ import { JournalSyncService } from './memory/JournalSyncService';
 
 export function activate(context: vscode.ExtensionContext) {
     try {
-        console.log('Orbit is active!');
+        console.log('Orbit v2.0.1 (Hybrid AI) is active!');
 
         // ============================================================
         // CRITICAL: Register the Chat View FIRST, unconditionally.
