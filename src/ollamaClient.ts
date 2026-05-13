@@ -142,10 +142,12 @@ export class OllamaClient implements ILLMClient {
     try {
       const res = await fetch(`${this.baseUrl}/api/tags`, { method: 'GET', signal: controller.signal });
       if (!res.ok) {
+        console.error(`[OllamaClient] checkConnection failed. HTTP ${res.status} from ${this.baseUrl}`);
         return { ok: false, message: `Ollama server at ${this.baseUrl} returned error ${res.status}.` };
       }
       return { ok: true, message: 'Connected to Ollama ✅' };
     } catch (e: any) {
+      console.error(`[OllamaClient] checkConnection fetch failed for ${this.baseUrl}:`, e);
       if (e.name === 'AbortError') return { ok: false, message: 'Connection timed out.' };
       return { ok: false, message: `Ollama server not reached at ${this.baseUrl}. Please ensure Ollama is running.` };
     } finally {

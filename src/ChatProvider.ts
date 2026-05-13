@@ -292,8 +292,21 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         }
         case 'changeModel': {
           const config = vscode.workspace.getConfiguration('orbit');
-          await config.update('ollamaModel', data.value, vscode.ConfigurationTarget.Global);
-          vscode.window.showInformationMessage(`Orbit: Model changed to ${data.value}`);
+          const model = data.value;
+          const isOnlineModel = model.startsWith('gpt-') || model.startsWith('claude-') || model.startsWith('gemini-');
+          
+          if (isOnlineModel) {
+            await config.update('onlineModel', model, vscode.ConfigurationTarget.Global);
+            await config.update('preferOnline', true, vscode.ConfigurationTarget.Global);
+          } else {
+            await config.update('ollamaModel', model, vscode.ConfigurationTarget.Global);
+            await config.update('preferOnline', false, vscode.ConfigurationTarget.Global);
+          }
+          
+          vscode.window.showInformationMessage(`Orbit: Model changed to ${model}`);
+          
+          // Trigger a new connection check
+          await this._sendConnectionStatus(webviewView.webview);
           break;
         }
         case 'pullModel': {
