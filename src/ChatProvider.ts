@@ -133,7 +133,13 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     
     if (!status.ok) {
         console.warn('Connection failed:', status.message);
-        webview.postMessage({ type: 'addResponse', value: `⚠️ **Connection Error**: ${status.message}` });
+        const errorMessage = `⚠️ **Connection Error**: ${status.message}`;
+        webview.postMessage({ type: 'addResponse', value: errorMessage });
+        
+        // Save to session history so it doesn't disappear on refresh
+        this._currentSession.messages.push({ role: 'ai', content: errorMessage, timestamp: Date.now() });
+        this._saveHistory();
+        webview.postMessage({ type: 'status', value: '' });
         return;
     }
 
@@ -191,7 +197,9 @@ export class ChatProvider implements vscode.WebviewViewProvider {
             if (e.name === 'AbortError') {
                 webview.postMessage({ type: 'status', value: 'Cancelled' });
             } else {
-                webview.postMessage({ type: 'addResponse', value: `Error: ${e.message}` });
+                const errorMsg = `\n\n⚠️ **Error**: ${e.message}`;
+                webview.postMessage({ type: 'addResponseChunk', value: errorMsg });
+                finalCombinedResponse += errorMsg;
             }
             break;
         }

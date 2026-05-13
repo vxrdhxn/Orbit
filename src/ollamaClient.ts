@@ -104,23 +104,32 @@ export class OllamaClient implements ILLMClient {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let fullResponse = '';
+    let buffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n').filter(l => l.trim() !== '');
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
       for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        
+        let json: GenerateResp;
         try {
-          const json = JSON.parse(line) as GenerateResp;
-          if (json.error) throw new Error(json.error);
-          if (json.done) break;
-          if (json.response) {
-            onChunk(json.response);
-            fullResponse += json.response;
-          }
+          json = JSON.parse(trimmed) as GenerateResp;
         } catch (e) {
-          console.error('Error parsing JSON chunk', e);
+          console.error('Error parsing JSON chunk', e, trimmed);
+          continue;
+        }
+
+        if (json.error) throw new Error(json.error);
+        if (json.done) break;
+        if (json.response) {
+          onChunk(json.response);
+          fullResponse += json.response;
         }
       }
     }
@@ -128,8 +137,10 @@ export class OllamaClient implements ILLMClient {
   }
 
   public async checkConnection(): Promise<{ ok: boolean; message: string }> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
     try {
-      const res = await fetch(`${this.baseUrl}/api/tags`, { method: 'GET' });
+      const res = await fetch(`${this.baseUrl}/api/tags`, { method: 'GET', signal: controller.signal });
       if (!res.ok) {
         return { ok: false, message: `Ollama server at ${this.baseUrl} returned error ${res.status}.` };
       }
@@ -137,6 +148,8 @@ export class OllamaClient implements ILLMClient {
     } catch (e: any) {
       if (e.name === 'AbortError') return { ok: false, message: 'Connection timed out.' };
       return { ok: false, message: `Ollama server not reached at ${this.baseUrl}. Please ensure Ollama is running.` };
+    } finally {
+      clearTimeout(timeout);
     }
   }
 }
