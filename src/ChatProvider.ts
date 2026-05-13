@@ -130,6 +130,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     // 0. Proactive connection check
     const status = await this._llmClient.checkConnection();
     console.log('Connection check result:', status);
+    webview.postMessage({ type: 'updateConnectionState', value: status });
     
     if (!status.ok) {
         console.warn('Connection failed:', status.message);
@@ -253,6 +254,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         }
         case 'webviewReady': {
           console.log('Received webviewReady, sending model list and history');
+          await this._sendConnectionStatus(webviewView.webview);
           await this._sendModelList(webviewView.webview);
           await this._sendHistory(webviewView.webview);
           break;
@@ -559,6 +561,12 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         vscode.commands.executeCommand('workbench.action.openSettings', 'Orbit');
         break;
     }
+  }
+
+  private async _sendConnectionStatus(webview: vscode.Webview) {
+    webview.postMessage({ type: 'updateConnectionState', value: { ok: false, message: 'Checking...' } });
+    const status = await this._llmClient.checkConnection();
+    webview.postMessage({ type: 'updateConnectionState', value: status });
   }
 
   private async _sendModelList(webview: vscode.Webview) {

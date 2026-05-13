@@ -29,6 +29,7 @@ function App() {
     const [currentModel, setCurrentModel] = useState<string>('');
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [statusMessage, setStatusMessage] = useState<string>('');
+    const [connectionState, setConnectionState] = useState<'Connected' | 'Disconnected' | 'Checking...'>('Checking...');
     const [hasAttemptedInitialHistoryLoad, setHasAttemptedInitialHistoryLoad] = useState(false);
 
     // To handle streaming updates correctly without dependency issues
@@ -75,6 +76,9 @@ function App() {
                     if (message.value === 'Generation cancelled.' || message.value === '') {
                         setIsGenerating(false);
                     }
+                    break;
+                case 'updateConnectionState':
+                    setConnectionState(message.value.ok ? 'Connected' : 'Disconnected');
                     break;
                 case 'updateModels':
                     setModels(message.value.models);
@@ -215,9 +219,9 @@ function App() {
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                        <span className={`codicon codicon-record ${isGenerating ? 'animate-pulse' : ''}`} 
-                              style={{ color: isGenerating ? 'var(--accent-primary)' : 'var(--text-dim)', fontSize: '10px' }}></span>
-                        {isGenerating ? 'Reasoning...' : 'Connected'}
+                        <span className={`codicon ${connectionState === 'Checking...' ? 'codicon-loading codicon-modifier-spin' : 'codicon-record'} ${isGenerating ? 'animate-pulse' : ''}`} 
+                              style={{ color: isGenerating ? 'var(--accent-primary)' : (connectionState === 'Connected' ? 'var(--text-dim)' : '#f48771'), fontSize: '10px' }}></span>
+                        {isGenerating ? 'Reasoning...' : connectionState}
                     </div>
                     <div style={{ width: '1px', height: '14px', background: 'var(--border-dim)' }}></div>
                     <button className="clickable" title="Chat History" onClick={() => setView('chatHistory')} style={{ background: 'transparent' }}>
