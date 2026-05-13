@@ -13,7 +13,7 @@ type EmbeddingResp = {
 function cfg() {
   const c = vscode.workspace.getConfiguration('orbit');
   return {
-    baseUrl: c.get<string>('ollamaEndpoint', 'http://localhost:11434'),
+    baseUrl: c.get<string>('ollamaEndpoint', 'http://127.0.0.1:11434'),
     embeddingModel: c.get<string>('embeddingModel', 'nomic-embed-text'),
   };
 }

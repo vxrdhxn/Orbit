@@ -142,7 +142,7 @@
         },
         "orbit.ollamaEndpoint": {
           "type": "string",
-          "default": "http://localhost:11434",
+          "default": "http://127.0.0.1:11434",
           "description": "Endpoint for local Ollama service"
         },
         "orbit.preferOnline": {

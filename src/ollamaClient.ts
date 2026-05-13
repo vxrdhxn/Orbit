@@ -21,7 +21,7 @@ type GenerateResp = { response?: string; done?: boolean; error?: string };
 function cfg() {
   const c = vscode.workspace.getConfiguration('orbit');
   return {
-    baseUrl: c.get<string>('ollamaEndpoint', 'http://localhost:11434'),
+    baseUrl: c.get<string>('ollamaEndpoint', 'http://127.0.0.1:11434'),
     model: c.get<string>('ollamaModel', 'qwen2.5-coder:7b'),
     temperature: c.get<number>('temperature', 0.2),
   };

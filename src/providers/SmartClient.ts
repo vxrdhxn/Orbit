@@ -13,7 +13,7 @@ export class SmartClient implements ILLMClient {
       const apiKey = config.get<string>('onlineApiKey', '');
       return new OnlineClient(endpoint, apiKey);
     } else {
-      const endpoint = config.get<string>('ollamaEndpoint', 'http://localhost:11434');
+      const endpoint = config.get<string>('ollamaEndpoint', 'http://127.0.0.1:11434');
       return new OllamaClient(endpoint);
     }
   }
@@ -26,7 +26,7 @@ export class SmartClient implements ILLMClient {
       const preferOnline = config.get<boolean>('preferOnline', false);
       if (preferOnline) {
         console.warn(`[SmartClient] Online AI failed (${e.message || e}), falling back to local Ollama...`);
-        const endpoint = config.get<string>('ollamaEndpoint', 'http://localhost:11434');
+        const endpoint = config.get<string>('ollamaEndpoint', 'http://127.0.0.1:11434');
         return new OllamaClient(endpoint).generate(prompt, params);
       }
       throw e;
@@ -41,7 +41,7 @@ export class SmartClient implements ILLMClient {
       const preferOnline = config.get<boolean>('preferOnline', false);
       if (preferOnline) {
         console.warn(`[SmartClient] Online AI stream failed (${e.message || e}), falling back to local Ollama...`);
-        const endpoint = config.get<string>('ollamaEndpoint', 'http://localhost:11434');
+        const endpoint = config.get<string>('ollamaEndpoint', 'http://127.0.0.1:11434');
         return new OllamaClient(endpoint).generateStream(prompt, onChunk, signal, images);
       }
       throw e;
