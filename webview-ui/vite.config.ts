@@ -20,4 +20,11 @@ export default defineConfig({
             '@': path.resolve(__dirname, './src'),
         },
     },
+    optimizeDeps: {
+        include: [
+            'react-syntax-highlighter',
+            'react-syntax-highlighter/dist/esm/styles/prism',
+            'react-markdown'
+        ]
+    }
 });
