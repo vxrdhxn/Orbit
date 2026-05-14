@@ -4,6 +4,7 @@ import { MessageList } from './components/MessageList';
 import { InputArea } from './components/InputArea';
 import { DiffApproval } from './components/DiffApproval';
 import { DecisionHistory } from './components/DecisionHistory';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ChatHistory, ChatSessionMetadata } from './components/ChatHistory';
 import { DiffProposal } from './types';
 
@@ -260,7 +261,9 @@ function App() {
                         </div>
                     </div>
                 ) : (
-                    <MessageList messages={messages} isGenerating={isGenerating} />
+                    <ErrorBoundary>
+                        <MessageList messages={messages} isGenerating={isGenerating} />
+                    </ErrorBoundary>
                 )}
 
                 {statusMessage && isGenerating && (
