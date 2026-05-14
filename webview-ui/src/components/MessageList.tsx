@@ -12,6 +12,57 @@ interface MessageListProps {
     isGenerating?: boolean;
 }
 
+/**
+ * Safe markdown renderer — catches render errors from malformed
+ * streaming content and falls back to plain text.
+ */
+const SafeMarkdown = ({ content }: { content: string }) => {
+    try {
+        return (
+            <ReactMarkdown
+                components={{
+                    code({ node, className, children, ...props }: any) {
+                        // react-markdown v9 removed the `inline` prop.
+                        // Detect inline code by checking if the parent node is NOT <pre>.
+                        const isInline = !node?.properties?.className && 
+                            !(node?.position && node?.tagName === 'code' && 
+                              node?.parent?.tagName === 'pre');
+                        // Simpler heuristic: if there's a language class, it's a code block
+                        const match = /language-(\w+)/.exec(className || '');
+                        
+                        if (!isInline && match) {
+                            return (
+                                <CodeBlock
+                                    language={match[1]}
+                                    value={String(children).replace(/\n$/, '')}
+                                />
+                            );
+                        }
+                        return (
+                            <code className={className} {...props} style={{
+                                backgroundColor: 'var(--bg-surface)',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                color: 'var(--accent-primary)',
+                                fontFamily: 'var(--vscode-editor-font-family)',
+                                border: '1px solid var(--border-dim)'
+                            }}>
+                                {children}
+                            </code>
+                        );
+                    }
+                }}
+            >
+                {content}
+            </ReactMarkdown>
+        );
+    } catch (e) {
+        // Fallback to plain text if ReactMarkdown throws
+        console.error('[SafeMarkdown] Render error, falling back to plain text:', e);
+        return <div style={{ whiteSpace: 'pre-wrap' }}>{content}</div>;
+    }
+};
+
 export const MessageList = ({ messages, isGenerating }: MessageListProps) => {
     const endRef = useRef<HTMLDivElement>(null);
 
@@ -35,6 +86,8 @@ export const MessageList = ({ messages, isGenerating }: MessageListProps) => {
         }}>
             {messages.map((msg, i) => {
                 const isLastAI = i === messages.length - 1 && msg.role === 'ai' && isGenerating;
+                // Guard against undefined/null content
+                const safeContent = msg.content ?? '';
                 
                 return (
                     <div key={i} className="animate-slide-up" style={{
@@ -79,35 +132,10 @@ export const MessageList = ({ messages, isGenerating }: MessageListProps) => {
                             border: msg.role === 'user' ? '1px solid var(--border-base)' : 'none',
                         }}>
                             {msg.role === 'user' ? (
-                                <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+                                <div style={{ whiteSpace: 'pre-wrap' }}>{safeContent}</div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <ReactMarkdown
-                                        components={{
-                                            code({ node, inline, className, children, ...props }: any) {
-                                                const match = /language-(\w+)/.exec(className || '');
-                                                return !inline && match ? (
-                                                    <CodeBlock
-                                                        language={match[1]}
-                                                        value={String(children).replace(/\n$/, '')}
-                                                    />
-                                                ) : (
-                                                    <code className={className} {...props} style={{
-                                                        backgroundColor: 'var(--bg-surface)',
-                                                        padding: '2px 6px',
-                                                        borderRadius: '4px',
-                                                        color: 'var(--accent-primary)',
-                                                        fontFamily: 'var(--vscode-editor-font-family)',
-                                                        border: '1px solid var(--border-dim)'
-                                                    }}>
-                                                        {children}
-                                                    </code>
-                                                );
-                                            }
-                                        }}
-                                    >
-                                        {msg.content}
-                                    </ReactMarkdown>
+                                    <SafeMarkdown content={safeContent} />
                                     {isLastAI && <span className="blinking-cursor" />}
                                 </div>
                             )}

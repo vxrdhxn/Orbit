@@ -193,7 +193,7 @@ export const InputArea = ({
 
                     <div className="right-controls">
                         {isGenerating ? (
-                            <button className="clickable" onClick={handleStop} title="Stop Generation" style={{
+                            <button className="clickable" onClick={onStop} title="Stop Generation" style={{
                                 width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-surface-lighter)', color: 'var(--text-main)', border: '1px solid var(--border-base)'
                             }}>
                                 <span className="codicon codicon-debug-stop" style={{ fontSize: '14px' }}></span>

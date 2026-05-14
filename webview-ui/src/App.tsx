@@ -63,6 +63,8 @@ function App() {
                     setStatusMessage('');
                     break;
                 case 'addResponseChunk':
+                    // Guard against undefined/null chunks from the extension
+                    if (message.value == null) break;
                     setMessages(prev => {
                         const last = prev[prev.length - 1];
                         if (last && last.role === 'ai') {
@@ -203,6 +205,7 @@ function App() {
     }
 
     return (
+        <ErrorBoundary resetKey={messages.length}>
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-main)', color: 'var(--text-main)' }}>
             {/* Pro Header */}
             <header className="glass" style={{
@@ -261,7 +264,7 @@ function App() {
                         </div>
                     </div>
                 ) : (
-                    <ErrorBoundary>
+                    <ErrorBoundary resetKey={messages.length}>
                         <MessageList messages={messages} isGenerating={isGenerating} />
                     </ErrorBoundary>
                 )}
@@ -304,6 +307,7 @@ function App() {
                 onFilePicker={handleFilePicker}
             />
         </div>
+        </ErrorBoundary>
     );
 }
 
