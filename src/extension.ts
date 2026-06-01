@@ -33,6 +33,8 @@ import { runViewDecisionHistory } from './commands/viewDecisionHistory';
 import { BackgroundAnalyzer } from './services/BackgroundAnalyzer';
 import { AutoFixEngine } from './services/AutoFixEngine';
 import { JournalSyncService } from './memory/JournalSyncService';
+import { buildIndex, updateFile } from './indexer';
+import { runSearch } from './searchCommand';
 
 export function activate(context: vscode.ExtensionContext) {
     try {
@@ -124,6 +126,7 @@ export function activate(context: vscode.ExtensionContext) {
         // Memory System (Phase 2)
         const sqliteMemory = new SQLiteMemory(workspaceFolder.fsPath);
         sqliteMemory.initialize();
+        context.subscriptions.push({ dispose: () => sqliteMemory.close() });
         const decisionJournal = new DecisionJournal(sqliteMemory);
 
         // Sync & Collaboration (Phase 12)
@@ -166,7 +169,7 @@ export function activate(context: vscode.ExtensionContext) {
         pilotAnalyzer.activate(context.subscriptions);
 
         // UI Providers
-        const contextCollector = new EnhancedContextCollector(decisionJournal, index);
+        new EnhancedContextCollector(decisionJournal, index);
         const historyView = new DecisionHistoryView(
             context.extensionUri,
             (path) => {
@@ -199,13 +202,28 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Workspace-dependent Commands
         context.subscriptions.push(
-            vscode.commands.registerCommand('orbit.health', async () => {
-                const health = await llmClient.checkConnection();
-                vscode.window.showInformationMessage(`Orbit Health: ${health.message}`);
-            }),
-
             vscode.commands.registerCommand('orbit.review', () => reviewCommand.execute()),
             vscode.commands.registerCommand('orbit.edit', () => runEditCommand(diffEngine, approvalManager, diffApprovalView)),
+            vscode.commands.registerCommand('orbit.search', () => runSearch(context)),
+            vscode.commands.registerCommand('orbit.indexWorkspace', async () => {
+                await vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: 'Orbit: Indexing workspace for semantic search...',
+                    cancellable: true
+                }, async (_progress, token) => {
+                    await buildIndex(workspaceFolder, token);
+                });
+                vscode.window.showInformationMessage('Orbit: Workspace index is ready.');
+            }),
+            vscode.commands.registerCommand('orbit.indexCurrentFile', async () => {
+                const editor = vscode.window.activeTextEditor;
+                if (!editor) {
+                    vscode.window.showWarningMessage('Open a file to update its Orbit index.');
+                    return;
+                }
+                await updateFile(workspaceFolder, editor.document.uri);
+                vscode.window.showInformationMessage(`Orbit: Indexed ${path.basename(editor.document.fileName)}.`);
+            }),
             vscode.commands.registerCommand('orbit.showFindings', (findings) => {
                 vscode.window.showInformationMessage(`Showing ${findings?.length || 0} local findings.`);
             }),
@@ -231,11 +249,6 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.commands.registerCommand('orbit.pilot.undo', () => autoFixEngine.undoLastFix()),
         );
 
-        vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration('orbit.preferOnline')) {
-                updateAIStatus();
-            }
-        });
     } catch (error) {
         console.error('Orbit activation failed:', error);
         vscode.window.showErrorMessage('Orbit failed to activate. Please check the Developer Tools console for details.');

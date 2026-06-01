@@ -31,7 +31,7 @@ export async function runEditCommand(
 
   const doc = editor.document;
   const fullText = doc.getText();
-  const filePath = vscode.workspace.asRelativePath(doc.uri, false);
+  const filePath = doc.uri.fsPath;
 
   await vscode.window.withProgress(
     {

@@ -36,6 +36,14 @@
         "title": "Orbit: Search Codebase"
       },
       {
+        "command": "orbit.indexWorkspace",
+        "title": "Orbit: Index Workspace for Semantic Search"
+      },
+      {
+        "command": "orbit.indexCurrentFile",
+        "title": "Orbit: Update Semantic Index for Current File"
+      },
+      {
         "command": "orbit.review",
         "title": "Orbit: Review Code"
       },

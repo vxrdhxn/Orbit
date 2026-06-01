@@ -148,7 +148,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     this._abortController = new AbortController();
 
     let iteration = 0;
-    let fullPrompt = this._buildInitialPrompt(userMsg);
+    let fullPrompt = await this._buildInitialPrompt(userMsg);
+    const images = await this._getCurrentImagePayload();
     let finalCombinedResponse = '';
 
     while (iteration < this._maxIterations) {
@@ -164,7 +165,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
                 if (chunk == null) return; // Guard: skip undefined/null chunks
                 currentTurnResponse += chunk;
                 webview.postMessage({ type: 'addResponseChunk', value: chunk });
-            }, this._abortController.signal);
+            }, this._abortController.signal, images);
             
             console.log('Stream generation completed. Length:', currentTurnResponse.length);
 
@@ -211,23 +212,76 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     this._currentSession.messages.push({ role: 'ai', content: finalCombinedResponse, timestamp: Date.now() });
     this._saveHistory();
     this._abortController = null;
+    this._currentImage = null;
     webview.postMessage({ type: 'status', value: '' });
 
     // Final Auto-Apply check
     this._tryAutoApply(finalCombinedResponse, webview);
   }
 
-  private _buildInitialPrompt(userMsg: string): string {
+  private async _buildInitialPrompt(userMsg: string): Promise<string> {
     const editor = vscode.window.activeTextEditor;
     const systemPrompt = this._buildSystemPrompt(editor);
     const toolInstructions = this._toolManager.getToolDefinitions();
+    const context = await this._buildFileContext(userMsg, editor);
     
     // Include past conversation history within this session
-    const history = this._currentSession.messages.map(m => 
+    const history = this._currentSession.messages.slice(0, -1).map(m =>
         `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`
     ).join('\n\n');
     
-    return `${systemPrompt}\n\n${toolInstructions}\n\nConversation History:\n${history}\n\nUser Question: ${userMsg}\n\nResponse:`;
+    return `${systemPrompt}\n\n${toolInstructions}\n\n${context}\n\nConversation History:\n${history || '(No previous messages)'}\n\nUser Question: ${userMsg}\n\nResponse:`;
+  }
+
+  private async _buildFileContext(userMsg: string, editor?: vscode.TextEditor): Promise<string> {
+    const sections: string[] = ['Workspace Context:'];
+
+    if (editor) {
+      const selection = editor.selection;
+      const selectedText = selection.isEmpty ? editor.document.getText() : editor.document.getText(selection);
+      const truncated = selectedText.length > 12000
+        ? `${selectedText.slice(0, 12000)}\n... [TRUNCATED]`
+        : selectedText;
+      sections.push(`Active file: ${editor.document.fileName}\n\`\`\`${editor.document.languageId}\n${truncated}\n\`\`\``);
+    }
+
+    const references = await this._fileParser.parse(userMsg);
+    const seen = new Set<string>();
+    for (const reference of references) {
+      if (!reference.isValid || seen.has(reference.path)) {
+        continue;
+      }
+
+      seen.add(reference.path);
+      this._fileManager.addRecentFile(reference.path);
+      try {
+        const file = await this._fileReader.read(reference.path, {
+          lineRange: reference.lineRange
+        });
+        const truncated = file.content.length > 12000
+          ? `${file.content.slice(0, 12000)}\n... [TRUNCATED]`
+          : file.content;
+        sections.push(`Referenced file: ${reference.path}\n\`\`\`\n${truncated}\n\`\`\``);
+      } catch (error: any) {
+        sections.push(`Referenced file could not be read: ${reference.path} (${error.message})`);
+      }
+    }
+
+    return sections.join('\n\n');
+  }
+
+  private async _getCurrentImagePayload(): Promise<string[] | undefined> {
+    if (!this._currentImage) {
+      return undefined;
+    }
+
+    try {
+      const image = await fs.promises.readFile(this._currentImage);
+      return [image.toString('base64')];
+    } catch (error) {
+      console.error('Failed to read attached image:', error);
+      return undefined;
+    }
   }
 
 
