@@ -1,10 +1,12 @@
 import ReactMarkdown from 'react-markdown';
 import { CodeBlock } from './CodeBlock';
+import { StructuredReasoning } from './StructuredReasoning';
 import { useEffect, useRef } from 'react';
 
 interface Message {
     role: 'user' | 'ai' | 'system';
     content: string;
+    structuredReasoning?: any;
 }
 
 interface MessageListProps {
@@ -135,7 +137,11 @@ export const MessageList = ({ messages, isGenerating }: MessageListProps) => {
                                 <div style={{ whiteSpace: 'pre-wrap' }}>{safeContent}</div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <SafeMarkdown content={safeContent} />
+                                    {msg.structuredReasoning ? (
+                                        <StructuredReasoning reasoning={msg.structuredReasoning} />
+                                    ) : (
+                                        <SafeMarkdown content={safeContent} />
+                                    )}
                                     {isLastAI && <span className="blinking-cursor" />}
                                 </div>
                             )}

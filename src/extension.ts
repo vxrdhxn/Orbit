@@ -45,8 +45,11 @@ export function activate(context: vscode.ExtensionContext) {
         // This must happen regardless of workspace state so the
         // sidebar panel always loads its UI.
         // ============================================================
+        const formatter = new ResponseFormatter();
+        const router = new LLMRouter(formatter, { maxRetries: 2, enforceFormat: true });
+
         const llmClient = new SmartClient();
-        const chatViewProvider = new ChatProvider(context, llmClient);
+        const chatViewProvider = new ChatProvider(context, llmClient, router);
         context.subscriptions.push(
             vscode.window.registerWebviewViewProvider(ChatProvider.viewType, chatViewProvider)
         );
@@ -119,9 +122,8 @@ export function activate(context: vscode.ExtensionContext) {
         // All configurations are handled dynamically by SmartClient
 
 
-        // Reasoning Infrastructure
-        const formatter = new ResponseFormatter();
-        const router = new LLMRouter(formatter, { maxRetries: 2, enforceFormat: true });
+        // Reasoning Infrastructure (moved to top)
+
 
         // Memory System (Phase 2)
         const sqliteMemory = new SQLiteMemory(workspaceFolder.fsPath);

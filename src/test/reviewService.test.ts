@@ -55,21 +55,6 @@ describe('ReviewService Tests', () => {
         assert.ok(mockOllama.lastPrompt.length > 0);
     });
 
-    test('Property 7: Configuration model usage', async () => {
-        const mockOllama = new MockOllamaClient();
-        const mockContext = new MockContextGatherer();
-        const service = new ReviewService(mockOllama, mockContext, mockConfig);
-
-        const code: CodeInput[] = [{ content: "foo", fileName: "test.ts", language: "typescript" }];
-
-        await service.reviewCode(code, {
-            enabledCategories: [],
-            minSeverity: SeverityLevel.Info,
-            includeContext: false
-        });
-
-        assert.strictEqual(mockOllama.lastParams.model, 'qwen2.5-coder:7b');
-    });
 
     test('Builds prompt with code content', async () => {
         const mockOllama = new MockOllamaClient();

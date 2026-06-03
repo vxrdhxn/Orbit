@@ -5,6 +5,7 @@ import * as os from 'os';
 import { ILLMClient } from './providers/ILLMClient';
 
 import { performSearch } from './searchCommand';
+
 import { FileReferenceParser } from './fileReference/fileReferenceParser';
 import { FileContentReader } from './fileReference/fileContentReader';
 import { FileReferenceManager } from './fileReference/fileReferenceManager';
@@ -12,11 +13,14 @@ import { ToolManager } from './tools/ToolManager';
 import { InlineApplyService } from './services/InlineApplyService';
 import { TerminalService } from './services/TerminalService';
 import { parseCodeBlocks, languageMatchesFile, isTerminalLanguage } from './utils/codeBlockParser';
+import { LLMRouter } from './reasoning/LLMRouter';
+import { StructuredResponse } from './reasoning/types';
 
 export interface ChatMessage {
   role: 'user' | 'ai';
   content: string;
   timestamp: number;
+  structuredReasoning?: StructuredResponse;
 }
 
 export interface ChatSession {
@@ -44,7 +48,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
 
   constructor(
     private readonly _context: vscode.ExtensionContext,
-    private readonly _llmClient: ILLMClient
+    private readonly _llmClient: ILLMClient,
+    private readonly _llmRouter?: LLMRouter
   ) {
 
     this._currentSession = this._createNewSession();
@@ -209,11 +214,26 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     }
 
     // Save final state
-    this._currentSession.messages.push({ role: 'ai', content: finalCombinedResponse, timestamp: Date.now() });
+    let structuredReasoning;
+    if (this._llmRouter) {
+        const parsed = this._llmRouter.transformResponse(finalCombinedResponse);
+        if (parsed) {
+            structuredReasoning = parsed;
+        }
+    }
+
+    this._currentSession.messages.push({ 
+        role: 'ai', 
+        content: finalCombinedResponse, 
+        timestamp: Date.now(),
+        structuredReasoning
+    });
     this._saveHistory();
     this._abortController = null;
     this._currentImage = null;
     webview.postMessage({ type: 'status', value: '' });
+    // Update UI with the final structured reasoning if available
+    webview.postMessage({ type: 'loadChat', value: this._currentSession.messages });
 
     // Final Auto-Apply check
     this._tryAutoApply(finalCombinedResponse, webview);
@@ -230,7 +250,11 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`
     ).join('\n\n');
     
-    return `${systemPrompt}\n\n${toolInstructions}\n\n${context}\n\nConversation History:\n${history || '(No previous messages)'}\n\nUser Question: ${userMsg}\n\nResponse:`;
+    let finalPrompt = `${systemPrompt}\n\n${toolInstructions}\n\n${context}\n\nConversation History:\n${history || '(No previous messages)'}\n\nUser Question: ${userMsg}\n\nResponse:`;
+    if (this._llmRouter) {
+        finalPrompt = this._llmRouter.appendStructuredInstructions(finalPrompt);
+    }
+    return finalPrompt;
   }
 
   private async _buildFileContext(userMsg: string, editor?: vscode.TextEditor): Promise<string> {
