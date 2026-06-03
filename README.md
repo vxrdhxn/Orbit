@@ -2,7 +2,7 @@
 
 **Always watching your code.**
 
-Orbit is a powerful, offline-capable AI coding assistant for VS Code. It leverages local LLMs (via Ollama) to provide intelligent code explanations, semantic search, AI-driven code reviews, and interactive chat, keeping your data private and secure.
+Orbit is a powerful VS Code extension that provides agentic AI chat features offline, online, and via custom API keys. Whether you are using built-in local models for absolute privacy, or leveraging cloud APIs for maximum speed, Orbit delivers intelligent code explanations, semantic search, AI-driven code reviews, and interactive chat.
 
 ## 🚀 Features
 
