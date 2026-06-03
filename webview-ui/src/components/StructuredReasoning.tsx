@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { CodeBlock } from './CodeBlock';
 import { StructuredResponse } from '../types';
 
 interface StructuredReasoningProps {
@@ -62,21 +61,32 @@ const Section: React.FC<{ title: string; content?: string; items?: string[]; col
                         <ReactMarkdown
                             components={{
                                 code({ node, className, children, ...props }: any) {
-                                    const match = /language-(\w+)/.exec(className || '');
-                                    return match ? (
-                                        <SyntaxHighlighter
-                                            style={vscDarkPlus as any}
-                                            language={match[1]}
-                                            PreTag="div"
-                                            {...props}
-                                        >
-                                            {String(children).replace(/\n$/, '')}
-                                        </SyntaxHighlighter>
-                                    ) : (
-                                        <code className={className} {...props}>
-                                            {children}
-                                        </code>
-                                    );
+                        const isInline = !node?.properties?.className && 
+                            !(node?.position && node?.tagName === 'code' && 
+                              node?.parent?.tagName === 'pre');
+                        const match = /language-(\w+)/.exec(className || '');
+                        
+                        if (!isInline && match) {
+                            return (
+                                <CodeBlock
+                                    language={match[1]}
+                                    value={String(children).replace(/\n$/, '')}
+                                />
+                            );
+                        }
+                        
+                        return (
+                            <code className={className} {...props} style={{
+                                backgroundColor: 'var(--bg-surface)',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                color: 'var(--accent-primary)',
+                                fontFamily: 'var(--vscode-editor-font-family)',
+                                border: '1px solid var(--border-dim)'
+                            }}>
+                                {children}
+                            </code>
+                        );
                                 }
                             }}
                         >
