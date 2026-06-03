@@ -145,8 +145,8 @@
         },
         "orbit.onlineModel": {
           "type": "string",
-          "default": "llama-3.3-70b-versatile",
-          "description": "Model ID to use for the Online AI Provider (e.g., llama-3.3-70b-versatile, gpt-4o)"
+          "default": "llama-3.3-70b-specdec",
+          "description": "Model ID to use for the Online AI Provider (e.g., llama-3.3-70b-specdec, gpt-4o)"
         },
         "orbit.ollamaEndpoint": {
           "type": "string",
