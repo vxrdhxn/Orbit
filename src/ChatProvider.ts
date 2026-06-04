@@ -372,14 +372,12 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         case 'changeModel': {
           const config = vscode.workspace.getConfiguration('orbit');
           const model = data.value;
-          const isOnlineModel = model.startsWith('gpt-') || model.startsWith('claude-') || model.startsWith('gemini-');
+          const currentMode = config.get<string>('mode', 'cloud');
           
-          if (isOnlineModel) {
+          if (currentMode === 'cloud' || currentMode === 'custom') {
             await config.update('onlineModel', model, vscode.ConfigurationTarget.Global);
-            await config.update('preferOnline', true, vscode.ConfigurationTarget.Global);
           } else {
-            await config.update('ollamaModel', model, vscode.ConfigurationTarget.Global);
-            await config.update('preferOnline', false, vscode.ConfigurationTarget.Global);
+            await config.update('offlineModel', model, vscode.ConfigurationTarget.Global);
           }
           
           vscode.window.showInformationMessage(`Orbit: Model changed to ${model}`);
@@ -666,12 +664,14 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       const models = await this._llmClient.listModels();
 
       const config = vscode.workspace.getConfiguration('orbit');
-      let currentModel = config.get<string>('ollamaModel') || '';
+      const currentMode = config.get<string>('mode', 'cloud');
+      const isOffline = currentMode === 'offline';
+      let currentModel = config.get<string>(isOffline ? 'offlineModel' : 'onlineModel') || '';
 
-      // Auto-sync: if the configured model isn't installed, switch to the first available one
+      // Auto-sync: if the configured model isn't installed/available, switch to the first available one
       if (models.length > 0 && (!currentModel || !models.includes(currentModel))) {
         currentModel = models[0];
-        await config.update('ollamaModel', currentModel, vscode.ConfigurationTarget.Global);
+        await config.update(isOffline ? 'offlineModel' : 'onlineModel', currentModel, vscode.ConfigurationTarget.Global);
         console.log(`Orbit: Auto-selected model "${currentModel}" (previous model not found)`);
       }
 

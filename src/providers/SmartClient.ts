@@ -9,9 +9,8 @@ export class SmartClient implements ILLMClient {
     const mode = config.get<string>('mode', 'cloud');
 
     if (mode === 'cloud') {
-      // Mode 1: Cloud Default
-      const defaultEndpoint = 'https://api.orbit-ai.com/v1';
-      // If we had a default key, we'd pass it. For now pass empty or placeholder
+      // Mode 1: Cloud Default (Free Models)
+      const defaultEndpoint = 'https://text.pollinations.ai/openai';
       return new OnlineClient(defaultEndpoint, '');
     } else if (mode === 'custom') {
       // Mode 2: Custom API Token

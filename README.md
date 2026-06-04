@@ -44,9 +44,9 @@ Orbit relies on **Ollama** to run LLMs locally.
 
 | Setting | Default | Description |
 | :--- | :--- | :--- |
-| `orbit.ollamaEndpoint` | `http://localhost:11434` | URL of your running Ollama server. |
-| `orbit.ollamaModel` | `qwen2.5-coder:7b` | Main LLM used for chat and code generation. |
-| `orbit.preferOnline` | `true` | Prefer online provider if configured. |
+| `orbit.mode` | `cloud` | Operation mode (`cloud`, `custom`, `offline`). |
+| `orbit.offlineModel` | `Qwen2.5-Coder-7B` | Offline model to use in `offline` mode. |
+| `orbit.onlineApiEndpoint` | `https://api.orbit-ai.com/v1` | Endpoint for `custom` mode. |
 | `orbit.context.maxTokens` | `4000` | Max tokens for AI context. |
 
 ## ⌨️ Keyboard Shortcuts

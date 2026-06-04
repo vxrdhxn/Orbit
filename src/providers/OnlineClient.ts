@@ -6,11 +6,15 @@ export class OnlineClient implements ILLMClient {
 
   public async listModels(): Promise<string[]> {
     try {
+      if (this.endpoint.includes('pollinations.ai')) {
+        return ['openai', 'mistral', 'mistral-large', 'llama', 'qwen', 'search'];
+      }
+
       const res = await fetch(`${this.endpoint}/models`, {
-        headers: { 'Authorization': `Bearer ${this.apiKey}` }
+        headers: this.apiKey ? { 'Authorization': `Bearer ${this.apiKey}` } : {}
       });
       if (!res.ok) return ['gpt-4', 'gpt-4o', 'gpt-3.5-turbo'];
-      const data = await res.json();
+      const data: any = await res.json();
       return data.data?.map((m: any) => m.id) || [];
     } catch {
       return ['gpt-4', 'gpt-4o', 'gpt-3.5-turbo'];
@@ -40,7 +44,7 @@ export class OnlineClient implements ILLMClient {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
+          ...(this.apiKey ? { 'Authorization': `Bearer ${this.apiKey}` } : {})
         },
         body: JSON.stringify(body),
         signal: controller.signal
@@ -48,7 +52,11 @@ export class OnlineClient implements ILLMClient {
 
       if (!res.ok) {
         const errorText = await res.text();
-        throw new Error(`Online generate failed: HTTP ${res.status} - ${errorText}`);
+        let friendlyError = errorText;
+        if (res.status === 429 && this.endpoint.includes('pollinations.ai')) {
+          friendlyError = "The free cloud tier is currently busy (rate limited). Please wait a moment and try again, or configure a Custom API key in settings for unlimited access.";
+        }
+        throw new Error(`Online generate failed: HTTP ${res.status} - ${friendlyError}`);
       }
       const data = await res.json();
       return data.choices[0].message.content;
@@ -71,7 +79,7 @@ export class OnlineClient implements ILLMClient {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`
+        ...(this.apiKey ? { 'Authorization': `Bearer ${this.apiKey}` } : {})
       },
       body: JSON.stringify(body),
       signal,
@@ -79,7 +87,11 @@ export class OnlineClient implements ILLMClient {
 
     if (!res.ok) {
       const errorText = await res.text();
-      throw new Error(`Online stream failed: HTTP ${res.status} - ${errorText}`);
+      let friendlyError = errorText;
+      if (res.status === 429 && this.endpoint.includes('pollinations.ai')) {
+        friendlyError = "The free cloud tier is currently busy (rate limited). Please wait a moment and try again, or configure a Custom API key in settings for unlimited access.";
+      }
+      throw new Error(`Online stream failed: HTTP ${res.status} - ${friendlyError}`);
     }
     if (!res.body) throw new Error('No response body');
 
@@ -119,19 +131,28 @@ export class OnlineClient implements ILLMClient {
   }
 
   public async checkConnection(): Promise<{ ok: boolean; message: string }> {
-    if (!this.endpoint || !this.apiKey) {
-      return { ok: false, message: 'Online AI not configured. Please set endpoint and API key in settings.' };
+    if (!this.endpoint) {
+      return { ok: false, message: 'Online AI endpoint not configured.' };
+    }
+    
+    // If no API key is provided but it's configured for a custom endpoint that requires one, we warn them.
+    // However, for the default free tier, apiKey is intentionally empty.
+    if (!this.apiKey && !this.endpoint.includes('pollinations.ai')) {
+      return { ok: false, message: 'API key is missing for custom endpoint.' };
     }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
 
     try {
+      // For Pollinations AI free tier, just return ready since /models isn't standard
+      if (this.endpoint.includes('pollinations.ai')) {
+        return { ok: true, message: 'Free Cloud AI is Ready ✅' };
+      }
+
       const res = await fetch(`${this.endpoint}/models`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`
-        },
+        headers: this.apiKey ? { 'Authorization': `Bearer ${this.apiKey}` } : {},
         signal: controller.signal
       });
 

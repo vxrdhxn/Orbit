@@ -48,7 +48,7 @@ export class ReviewService {
             filesReviewed: code.map(c => c.fileName),
             linesAnalyzed: code.reduce((acc, c) => acc + (c.content.split('\n').length), 0),
             durationMs: durationMs,
-            modelUsed: vscode.workspace.getConfiguration('orbit').get<string>('ollamaModel', 'qwen2.5-coder:7b')
+            modelUsed: vscode.workspace.getConfiguration('orbit').get<string>('offlineModel', 'Qwen2.5-Coder-7B')
         };
 
         // 6. Filter based on options

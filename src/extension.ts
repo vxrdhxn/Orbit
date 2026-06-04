@@ -78,9 +78,9 @@ export function activate(context: vscode.ExtensionContext) {
         const aiStatusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 101);
         const updateAIStatus = () => {
             const config = vscode.workspace.getConfiguration('orbit');
-            const preferOnline = config.get<boolean>('preferOnline', false);
-            aiStatusItem.text = preferOnline ? '$(cloud) Orbit: Online' : '$(device-desktop) Orbit: Local';
-            aiStatusItem.tooltip = preferOnline ? 'Orbit is using the Online AI provider' : 'Orbit is using local Ollama';
+            const mode = config.get<string>('mode', 'cloud');
+            aiStatusItem.text = mode !== 'offline' ? '$(cloud) Orbit: Online' : '$(device-desktop) Orbit: Local';
+            aiStatusItem.tooltip = mode !== 'offline' ? 'Orbit is using the Online AI provider' : 'Orbit is using local offline models';
             aiStatusItem.show();
         };
         updateAIStatus();
@@ -90,10 +90,11 @@ export function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(
             vscode.commands.registerCommand('orbit.toggleMode', async () => {
                 const config = vscode.workspace.getConfiguration('orbit');
-                const current = config.get<boolean>('preferOnline', false);
-                await config.update('preferOnline', !current, vscode.ConfigurationTarget.Global);
+                const current = config.get<string>('mode', 'cloud');
+                const nextMode = current === 'offline' ? 'cloud' : 'offline';
+                await config.update('mode', nextMode, vscode.ConfigurationTarget.Global);
                 updateAIStatus();
-                vscode.window.showInformationMessage(`Orbit: Switched to ${!current ? 'Online' : 'Local'} mode`);
+                vscode.window.showInformationMessage(`Orbit: Switched to ${nextMode} mode`);
             }),
             vscode.commands.registerCommand('orbit.health', async () => {
                 const health = await llmClient.checkConnection();
@@ -103,7 +104,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Listen for config changes
         context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration('orbit.preferOnline')) {
+            if (e.affectsConfiguration('orbit.mode')) {
                 updateAIStatus();
             }
         }));
