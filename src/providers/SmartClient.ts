@@ -1,20 +1,27 @@
 import * as vscode from 'vscode';
 import { ILLMClient } from './ILLMClient';
-import { OllamaClient } from '../ollamaClient';
 import { OnlineClient } from './OnlineClient';
+import { LocalClient } from './LocalClient';
 
 export class SmartClient implements ILLMClient {
   private getClient(): ILLMClient {
     const config = vscode.workspace.getConfiguration('orbit');
-    const preferOnline = config.get<boolean>('preferOnline', false);
+    const mode = config.get<string>('mode', 'cloud');
 
-    if (preferOnline) {
-      const endpoint = config.get<string>('onlineApiEndpoint', '');
+    if (mode === 'cloud') {
+      // Mode 1: Cloud Default
+      const defaultEndpoint = 'https://api.orbit-ai.com/v1';
+      // If we had a default key, we'd pass it. For now pass empty or placeholder
+      return new OnlineClient(defaultEndpoint, '');
+    } else if (mode === 'custom') {
+      // Mode 2: Custom API Token
+      const endpoint = config.get<string>('onlineApiEndpoint', 'https://api.orbit-ai.com/v1');
       const apiKey = config.get<string>('onlineApiKey', '');
       return new OnlineClient(endpoint, apiKey);
     } else {
-      const endpoint = config.get<string>('ollamaEndpoint', 'http://127.0.0.1:11434');
-      return new OllamaClient(endpoint);
+      // Mode 3: Offline Local Execution
+      const model = config.get<string>('offlineModel', 'Qwen2.5-Coder-7B');
+      return new LocalClient(model);
     }
   }
 
