@@ -45,7 +45,7 @@ export class SQLiteMemory {
      * Idempotent migration system for database schema.
      */
     private migrate(): void {
-        if (!this.db) return;
+        if (!this.db) {return;}
 
         // Ensure schema_version table exists
         this.db.exec(`
@@ -66,7 +66,7 @@ export class SQLiteMemory {
     }
 
     private runMigration1(): void {
-        if (!this.db) return;
+        if (!this.db) {return;}
 
         // Requirements 14.2 & 14.3: Create decisions table and indexes
         this.db.exec(`
@@ -96,7 +96,7 @@ export class SQLiteMemory {
      * Validates required fields before insertion.
      */
     public insert(record: DecisionRecord): boolean {
-        if (!this.db) return false;
+        if (!this.db) {return false;}
 
         // Validation (Requirement 14.5)
         if (!record.id || !record.project_id || !record.file_path || !record.change_type) {
@@ -136,7 +136,7 @@ export class SQLiteMemory {
      * Upserts a decision record (inserts or replaces based on primary key).
      */
     public upsert(record: any): boolean {
-        if (!this.db) return false;
+        if (!this.db) {return false;}
 
         if (!record.id || !record.project_id || !record.file_path || !record.change_type) {
             console.error('Invalid decision record for upsert: missing required fields');
@@ -175,7 +175,7 @@ export class SQLiteMemory {
      * Queries decision records with dynamic filtering.
      */
     public query(filter: DecisionQuery): DecisionRecord[] {
-        if (!this.db) return [];
+        if (!this.db) {return [];}
 
         try {
             let sql = 'SELECT * FROM decisions WHERE 1=1';

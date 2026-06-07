@@ -15,7 +15,7 @@ export class CorrectionDecorationProvider {
         // Listen to active editor changes
         context.subscriptions.push(
             vscode.window.onDidChangeActiveTextEditor(editor => {
-                if (editor) this.updateDecorations(editor);
+                if (editor) {this.updateDecorations(editor);}
             }),
             vscode.workspace.onDidChangeTextDocument(e => {
                 const editor = vscode.window.activeTextEditor;
@@ -29,7 +29,7 @@ export class CorrectionDecorationProvider {
         context.subscriptions.push(
             correctionManager.onDidChangeCorrections(() => {
                 const editor = vscode.window.activeTextEditor;
-                if (editor) this.updateDecorations(editor);
+                if (editor) {this.updateDecorations(editor);}
             })
         );
     }

@@ -88,9 +88,9 @@ export class GitAnalyzer {
                     status: 'modified' // detecting add/delete requires checking /dev/null
                 };
             } else if (line.startsWith('new file mode')) {
-                if (currentFile) currentFile.status = 'added';
+                if (currentFile) {currentFile.status = 'added';}
             } else if (line.startsWith('deleted file mode')) {
-                if (currentFile) currentFile.status = 'deleted';
+                if (currentFile) {currentFile.status = 'deleted';}
             } else if (line.startsWith('@@')) {
                 // Hunk header
                 // @@ -1,5 +1,6 @@
@@ -118,7 +118,7 @@ export class GitAnalyzer {
         }
 
         if (currentFile) {
-            if (currentHunk) currentFile.hunks.push(currentHunk);
+            if (currentHunk) {currentFile.hunks.push(currentHunk);}
             files.push(currentFile);
         }
 

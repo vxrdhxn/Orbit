@@ -1,23 +1,32 @@
 import * as assert from 'assert';
 import { ReviewService } from '../reviewService';
-import { OllamaClient } from '../ollamaClient';
+import { ILLMClient } from '../providers/ILLMClient';
 import { ContextGatherer } from '../reviewContext';
 import { FindingCategory, SeverityLevel, CodeInput, ReviewOptions, ReviewConfig } from '../reviewTypes';
 
-// Mock Ollama Client
-class MockOllamaClient extends OllamaClient {
+// Mock LLM Client
+class MockOllamaClient implements ILLMClient {
     public lastParams: any = {};
     public lastPrompt: string = "";
     public mockResponse: string = "{}";
 
-    constructor() {
-        super("http://127.0.0.1:11434");
+    async generate(prompt: string, params?: any): Promise<string> {
+        this.lastPrompt = prompt;
+        this.lastParams = params || {};
+        return this.mockResponse;
     }
 
-    async generate(prompt: string, params: any): Promise<string> {
-        this.lastPrompt = prompt;
-        this.lastParams = params;
+    async generateStream(prompt: string, onChunk: (chunk: string) => void): Promise<string> {
+        onChunk(this.mockResponse);
         return this.mockResponse;
+    }
+
+    async listModels(): Promise<string[]> {
+        return ['mock-model'];
+    }
+
+    async checkConnection(): Promise<{ ok: boolean; message: string }> {
+        return { ok: true, message: 'Mock connection OK' };
     }
 }
 

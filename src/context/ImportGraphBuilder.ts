@@ -44,14 +44,14 @@ export class ImportGraphBuilder {
         let match;
         while ((match = esmRegex.exec(content)) !== null) {
             const resolved = this.resolvePath(match[1], dir);
-            if (resolved) results.push(resolved);
+            if (resolved) {results.push(resolved);}
         }
 
         // CommonJS requires: require('./module')
         const cjsRegex = /require\(['"]([^'"]+)['"]\)/g;
         while ((match = cjsRegex.exec(content)) !== null) {
             const resolved = this.resolvePath(match[1], dir);
-            if (resolved) results.push(resolved);
+            if (resolved) {results.push(resolved);}
         }
 
         return [...new Set(results)]; // De-duplicate

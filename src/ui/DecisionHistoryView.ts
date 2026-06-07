@@ -101,7 +101,7 @@ export class DecisionHistoryView {
         html = html.replace(
             /(src|href)="(\.\/)??([^"]+)"/g,
             (match, attr, dotSlash, filePath) => {
-                if (filePath.startsWith('http') || filePath.startsWith('data:')) return match;
+                if (filePath.startsWith('http') || filePath.startsWith('data:')) {return match;}
                 return `${attr}="${baseUri}/${filePath}"`;
             }
         );

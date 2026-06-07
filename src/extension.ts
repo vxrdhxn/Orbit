@@ -15,7 +15,6 @@ import { ReviewCodeLensProvider } from './reviewCodeLens';
 import { ReviewCommand } from './reviewCommand';
 import { PresetManager } from './reviewPresets';
 import { FindingCategory, SeverityLevel } from './reviewTypes';
-import { OllamaClient } from './ollamaClient';
 
 import { SimpleIndex } from './store';
 

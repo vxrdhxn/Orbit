@@ -112,7 +112,7 @@ export class ResponseFormatter {
     }
 
     private renderHtmlSection(title: string, content: string): string {
-        if (!content) return '';
+        if (!content) {return '';}
 
         // Very basic markdown to HTML for code blocks within content
         const htmlContent = content

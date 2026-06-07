@@ -81,7 +81,7 @@ export class AnnotationManager {
 
     public refreshDecorations() {
         const editor = vscode.window.activeTextEditor;
-        if (!editor) return;
+        if (!editor) {return;}
 
         const currentFile = editor.document.fileName;
 

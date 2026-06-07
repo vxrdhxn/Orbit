@@ -27,7 +27,7 @@ export async function buildIndex(workspaceFolder: vscode.Uri, token?: vscode.Can
 
   const entries: IndexEntry[] = [];
   for (const file of files) {
-    if (token?.isCancellationRequested) return;
+    if (token?.isCancellationRequested) {return;}
     const doc = await vscode.workspace.openTextDocument(file);
     const text = doc.getText();
     const rel = relativePath(workspaceFolder, file);
@@ -47,7 +47,7 @@ export async function buildIndex(workspaceFolder: vscode.Uri, token?: vscode.Can
 
   // embed all texts in batches
   const vectors = await embedTexts(entries.map(e => e.text));
-  for (let i = 0; i < entries.length; i++) entries[i].vector = vectors[i];
+  for (let i = 0; i < entries.length; i++) {entries[i].vector = vectors[i];}
 
   index.setEntries(entries);
   await index.save();
@@ -72,7 +72,7 @@ export async function updateFile(workspaceFolder: vscode.Uri, fileUri: vscode.Ur
   }));
 
   const vectors = await embedTexts(newEntries.map(e => e.text));
-  for (let i = 0; i < newEntries.length; i++) newEntries[i].vector = vectors[i];
+  for (let i = 0; i < newEntries.length; i++) {newEntries[i].vector = vectors[i];}
 
   index.setEntries([...rest, ...newEntries]);
   await index.save();

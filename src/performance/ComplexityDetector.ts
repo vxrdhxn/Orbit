@@ -14,7 +14,7 @@ export class ComplexityDetector {
                 currentDepth++;
                 maxDepth = Math.max(maxDepth, currentDepth);
             } else if (trimmed.includes('}') || trimmed.includes('end')) { // Basic block end detection
-                if (currentDepth > 0) currentDepth--;
+                if (currentDepth > 0) {currentDepth--;}
             }
         }
 
@@ -51,7 +51,7 @@ export class ComplexityDetector {
 
     private isRecursive(code: string): boolean {
         const match = code.match(/function\s+([a-zA-Z0-9_]+)/) || code.match(/(?:const|let)\s+([a-zA-Z0-9_]+)\s*=\s*(?:\([^)]*\)|[a-zA-Z0-9_]+)\s*=>/);
-        if (!match) return false;
+        if (!match) {return false;}
 
         const name = match[1];
         const regex = new RegExp(`\\b${name}\\s*\\(`, 'g');

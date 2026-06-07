@@ -33,7 +33,7 @@ export class BackgroundAnalyzer {
     }
 
     private triggerAnalysis(document: vscode.TextDocument) {
-        if (document.uri.scheme !== 'file') return;
+        if (document.uri.scheme !== 'file') {return;}
 
         const config = vscode.workspace.getConfiguration('orbit');
         if (!config.get<boolean>('pilot.enabled', true)) {
@@ -112,7 +112,7 @@ export class BackgroundAnalyzer {
     }
 
     private parseSeverity(level: string): SeverityLevel | undefined {
-        if (level === 'none') return undefined;
+        if (level === 'none') {return undefined;}
         return level as SeverityLevel;
     }
 

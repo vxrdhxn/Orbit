@@ -149,7 +149,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         return;
     }
 
-    if (this._abortController) this._abortController.abort();
+    if (this._abortController) {this._abortController.abort();}
     this._abortController = new AbortController();
 
     let iteration = 0;
@@ -167,7 +167,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
             let currentTurnResponse = '';
             console.log('Starting stream generation...');
             await this._llmClient.generateStream(fullPrompt, (chunk) => {
-                if (chunk == null) return; // Guard: skip undefined/null chunks
+                if (chunk == null) {return;} // Guard: skip undefined/null chunks
                 currentTurnResponse += chunk;
                 webview.postMessage({ type: 'addResponseChunk', value: chunk });
             }, this._abortController.signal, images);
@@ -388,7 +388,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         }
         case 'pullModel': {
           const modelName = data.value;
-          if (!modelName) return;
+          if (!modelName) {return;}
 
           const terminal = vscode.window.createTerminal(`Orbit: Pull ${modelName}`);
           terminal.show();
@@ -440,7 +440,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         case 'pasteImage': {
           try {
             const base64Data = data.value;
-            if (!base64Data) return;
+            if (!base64Data) {return;}
 
             const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
             if (!matches || matches.length !== 3) {
@@ -522,7 +522,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         }
         case 'runCommand': {
           const cmd = data.value;
-          if (!cmd) break;
+          if (!cmd) {break;}
 
           webviewView.webview.postMessage({ type: 'status', value: 'Running command...' });
 
@@ -532,8 +532,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
               webviewView.webview.postMessage({ type: 'addResponse', value: '⚠️ Command cancelled by user.' });
             } else {
               let output = '';
-              if (result.stdout) output += result.stdout;
-              if (result.stderr) output += (output ? '\n' : '') + result.stderr;
+              if (result.stdout) {output += result.stdout;}
+              if (result.stderr) {output += (output ? '\n' : '') + result.stderr;}
               const exitLabel = result.exitCode === 0 ? '✅ Success' : `❌ Exit code: ${result.exitCode}`;
               webviewView.webview.postMessage({
                 type: 'addResponse',
@@ -739,11 +739,11 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       // Filter to non-terminal code blocks
       const codeBlocks = blocks.filter(b => !isTerminalLanguage(b.language));
 
-      if (codeBlocks.length !== 1) return; // Only auto-apply for single code block responses
+      if (codeBlocks.length !== 1) {return;} // Only auto-apply for single code block responses
 
       const block = codeBlocks[0];
       const editor = vscode.window.activeTextEditor;
-      if (!editor) return;
+      if (!editor) {return;}
 
       const activeFile = editor.document.fileName;
 
@@ -751,7 +751,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       const matchesByPath = block.filePath && activeFile.endsWith(block.filePath.replace(/\//g, path.sep));
       const matchesByLang = !block.filePath && languageMatchesFile(block.language, activeFile);
 
-      if (!matchesByPath && !matchesByLang) return;
+      if (!matchesByPath && !matchesByLang) {return;}
 
       // Auto-apply: ask the user if they want to apply
       const choice = await vscode.window.showInformationMessage(
@@ -760,7 +760,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         'Skip'
       );
 
-      if (choice !== 'Apply & Review Diff') return;
+      if (choice !== 'Apply & Review Diff') {return;}
 
       if (this._inlineApply.hasPendingProposal) {
         await this._inlineApply.reject();
@@ -809,7 +809,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     html = html.replace(
       /(src|href)="(?:\.\/|\/)?([^"]+)"/g,
       (match, attr, filePath) => {
-        if (filePath.startsWith('http') || filePath.startsWith('data:')) return match;
+        if (filePath.startsWith('http') || filePath.startsWith('data:')) {return match;}
         return `${attr}="${baseUri}/${filePath}"`;
       }
     );

@@ -71,7 +71,7 @@ export class ReviewCommand {
 
                 // Show Results (Placeholder: Output Channel or Webview)
                 // For MVP: Output Channel or Markdown preview
-                await this.showResults(report, preset);
+                await this.showResults(report, preset, language);
 
             } catch (e: any) {
                 vscode.window.showErrorMessage(`Review failed: ${e.message}`);
@@ -80,7 +80,7 @@ export class ReviewCommand {
         });
     }
 
-    private async showResults(report: any, preset: ReviewPreset) {
+    private async showResults(report: any, preset: ReviewPreset, language: string = 'typescript') {
         // Generate Markdown report
         const lines: string[] = [];
         lines.push(`# Code Review Report (${preset.displayName})`);
@@ -109,7 +109,7 @@ export class ReviewCommand {
                 if (f.suggestedFix) {
                     lines.push(``);
                     lines.push(`**Suggested Fix:**`);
-                    lines.push(`\`\`\`${'typescript'}`); // TODO: infer language 
+                    lines.push(`\`\`\`${language}`); 
                     lines.push(f.suggestedFix.code);
                     lines.push(`\`\`\``);
                 }

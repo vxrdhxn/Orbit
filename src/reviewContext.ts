@@ -22,12 +22,12 @@ export class ContextGatherer {
             // Ensure index is loaded
             await this.index.load();
             const entries = this.index.getEntries();
-            if (entries.length === 0) return context;
+            if (entries.length === 0) {return context;}
 
             const queries = code.map(c => c.content.split('\n').slice(0, 10).join('\n'));
 
             for (const query of queries) {
-                if (!query.trim()) continue;
+                if (!query.trim()) {continue;}
 
                 const qvec = await embedOne(query);
                 const results = rankEntries(entries, qvec, 3); // Top 3 per file
@@ -57,7 +57,7 @@ export class ContextGatherer {
         try {
             await this.index.load();
             const entries = this.index.getEntries();
-            if (entries.length === 0) return [];
+            if (entries.length === 0) {return [];}
 
             const qvec = await embedOne(code);
             return rankEntries(entries, qvec, 5);

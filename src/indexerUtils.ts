@@ -8,11 +8,11 @@ export function chunk(text: string, maxChars: number, overlap: number): { start:
         const windowStart = Math.max(i, end - 150);
         const slice = text.slice(windowStart, end);
         const rel = slice.lastIndexOf('\n\n');
-        if (rel > -1) end = windowStart + rel + 2;
+        if (rel > -1) {end = windowStart + rel + 2;}
 
         const t = text.slice(i, end);
         chunks.push({ start: i, end, text: t });
-        if (end >= text.length) break;
+        if (end >= text.length) {break;}
         i = Math.max(end - overlap, 0);
     }
     return chunks;

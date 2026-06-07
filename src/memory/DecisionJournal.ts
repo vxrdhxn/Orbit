@@ -5,7 +5,7 @@ import * as crypto from 'crypto';
 
 // Polyfill randomUUID for strict test environments without Node 18 globals
 const safeRandomUUID = () => {
-    if (crypto && (crypto as any).randomUUID) return (crypto as any).randomUUID();
+    if (crypto && (crypto as any).randomUUID) {return (crypto as any).randomUUID();}
     return crypto.randomBytes(16).toString('hex');
 };
 export class DecisionJournal {

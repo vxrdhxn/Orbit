@@ -86,7 +86,7 @@ export class CorrectionManager {
     }
 
     private matchesRejected(correction: CorrectionSuggestion): boolean {
-        if (!correction.suggestedFix) return false;
+        if (!correction.suggestedFix) {return false;}
         const code = correction.suggestedFix.code.trim();
         return this.preferences.rejectedPatterns.some(p => p.pattern === code);
     }

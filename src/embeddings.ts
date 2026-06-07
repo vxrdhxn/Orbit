@@ -47,9 +47,9 @@ async function embedOnline(texts: string[]): Promise<number[][]> {
     },
     body: JSON.stringify({ model, input: texts }),
   });
-  if (!res.ok) throw new Error(`Embeddings failed: HTTP ${res.status}`);
+  if (!res.ok) {throw new Error(`Embeddings failed: HTTP ${res.status}`);}
   const json: any = await res.json();
-  if (json.error) throw new Error(json.error.message || json.error);
+  if (json.error) {throw new Error(json.error.message || json.error);}
   
   return json.data.map((d: any) => d.embedding);
 }

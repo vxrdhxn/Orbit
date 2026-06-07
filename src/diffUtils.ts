@@ -7,7 +7,7 @@ import { DiffHunk } from './reasoning/types';
 export function extractUnifiedDiff(text: string): string | null {
     // Try fenced blocks first
     const fence = text.match(/```(?:diff|patch)\s*([\s\S]*?)```/i);
-    if (fence) return fence[1].trim();
+    if (fence) {return fence[1].trim();}
 
     // Else, find first '--- ' then include until end (or until next unrelated prose)
     const start = text.indexOf('--- ');

@@ -7,7 +7,7 @@ export async function performSearch(query: string, workspaceFolder: vscode.Uri):
   const index = new SimpleIndex(workspaceFolder);
   await index.load();
   const entries = index.getEntries();
-  if (!entries.length) return [];
+  if (!entries.length) {return [];}
 
   const c = vscode.workspace.getConfiguration('orbit');
   const topK = c.get<number>('searchTopK', 5);
@@ -20,10 +20,10 @@ import { rankEntries } from './searchUtils';
 
 export async function runSearch(context: vscode.ExtensionContext) {
   const query = await vscode.window.showInputBox({ prompt: 'Search code (semantic)', placeHolder: 'e.g., parse JSON error handling' });
-  if (!query?.trim()) return;
+  if (!query?.trim()) {return;}
 
   const ws = vscode.workspace.workspaceFolders?.[0];
-  if (!ws) return vscode.window.showWarningMessage('Open a workspace folder first.');
+  if (!ws) {return vscode.window.showWarningMessage('Open a workspace folder first.');}
   const workspaceFolder = ws.uri;
 
   const results = await performSearch(query, workspaceFolder);

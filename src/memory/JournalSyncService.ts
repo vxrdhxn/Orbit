@@ -63,7 +63,7 @@ export class JournalSyncService {
     public importFromWorkspace(syncFilePath: string, manual: boolean = false) {
         try {
             if (!fs.existsSync(syncFilePath)) {
-                if (manual) vscode.window.showInformationMessage('Orbit: No journal.json found in workspace.');
+                if (manual) {vscode.window.showInformationMessage('Orbit: No journal.json found in workspace.');}
                 return;
             }
 
@@ -78,7 +78,7 @@ export class JournalSyncService {
             }
         } catch (error) {
             console.error('Failed to import Orbit journal:', error);
-            if (manual) vscode.window.showErrorMessage('Orbit: Failed to import workspace journal. Check format.');
+            if (manual) {vscode.window.showErrorMessage('Orbit: Failed to import workspace journal. Check format.');}
         }
     }
 }

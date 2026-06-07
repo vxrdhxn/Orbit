@@ -13,7 +13,7 @@ export class FixApplicator {
         // Let's assume we fetch it via Manager for now (need to expose it).
 
         const correction = this.correctionManager.getCorrection(correctionId);
-        if (!correction || !correction.suggestedFix) return false;
+        if (!correction || !correction.suggestedFix) {return false;}
 
         const { location, suggestedFix } = correction;
         const uri = vscode.Uri.file(location.fileName);

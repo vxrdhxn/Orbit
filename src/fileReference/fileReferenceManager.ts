@@ -19,7 +19,7 @@ export class FileReferenceManager {
 
     addRecentFile(filePath: string) {
         const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) return;
+        if (!workspaceFolders) {return;}
         const root = workspaceFolders[0].uri.fsPath;
 
         const relativePath = path.relative(root, filePath);

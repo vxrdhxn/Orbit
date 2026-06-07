@@ -24,7 +24,7 @@ export class SimpleIndex {
       const buf = await vscode.workspace.fs.readFile(this.indexPath);
       const text = new TextDecoder().decode(buf);
       const parsed = JSON.parse(text) as IndexData;
-      if (parsed && Array.isArray(parsed.entries)) this.data = parsed;
+      if (parsed && Array.isArray(parsed.entries)) {this.data = parsed;}
     } catch {
       // no index yet; keep empty
     }

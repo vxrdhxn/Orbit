@@ -16,7 +16,7 @@ export class ContextPrioritizer {
 
             if (file.path === currentFilePath) {
                 priority += 100;
-                if (hasSelection) priority += 50;
+                if (hasSelection) {priority += 50;}
             }
 
             if (importGraph && currentFilePath) {

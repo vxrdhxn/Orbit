@@ -42,7 +42,7 @@ export class ToolManager {
 
     private async listDir(dirPath: string = '.'): Promise<ToolResult> {
         const ws = vscode.workspace.workspaceFolders?.[0];
-        if (!ws) throw new Error('No workspace open');
+        if (!ws) {throw new Error('No workspace open');}
         
         const uri = vscode.Uri.joinPath(ws.uri, dirPath);
         const entries = await vscode.workspace.fs.readDirectory(uri);
@@ -56,7 +56,7 @@ export class ToolManager {
 
     private async readFile(filePath: string): Promise<ToolResult> {
         const ws = vscode.workspace.workspaceFolders?.[0];
-        if (!ws) throw new Error('No workspace open');
+        if (!ws) {throw new Error('No workspace open');}
         
         const uri = vscode.Uri.joinPath(ws.uri, filePath);
         const bytes = await vscode.workspace.fs.readFile(uri);
@@ -67,10 +67,10 @@ export class ToolManager {
 
     private async search(query: string): Promise<ToolResult> {
         const ws = vscode.workspace.workspaceFolders?.[0];
-        if (!ws) throw new Error('No workspace open');
+        if (!ws) {throw new Error('No workspace open');}
         
         const results = await performSearch(query, ws.uri);
-        if (results.length === 0) return { output: 'No semantic matches found.' };
+        if (results.length === 0) {return { output: 'No semantic matches found.' };}
         
         const output = results.map(r => 
             `--- ${r.entry.file} ---\n${r.entry.text.slice(0, 500)}...`
@@ -81,18 +81,18 @@ export class ToolManager {
 
     private async runCommand(command: string): Promise<ToolResult> {
         const result = await this._terminalService.runWithConfirmation(command);
-        if (!result) return { output: 'Command cancelled by user.', isError: true };
+        if (!result) {return { output: 'Command cancelled by user.', isError: true };}
         
         let output = result.stdout;
-        if (result.stderr) output += `\nError Output:\n${result.stderr}`;
-        if (result.exitCode !== 0) output += `\nExited with code: ${result.exitCode}`;
+        if (result.stderr) {output += `\nError Output:\n${result.stderr}`;}
+        if (result.exitCode !== 0) {output += `\nExited with code: ${result.exitCode}`;}
         
         return { output: output || '(No output)' };
     }
 
     private async applyCode(filePath: string, code: string): Promise<ToolResult> {
         const ws = vscode.workspace.workspaceFolders?.[0];
-        if (!ws) throw new Error('No workspace open');
+        if (!ws) {throw new Error('No workspace open');}
         
         const fullPath = path.isAbsolute(filePath) 
             ? filePath 

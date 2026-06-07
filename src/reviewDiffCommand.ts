@@ -30,7 +30,7 @@ export class ReviewDiffCommand {
             { placeHolder: 'Select review scope' }
         );
 
-        if (!mode) return;
+        if (!mode) {return;}
 
         // Select Preset (defaulting to Quick Check or PreCommit for diffs usually)
         let preset;
@@ -65,7 +65,7 @@ export class ReviewDiffCommand {
                 // Prepare CodeInputs
                 const codeInputs: CodeInput[] = [];
                 for (const diff of diffs) {
-                    if (diff.status === 'deleted') continue;
+                    if (diff.status === 'deleted') {continue;}
 
                     // Fetch content
                     let content = '';

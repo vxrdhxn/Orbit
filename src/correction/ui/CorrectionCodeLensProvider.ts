@@ -18,7 +18,7 @@ export class CorrectionCodeLensProvider implements vscode.CodeLensProvider {
         const lenses: vscode.CodeLens[] = [];
 
         corrections.forEach(c => {
-            if (c.status !== CorrectionStatus.Pending) return;
+            if (c.status !== CorrectionStatus.Pending) {return;}
 
             const range = new vscode.Range(c.location.startLine - 1, 0, c.location.endLine - 1, Number.MAX_VALUE);
 

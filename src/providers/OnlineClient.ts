@@ -35,7 +35,7 @@ export class OnlineClient implements ILLMClient {
       const res = await fetch(`${this.endpoint}/models`, {
         headers: this.apiKey ? { 'Authorization': `Bearer ${this.apiKey}` } : {}
       });
-      if (!res.ok) return ['gpt-4', 'gpt-4o', 'gpt-3.5-turbo'];
+      if (!res.ok) {return ['gpt-4', 'gpt-4o', 'gpt-3.5-turbo'];}
       const data: any = await res.json();
       return data.data?.map((m: any) => m.id) || [];
     } catch {
@@ -122,7 +122,7 @@ export class OnlineClient implements ILLMClient {
         }
         throw new Error(`Online stream failed: HTTP ${res.status} - ${friendlyError}`);
       }
-      if (!res.body) throw new Error('No response body');
+      if (!res.body) {throw new Error('No response body');}
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -131,7 +131,7 @@ export class OnlineClient implements ILLMClient {
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {break;}
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
@@ -139,7 +139,7 @@ export class OnlineClient implements ILLMClient {
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (!trimmed || trimmed === 'data: [DONE]') continue;
+          if (!trimmed || trimmed === 'data: [DONE]') {continue;}
           if (trimmed.startsWith('data: ')) {
             try {
               const json = JSON.parse(trimmed.slice(6));

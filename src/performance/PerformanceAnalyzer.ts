@@ -106,12 +106,12 @@ Follow the mandatory structured reasoning format.`;
 
         // Find previous start of function { or (
         let start = offset;
-        while (start > 0 && text[start] !== '{') start--;
+        while (start > 0 && text[start] !== '{') {start--;}
         // Find matching }
         let end = offset;
         let depth = 0;
         for (let i = start; i < text.length; i++) {
-            if (text[i] === '{') depth++;
+            if (text[i] === '{') {depth++;}
             else if (text[i] === '}') {
                 depth--;
                 if (depth === 0) {
@@ -123,7 +123,7 @@ Follow the mandatory structured reasoning format.`;
 
         // Go back from { to find function signature
         let sigStart = start;
-        while (sigStart > 0 && text[sigStart] !== '\n' && text[sigStart] !== ';') sigStart--;
+        while (sigStart > 0 && text[sigStart] !== '\n' && text[sigStart] !== ';') {sigStart--;}
 
         return text.substring(sigStart + 1, end).trim();
     }

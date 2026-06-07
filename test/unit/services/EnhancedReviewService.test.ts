@@ -7,19 +7,32 @@ jest.mock('vscode', () => ({
 }), { virtual: true });
 
 import { EnhancedReviewService } from '../../../src/services/EnhancedReviewService';
-import { OllamaClient } from '../../../src/ollamaClient';
+import { ILLMClient } from '../../../src/providers/ILLMClient';
 import { ContextGatherer } from '../../../src/reviewContext';
 import { FindingCategory, SeverityLevel, ReviewConfig, CodeInput, ProjectContext } from '../../../src/reviewTypes';
 import { LLMRouter } from '../../../src/reasoning/LLMRouter';
 import { ResponseFormatter } from '../../../src/reasoning/ResponseFormatter';
 
-class MockOllamaClient extends OllamaClient {
+class MockOllamaClient implements ILLMClient {
     public mockResponse: string = "{}";
     public capturedPrompt: string = "";
-    constructor() { super("http://127.0.0.1:11434"); }
+    
     async generate(prompt: string, params?: any): Promise<string> {
         this.capturedPrompt = prompt;
         return this.mockResponse;
+    }
+
+    async generateStream(prompt: string, onChunk: (chunk: string) => void): Promise<string> {
+        onChunk(this.mockResponse);
+        return this.mockResponse;
+    }
+
+    async listModels(): Promise<string[]> {
+        return ['mock-model'];
+    }
+
+    async checkConnection(): Promise<{ ok: boolean; message: string }> {
+        return { ok: true, message: 'Mock connection OK' };
     }
 }
 

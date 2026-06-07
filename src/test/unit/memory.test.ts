@@ -21,7 +21,7 @@ describe('SQLite Memory and Decision Journal', () => {
         // Clear previous test data out if persistent
         const dbPath = path.join(testWorkspace, '.orbit', 'decisions.db');
         try {
-            if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+            if (fs.existsSync(dbPath)) {fs.unlinkSync(dbPath);}
         } catch (e) {
             console.warn('Could not unlink test database:', e);
         }
@@ -38,7 +38,11 @@ describe('SQLite Memory and Decision Journal', () => {
 
     afterAll(() => {
         // Cleanup workspace
-        fs.rmSync(testWorkspace, { recursive: true, force: true });
+        try {
+            fs.rmSync(testWorkspace, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+        } catch (e) {
+            console.warn('Could not completely remove test workspace:', e);
+        }
     });
 
     // Property 25: Database Schema Integrity is inherently tested via initialisation success

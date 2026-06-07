@@ -18,7 +18,7 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
         const findings = this.annotationManager.getFindings();
         const fileFindings = findings.filter(f => this.normalizePath(f.location.fileName) === this.normalizePath(currentFile));
 
-        if (fileFindings.length === 0) return [];
+        if (fileFindings.length === 0) {return [];}
 
         // Add a top-level summary CodeLens
         const total = fileFindings.length;
@@ -35,7 +35,7 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
         const byLine = new Map<number, Finding[]>();
         for (const f of fileFindings) {
             const line = f.location.startLine - 1;
-            if (!byLine.has(line)) byLine.set(line, []);
+            if (!byLine.has(line)) {byLine.set(line, []);}
             byLine.get(line)?.push(f);
         }
 

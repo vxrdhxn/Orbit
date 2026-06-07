@@ -11,7 +11,7 @@ export class CorrectionHoverProvider implements vscode.HoverProvider {
             return range.contains(position);
         });
 
-        if (!matching) return undefined;
+        if (!matching) {return undefined;}
 
         const markdown = new vscode.MarkdownString();
         markdown.isTrusted = true;
@@ -23,7 +23,6 @@ export class CorrectionHoverProvider implements vscode.HoverProvider {
             markdown.appendMarkdown(`**Suggested Fix:**\n`);
             markdown.appendCodeblock(matching.suggestedFix.code, document.languageId);
 
-            // TODO: Add visual diff view if possible broadly, or keep it simple.
             // Using a command link to show diff or apply
             const applyCommand = vscode.Uri.parse(`command:orbit.applyCorrection?${encodeURIComponent(JSON.stringify([matching.id]))}`);
             // Use JSON.stringify for arguments; encodeURIComponent might be needed for the whole URI but command args are passed via internal logic if regular command. 

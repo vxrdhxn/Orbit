@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { ReviewService } from '../reviewService';
 import { AnalysisResult, AnalysisTrigger, CorrectionSuggestion, CorrectionStatus } from './types';
-import { CodeInput, Finding } from '../reviewTypes';
+import { CodeInput, Finding, SeverityLevel } from '../reviewTypes';
 
 import { CorrectionManager } from './CorrectionManager';
 
@@ -28,7 +28,7 @@ export class CodeAnalyzer {
             vscode.workspace.onDidSaveTextDocument(doc => {
                 if (this.shouldAnalyze(doc)) {
                     // Debounce save analysis
-                    if (timeout) clearTimeout(timeout);
+                    if (timeout) {clearTimeout(timeout);}
                     timeout = setTimeout(() => {
                         this.analyzeCode(doc, { type: 'save', scope: 'file' });
                     }, 500);
@@ -66,12 +66,11 @@ export class CodeAnalyzer {
             };
 
             // Use existing ReviewService to get findings
-            // TODO: We might want a specialized method in ReviewService for "Correction" mode 
             // that prompts specifically for fixes vs just review.
             // For now, reuse reviewCode which returns findings with suggestedFixes.
             const report = await this.reviewService.reviewCode([input], {
                 enabledCategories: [], // ReviewService should fallback to config defaults if empty or passed explicitly
-                minSeverity: 'info' as any, // TODO: import SeverityLevel properly
+                minSeverity: SeverityLevel.Info,
                 includeContext: true
             });
 

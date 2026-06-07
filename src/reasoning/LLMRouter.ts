@@ -94,11 +94,11 @@ export class LLMRouter {
         // Fill out empty sections with defaults if heuristic recovery is enabled
         // (This would depend on strictness, if enforceFormat is false, we can inject defaults)
         if (!this.config.enforceFormat) {
-            if (!response.why) response.why = "Reasoning was not explicitly provided by the AI.";
-            if (!response.improvements) response.improvements = "No further improvements noted.";
-            if (!response.tradeoffs) response.tradeoffs = "No specific tradeoffs mentioned.";
-            if (!response.production) response.production = "Review standard production guidelines.";
-            if (response.what?.length === 0) response.what = ["Code updated."];
+            if (!response.why) {response.why = "Reasoning was not explicitly provided by the AI.";}
+            if (!response.improvements) {response.improvements = "No further improvements noted.";}
+            if (!response.tradeoffs) {response.tradeoffs = "No specific tradeoffs mentioned.";}
+            if (!response.production) {response.production = "Review standard production guidelines.";}
+            if (response.what?.length === 0) {response.what = ["Code updated."];}
         }
     }
 

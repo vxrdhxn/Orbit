@@ -11,7 +11,7 @@ export class CompletionProvider implements vscode.InlineCompletionItemProvider {
         token: vscode.CancellationToken
     ): Promise<vscode.InlineCompletionItem[]> {
 
-        if (token.isCancellationRequested) return [];
+        if (token.isCancellationRequested) {return [];}
 
         // 1. Get context
         const prefix = document.getText(new vscode.Range(new vscode.Position(0, 0), position));
@@ -24,8 +24,8 @@ export class CompletionProvider implements vscode.InlineCompletionItemProvider {
         try {
             const completion = await this.llmClient.generate(prompt);
 
-            if (token.isCancellationRequested) return [];
-            if (!completion) return [];
+            if (token.isCancellationRequested) {return [];}
+            if (!completion) {return [];}
 
             return [new vscode.InlineCompletionItem(completion, new vscode.Range(position, position))];
         } catch (e: any) {

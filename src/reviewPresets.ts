@@ -168,16 +168,16 @@ export class PresetManager {
 
     getPreset(name: string): ReviewPreset | undefined {
         // Check built-ins
-        if (PRESETS[name]) return PRESETS[name];
+        if (PRESETS[name]) {return PRESETS[name];}
         // Check custom (TODO: persistent storage first)
         return undefined;
     }
 
     private detectOptimalPreset(ctx: PresetContext): string {
-        if (ctx.hasSecurityPatterns) return 'securityAudit';
-        if (ctx.hasPerformanceCriticalCode) return 'performance';
-        if (ctx.isRefactoring) return 'refactoring';
-        if (ctx.isDiffReview) return 'preCommit'; // default for diffs
+        if (ctx.hasSecurityPatterns) {return 'securityAudit';}
+        if (ctx.hasPerformanceCriticalCode) {return 'performance';}
+        if (ctx.isRefactoring) {return 'refactoring';}
+        if (ctx.isDiffReview) {return 'preCommit';} // default for diffs
         return 'quickCheck';
     }
 }

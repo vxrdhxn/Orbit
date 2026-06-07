@@ -53,7 +53,7 @@ export class CorrectionPanel implements vscode.WebviewViewProvider {
     }
 
     private updateContent() {
-        if (!this._view) return;
+        if (!this._view) {return;}
 
         const corrections = this.correctionManager.getAllCorrections()
             .filter(c => c.status === CorrectionStatus.Pending);

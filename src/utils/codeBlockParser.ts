@@ -67,7 +67,7 @@ export function parseCodeBlocks(markdown: string): ParsedCodeBlock[] {
         }
 
         // Skip empty code blocks
-        if (!code.trim()) continue;
+        if (!code.trim()) {continue;}
 
         blocks.push({ language, filePath, code, raw });
     }
@@ -81,7 +81,7 @@ export function parseCodeBlocks(markdown: string): ParsedCodeBlock[] {
 export function languageMatchesFile(language: string, filePath: string): boolean {
     const ext = '.' + filePath.split('.').pop()?.toLowerCase();
     const exts = LANG_TO_EXT[language];
-    if (exts) return exts.includes(ext);
+    if (exts) {return exts.includes(ext);}
 
     // Fallback: check if extension starts with the language name
     return ext === '.' + language;
