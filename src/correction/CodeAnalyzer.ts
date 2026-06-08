@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ReviewService } from '../reviewService';
 import { AnalysisResult, AnalysisTrigger, CorrectionSuggestion, CorrectionStatus } from './types';
 import { CodeInput, Finding, SeverityLevel } from '../reviewTypes';
+import { generateUnifiedDiff } from '../diffUtils';
 
 import { CorrectionManager } from './CorrectionManager';
 
@@ -141,6 +142,20 @@ export class CodeAnalyzer {
     }
 
     private convertToCorrection(finding: Finding, document: vscode.TextDocument): CorrectionSuggestion {
+        let diffPreview;
+        if (finding.suggestedFix) {
+            const original = finding.location.snippet;
+            const modified = finding.suggestedFix.code;
+            const unified = generateUnifiedDiff(original, modified, document.fileName);
+            diffPreview = {
+                original,
+                modified,
+                unified,
+                startLine: finding.location.startLine,
+                endLine: finding.location.endLine
+            };
+        }
+
         return {
             ...finding,
             correctionId: Math.random().toString(36).substring(7),
@@ -148,13 +163,7 @@ export class CodeAnalyzer {
             confidence: 0.8, // Placeholder, AI should return this
             applicability: !!finding.suggestedFix,
             dependencies: [],
-            diffPreview: finding.suggestedFix ? {
-                original: finding.location.snippet,
-                modified: finding.suggestedFix.code,
-                unified: '...', // Compute unified diff here if needed or later
-                startLine: finding.location.startLine,
-                endLine: finding.location.endLine
-            } : undefined
+            diffPreview
         };
     }
 

@@ -1,4 +1,12 @@
 import { DiffHunk } from './reasoning/types';
+import * as diff from 'diff';
+
+/**
+ * Generate a unified diff from original to modified.
+ */
+export function generateUnifiedDiff(original: string, modified: string, fileName: string = 'file'): string {
+    return diff.createPatch(fileName, original, modified, '', '', { context: 3 });
+}
 
 /**
  * Extract a unified diff from model output.
