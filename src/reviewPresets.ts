@@ -125,6 +125,10 @@ export const PRESETS: Record<string, ReviewPreset> = {
 export class PresetManager {
     constructor(private context: vscode.ExtensionContext) { }
 
+    private getCustomPresets(): ReviewPreset[] {
+        return vscode.workspace.getConfiguration('orbit').get<ReviewPreset[]>('customReviewPresets', []);
+    }
+
     async selectPreset(autoDetectContext?: PresetContext): Promise<ReviewPreset> {
         // 1. Auto-detect if context provided
         let recommended: ReviewPreset | undefined;
@@ -134,8 +138,11 @@ export class PresetManager {
         }
 
         // 2. Show QuickPick
-        const items = Object.values(PRESETS).map(p => ({
-            label: `${p.icon} ${p.displayName}`,
+        const customPresets = this.getCustomPresets();
+        const allPresets = [...Object.values(PRESETS), ...customPresets];
+
+        const items = allPresets.map(p => ({
+            label: `${p.icon || '🛠️'} ${p.displayName || p.name}`,
             description: p.description,
             detail: recommended?.name === p.name ? '(Recommended)' : undefined,
             preset: p
@@ -169,8 +176,10 @@ export class PresetManager {
     getPreset(name: string): ReviewPreset | undefined {
         // Check built-ins
         if (PRESETS[name]) {return PRESETS[name];}
-        // Check custom (TODO: persistent storage first)
-        return undefined;
+        
+        // Check custom storage from settings
+        const customPresets = this.getCustomPresets();
+        return customPresets.find(p => p.name === name);
     }
 
     private detectOptimalPreset(ctx: PresetContext): string {

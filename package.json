@@ -217,6 +217,31 @@
           "type": "boolean",
           "default": false,
           "description": "Enable automatic syncing of the Orbit Decision Journal to .orbit/journal.json in your workspace"
+        },
+        "orbit.customReviewPresets": {
+          "type": "array",
+          "default": [],
+          "description": "Custom review presets.",
+          "items": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string", "description": "Unique identifier for the preset" },
+                "displayName": { "type": "string", "description": "Display name in the QuickPick menu" },
+                "description": { "type": "string", "description": "Brief description of the preset" },
+                "icon": { "type": "string", "description": "Icon to show in the menu (e.g. an emoji)" },
+                "config": {
+                    "type": "object",
+                    "properties": {
+                        "enabledCategories": { "type": "array", "items": { "type": "string" } },
+                        "minSeverity": { "type": "string" },
+                        "maxFindings": { "type": "number" },
+                        "includeContext": { "type": "boolean" },
+                        "timeoutMs": { "type": "number" },
+                        "promptModifiers": { "type": "array", "items": { "type": "string" } }
+                    }
+                }
+            }
+          }
         }
       }
     }
