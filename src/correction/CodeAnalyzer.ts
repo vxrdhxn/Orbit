@@ -7,7 +7,9 @@ import { CorrectionManager } from './CorrectionManager';
 
 export class CodeAnalyzer {
     private analysisCache: Map<string, AnalysisResult> = new Map();
-    private isAnalyzing: boolean = false;
+    private activePromises: Map<string, Promise<AnalysisResult>> = new Map();
+    private pendingRequests: Map<string, { document: vscode.TextDocument; trigger: AnalysisTrigger; resolve: (res: AnalysisResult) => void; reject: (err: any) => void }> = new Map();
+    private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
 
     constructor(
         private readonly context: vscode.ExtensionContext,
@@ -16,9 +18,6 @@ export class CodeAnalyzer {
     ) { }
 
     public registerListeners() {
-        // Debounce timer for save
-        let timeout: NodeJS.Timeout | undefined;
-
         this.context.subscriptions.push(
             vscode.workspace.onDidOpenTextDocument(doc => {
                 if (this.shouldAnalyze(doc)) {
@@ -27,11 +26,18 @@ export class CodeAnalyzer {
             }),
             vscode.workspace.onDidSaveTextDocument(doc => {
                 if (this.shouldAnalyze(doc)) {
-                    // Debounce save analysis
-                    if (timeout) {clearTimeout(timeout);}
-                    timeout = setTimeout(() => {
+                    const key = doc.uri.toString();
+                    const existingTimer = this.debounceTimers.get(key);
+                    if (existingTimer) {
+                        clearTimeout(existingTimer);
+                    }
+                    
+                    const timeout = setTimeout(() => {
+                        this.debounceTimers.delete(key);
                         this.analyzeCode(doc, { type: 'save', scope: 'file' });
                     }, 500);
+                    
+                    this.debounceTimers.set(key, timeout);
                 }
             })
         );
@@ -46,16 +52,52 @@ export class CodeAnalyzer {
         );
     }
 
-    public async analyzeCode(
+    public analyzeCode(
         document: vscode.TextDocument,
         trigger: AnalysisTrigger
     ): Promise<AnalysisResult> {
-        if (this.isAnalyzing) {
-            // Simple concurrency check, might want more robust queueing later
-            console.log('Analysis already in progress, skipping or queuing...');
+        const key = document.uri.toString();
+        
+        return new Promise((resolve, reject) => {
+            // Overwrite any pending request with the latest one
+            this.pendingRequests.set(key, { document, trigger, resolve, reject });
+            this.processQueue(key);
+        });
+    }
+
+    private async processQueue(key: string) {
+        if (this.activePromises.has(key)) {
+            // Already running, processQueue will be called when it finishes
+            return;
         }
 
-        this.isAnalyzing = true;
+        const pending = this.pendingRequests.get(key);
+        if (!pending) {
+            return;
+        }
+
+        // Move pending to active
+        this.pendingRequests.delete(key);
+
+        const activePromise = this.performAnalysis(pending.document, pending.trigger);
+        this.activePromises.set(key, activePromise);
+
+        try {
+            const result = await activePromise;
+            pending.resolve(result);
+        } catch (error) {
+            pending.reject(error);
+        } finally {
+            this.activePromises.delete(key);
+            // Check if another request was added while we were analyzing
+            this.processQueue(key);
+        }
+    }
+
+    private async performAnalysis(
+        document: vscode.TextDocument,
+        trigger: AnalysisTrigger
+    ): Promise<AnalysisResult> {
         const startTime = Date.now();
 
         try {
@@ -95,8 +137,6 @@ export class CodeAnalyzer {
         } catch (error) {
             console.error('Analysis failed:', error);
             throw error;
-        } finally {
-            this.isAnalyzing = false;
         }
     }
 
