@@ -160,7 +160,7 @@ export class CodeAnalyzer {
             ...finding,
             correctionId: Math.random().toString(36).substring(7),
             status: CorrectionStatus.Pending,
-            confidence: 0.8, // Placeholder, AI should return this
+            confidence: finding.confidence ?? 0.8,
             applicability: !!finding.suggestedFix,
             dependencies: [],
             diffPreview

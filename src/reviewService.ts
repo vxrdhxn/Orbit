@@ -133,7 +133,8 @@ Analyze the code and provide findings in the following JSON format:
       "suggestedFix": {
         "description": "What to change",
         "code": "Fixed code snippet"
-      }
+      },
+      "confidence": 0.95
     }
   ]
 }
@@ -176,7 +177,8 @@ Provide specific, actionable feedback.
                     location: f.location || { fileName: "", startLine: 1, endLine: 1, snippet: "" },
                     suggestedFix: f.suggestedFix,
                     references: f.references,
-                    reasoning: f.reasoning
+                    reasoning: f.reasoning,
+                    confidence: typeof f.confidence === 'number' ? f.confidence : 0.8
                 })),
                 metadata: {
                     timestamp: 0,
