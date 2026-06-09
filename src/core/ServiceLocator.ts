@@ -5,7 +5,7 @@ import { LLMRouter } from '../reasoning/LLMRouter';
 import { ResponseFormatter } from '../reasoning/ResponseFormatter';
 import { SQLiteMemory } from '../memory/SQLiteMemory';
 import { DecisionJournal } from '../memory/DecisionJournal';
-import { JournalSyncService } from '../memory/JournalSyncService';
+import { GitJournalSyncService } from '../memory/GitJournalSyncService';
 import { EnhancedDiffEngine } from '../services/EnhancedDiffEngine';
 import { ApprovalManager } from '../services/ApprovalManager';
 import { DiffApprovalView } from '../ui/DiffApprovalView';
@@ -34,7 +34,7 @@ export class ServiceLocator {
     // Workspace Services
     public sqliteMemory?: SQLiteMemory;
     public decisionJournal?: DecisionJournal;
-    public syncService?: JournalSyncService;
+    public syncService?: GitJournalSyncService;
     public diffEngine?: EnhancedDiffEngine;
     public approvalManager?: ApprovalManager;
     public diffApprovalView?: DiffApprovalView;
@@ -67,7 +67,7 @@ export class ServiceLocator {
         this.decisionJournal = new DecisionJournal(this.sqliteMemory);
 
         // Sync & Collaboration
-        this.syncService = new JournalSyncService(this.decisionJournal, workspaceFolder.fsPath);
+        this.syncService = new GitJournalSyncService(this.decisionJournal, workspaceFolder.fsPath);
         this.syncService.activate(context.subscriptions);
 
         // Diff & Approval System

@@ -132,7 +132,15 @@ Analyze the code and provide findings in the following JSON format:
       },
       "suggestedFix": {
         "description": "What to change",
-        "code": "Fixed code snippet"
+        "code": "Fixed code snippet for the main file",
+        "additionalEdits": [
+          {
+            "fileName": "Path to another file that needs changes",
+            "startLine": 1,
+            "endLine": 2,
+            "code": "Fixed code snippet for the other file"
+          }
+        ]
       },
       "confidence": 0.95
     }

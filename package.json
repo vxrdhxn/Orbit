@@ -138,10 +138,11 @@
           "enum": [
             "cloud",
             "custom",
-            "offline"
+            "offline",
+            "local-server"
           ],
           "default": "cloud",
-          "description": "Operation mode for Orbit AI (cloud: Default Orbit Proxy, custom: Bring Your Own API, offline: Local execution)"
+          "description": "Operation mode for Orbit AI (cloud: Default Orbit Proxy, custom: Bring Your Own API, offline: Local execution, local-server: Local OpenAI-compatible server)"
         },
         "orbit.onlineApiEndpoint": {
           "type": "string",
@@ -162,6 +163,16 @@
           "type": "string",
           "default": "Qwen2.5-Coder-7B",
           "description": "Model to use for Offline Execution (Mode 3) (e.g., Qwen2.5-Coder-7B)"
+        },
+        "orbit.localServerEndpoint": {
+          "type": "string",
+          "default": "http://localhost:1234/v1",
+          "description": "Endpoint for the local inference server (e.g., LM Studio or vLLM)"
+        },
+        "orbit.localServerModel": {
+          "type": "string",
+          "default": "local-model",
+          "description": "Model ID to use for the local inference server"
         },
         "orbit.reasoning.maxRetries": {
           "type": "number",
@@ -217,6 +228,12 @@
           "type": "boolean",
           "default": false,
           "description": "Enable automatic syncing of the Orbit Decision Journal to .orbit/journal.json in your workspace"
+        },
+        "orbit.sync.method": {
+          "type": "string",
+          "enum": ["file", "git"],
+          "default": "file",
+          "description": "Method to use for team sync. 'file' just saves to workspace. 'git' automatically commits and syncs with remote."
         },
         "orbit.customReviewPresets": {
           "type": "array",

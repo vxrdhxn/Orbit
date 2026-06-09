@@ -38,6 +38,14 @@ export interface SuggestedFix {
     description: string;
     code: string;
     diffPreview?: string;
+    additionalEdits?: FileEdit[];
+}
+
+export interface FileEdit {
+    fileName: string;
+    code: string;
+    startLine: number;
+    endLine: number;
 }
 
 export enum SeverityLevel {

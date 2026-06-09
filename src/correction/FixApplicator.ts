@@ -20,12 +20,24 @@ export class FixApplicator {
 
         // 2. Prepare edit
         const edit = new vscode.WorkspaceEdit();
-        const range = new vscode.Range(
+        const mainRange = new vscode.Range(
             location.startLine - 1, 0,
             location.endLine - 1, Number.MAX_VALUE
         );
 
-        edit.replace(uri, range, suggestedFix.code);
+        edit.replace(uri, mainRange, suggestedFix.code);
+
+        // Append additional multi-file edits
+        if (suggestedFix.additionalEdits && suggestedFix.additionalEdits.length > 0) {
+            for (const additionalEdit of suggestedFix.additionalEdits) {
+                const additionalUri = vscode.Uri.file(additionalEdit.fileName);
+                const additionalRange = new vscode.Range(
+                    additionalEdit.startLine - 1, 0,
+                    additionalEdit.endLine - 1, Number.MAX_VALUE
+                );
+                edit.replace(additionalUri, additionalRange, additionalEdit.code);
+            }
+        }
 
         // 3. Apply edit
         try {

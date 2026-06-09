@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ILLMClient } from './ILLMClient';
 import { OnlineClient } from './OnlineClient';
 import { LocalClient } from './LocalClient';
+import { LocalServerClient } from './LocalServerClient';
 
 export class SmartClient implements ILLMClient {
   private getClient(): ILLMClient {
@@ -17,6 +18,11 @@ export class SmartClient implements ILLMClient {
       const endpoint = config.get<string>('onlineApiEndpoint', 'https://api.orbit-ai.com/v1');
       const apiKey = config.get<string>('onlineApiKey', '');
       return new OnlineClient(endpoint, apiKey);
+    } else if (mode === 'local-server') {
+      // Mode 4: Local Server Execution (LM Studio/vLLM)
+      const endpoint = config.get<string>('localServerEndpoint', 'http://localhost:1234/v1');
+      const model = config.get<string>('localServerModel', 'local-model');
+      return new LocalServerClient(endpoint, model);
     } else {
       // Mode 3: Offline Local Execution
       const model = config.get<string>('offlineModel', 'Qwen2.5-Coder-7B');
