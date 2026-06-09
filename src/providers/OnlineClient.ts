@@ -23,6 +23,12 @@ async function withPollinationsMutex<T>(isPollinations: boolean, task: () => Pro
   }
 }
 
+// List of fallback unauthenticated endpoints
+const FREE_POOL = [
+  'https://text.pollinations.ai/openai',
+  'https://api.airforce' // Known free OpenAI-compatible API
+];
+
 export class OnlineClient implements ILLMClient {
   constructor(private endpoint: string, private apiKey: string) {}
 
@@ -41,6 +47,53 @@ export class OnlineClient implements ILLMClient {
     } catch {
       return ['gpt-4', 'gpt-4o', 'gpt-3.5-turbo'];
     }
+  }
+
+  private async fetchWithFallback(urlPath: string, options: RequestInit, isStream: boolean): Promise<Response> {
+    const isDefaultFreeTier = this.endpoint.includes('pollinations.ai') && !this.apiKey;
+    const endpointsToTry = isDefaultFreeTier ? FREE_POOL : [this.endpoint];
+
+    for (let i = 0; i < endpointsToTry.length; i++) {
+      const currentEndpoint = endpointsToTry[i];
+      const isPollinations = currentEndpoint.includes('pollinations.ai');
+      
+      try {
+        const res = await withPollinationsMutex(isPollinations, async () => {
+          return await fetch(`${currentEndpoint}${urlPath}`, {
+            ...options,
+            headers: {
+              ...options.headers,
+              ...(this.apiKey && !isDefaultFreeTier ? { 'Authorization': `Bearer ${this.apiKey}` } : {})
+            }
+          });
+        });
+
+        if (res.ok) {
+          return res;
+        }
+
+        if (res.status === 429 && isDefaultFreeTier && i < endpointsToTry.length - 1) {
+          console.warn(`Endpoint ${currentEndpoint} returned 429, falling back to next provider...`);
+          continue; // Try next endpoint
+        }
+
+        // If it's the last endpoint or not a 429, throw error
+        const errorText = await res.text();
+        let friendlyError = errorText;
+        if (res.status === 429 && isPollinations) {
+          friendlyError = "The free cloud tier is currently busy (rate limited). Please wait a moment and try again, or configure a Custom API key in settings for unlimited access.";
+        }
+        throw new Error(`HTTP ${res.status} - ${friendlyError}`);
+
+      } catch (err: any) {
+        if (isDefaultFreeTier && i < endpointsToTry.length - 1) {
+          console.warn(`Endpoint ${currentEndpoint} failed (${err.message}), falling back...`);
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new Error('All fallback providers failed.');
   }
 
   public async generate(prompt: string, params?: { model?: string; json?: boolean }): Promise<string> {
@@ -62,67 +115,41 @@ export class OnlineClient implements ILLMClient {
     const timeout = setTimeout(() => controller.abort(), 30000);
 
     try {
-      const isPollinations = this.endpoint.includes('pollinations.ai');
-      
-      const res = await withPollinationsMutex(isPollinations, async () => {
-        return await fetch(`${this.endpoint}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(this.apiKey ? { 'Authorization': `Bearer ${this.apiKey}` } : {})
-          },
-          body: JSON.stringify(body),
-          signal: controller.signal
-        });
-      });
+      const res = await this.fetchWithFallback('/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      }, false);
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        let friendlyError = errorText;
-        if (res.status === 429 && this.endpoint.includes('pollinations.ai')) {
-          friendlyError = "The free cloud tier is currently busy (rate limited). Please wait a moment and try again, or configure a Custom API key in settings for unlimited access.";
-        }
-        throw new Error(`Online generate failed: HTTP ${res.status} - ${friendlyError}`);
-      }
-      const data = await res.json();
+      const data: any = await res.json();
       return data.choices[0].message.content;
+    } catch (err: any) {
+      throw new Error(`Online generate failed: ${err.message}`);
     } finally {
       clearTimeout(timeout);
     }
   }
 
   public async generateStream(prompt: string, onChunk: (chunk: string) => void, signal?: AbortSignal): Promise<string> {
-    const isPollinations = this.endpoint.includes('pollinations.ai');
-    
-    return await withPollinationsMutex(isPollinations, async () => {
-      const config = vscode.workspace.getConfiguration('orbit');
-      const model = config.get<string>('onlineModel', 'gpt-4o');
+    const config = vscode.workspace.getConfiguration('orbit');
+    const model = config.get<string>('onlineModel', 'gpt-4o');
 
-      const body = {
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        stream: true,
-      };
+    const body = {
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      stream: true,
+    };
 
-      const res = await fetch(`${this.endpoint}/chat/completions`, {
+    try {
+      const res = await this.fetchWithFallback('/chat/completions', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey ? { 'Authorization': `Bearer ${this.apiKey}` } : {})
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
         signal,
-      });
+      }, true);
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        let friendlyError = errorText;
-        if (res.status === 429 && this.endpoint.includes('pollinations.ai')) {
-          friendlyError = "The free cloud tier is currently busy (rate limited). Please wait a moment and try again, or configure a Custom API key in settings for unlimited access.";
-        }
-        throw new Error(`Online stream failed: HTTP ${res.status} - ${friendlyError}`);
-      }
-      if (!res.body) {throw new Error('No response body');}
+      if (!res.body) { throw new Error('No response body'); }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -131,7 +158,7 @@ export class OnlineClient implements ILLMClient {
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) {break;}
+        if (done) { break; }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
@@ -139,7 +166,7 @@ export class OnlineClient implements ILLMClient {
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (!trimmed || trimmed === 'data: [DONE]') {continue;}
+          if (!trimmed || trimmed === 'data: [DONE]') { continue; }
           if (trimmed.startsWith('data: ')) {
             try {
               const json = JSON.parse(trimmed.slice(6));
@@ -155,7 +182,9 @@ export class OnlineClient implements ILLMClient {
         }
       }
       return fullResponse;
-    });
+    } catch (err: any) {
+      throw new Error(`Online stream failed: ${err.message}`);
+    }
   }
 
   public async checkConnection(): Promise<{ ok: boolean; message: string }> {
@@ -163,8 +192,6 @@ export class OnlineClient implements ILLMClient {
       return { ok: false, message: 'Online AI endpoint not configured.' };
     }
     
-    // If no API key is provided but it's configured for a custom endpoint that requires one, we warn them.
-    // However, for the default free tier, apiKey is intentionally empty.
     if (!this.apiKey && !this.endpoint.includes('pollinations.ai')) {
       return { ok: false, message: 'API key is missing for custom endpoint.' };
     }
@@ -173,7 +200,6 @@ export class OnlineClient implements ILLMClient {
     const timeout = setTimeout(() => controller.abort(), 5000);
 
     try {
-      // For Pollinations AI free tier, just return ready since /models isn't standard
       if (this.endpoint.includes('pollinations.ai')) {
         return { ok: true, message: 'Free Cloud AI is Ready ✅' };
       }

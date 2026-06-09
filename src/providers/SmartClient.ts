@@ -23,6 +23,12 @@ export class SmartClient implements ILLMClient {
       const endpoint = config.get<string>('localServerEndpoint', 'http://localhost:1234/v1');
       const model = config.get<string>('localServerModel', 'local-model');
       return new LocalServerClient(endpoint, model);
+    } else if (mode === 'groq') {
+      const apiKey = config.get<string>('groqApiKey', '');
+      return new OnlineClient('https://api.groq.com/openai/v1', apiKey);
+    } else if (mode === 'openrouter') {
+      const apiKey = config.get<string>('openRouterApiKey', '');
+      return new OnlineClient('https://openrouter.ai/api/v1', apiKey);
     } else {
       // Mode 3: Offline Local Execution
       const model = config.get<string>('offlineModel', 'Qwen2.5-Coder-7B');

@@ -139,10 +139,12 @@
             "cloud",
             "custom",
             "offline",
-            "local-server"
+            "local-server",
+            "groq",
+            "openrouter"
           ],
           "default": "cloud",
-          "description": "Operation mode for Orbit AI (cloud: Default Orbit Proxy, custom: Bring Your Own API, offline: Local execution, local-server: Local OpenAI-compatible server)"
+          "description": "Operation mode for Orbit AI (cloud: Default free pool, groq: Groq Free Tier, openrouter: OpenRouter Free Models, custom: Bring Your Own API, offline: Local execution, local-server: Local Server)"
         },
         "orbit.onlineApiEndpoint": {
           "type": "string",
@@ -153,6 +155,16 @@
           "type": "string",
           "default": "",
           "description": "API Key for the Custom API Provider (Mode 2)"
+        },
+        "orbit.groqApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API Key for Groq (Fast Free Tier - Get it at console.groq.com)"
+        },
+        "orbit.openRouterApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API Key for OpenRouter (Free Models - Get it at openrouter.ai)"
         },
         "orbit.onlineModel": {
           "type": "string",
