@@ -143,6 +143,14 @@
             "groq",
             "openrouter"
           ],
+          "enumItemLabels": [
+            "Cloud (Default)",
+            "Custom",
+            "Offline",
+            "Local Server",
+            "Groq",
+            "OpenRouter"
+          ],
           "default": "cloud",
           "description": "Operation mode for Orbit AI (cloud: Default free pool, groq: Groq Free Tier, openrouter: OpenRouter Free Models, custom: Bring Your Own API, offline: Local execution, local-server: Local Server)"
         },
