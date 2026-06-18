@@ -36,12 +36,23 @@ export class SmartClient implements ILLMClient {
     }
   }
 
+  private sanitizePrompt(prompt: string): string {
+    // Truncate excessively large prompts as a fallback security measure (e.g., 200,000 characters)
+    if (prompt.length > 200000) {
+        return prompt.substring(0, 200000) + '\n...[TRUNCATED BY SMARTCLIENT TO PREVENT OVERFLOW]';
+    }
+    // Could also add general system-level overrides here if necessary
+    return prompt;
+  }
+
   public async generate(prompt: string, params?: { model?: string; json?: boolean }): Promise<string> {
-    return await this.getClient().generate(prompt, params);
+    const safePrompt = this.sanitizePrompt(prompt);
+    return await this.getClient().generate(safePrompt, params);
   }
 
   public async generateStream(prompt: string, onChunk: (chunk: string) => void, signal?: AbortSignal, images?: string[]): Promise<string> {
-    return await this.getClient().generateStream(prompt, onChunk, signal, images);
+    const safePrompt = this.sanitizePrompt(prompt);
+    return await this.getClient().generateStream(safePrompt, onChunk, signal, images);
   }
 
   public async checkConnection(): Promise<{ ok: boolean; message: string }> {

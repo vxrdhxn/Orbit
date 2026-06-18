@@ -58,37 +58,49 @@ export class SQLiteMemory {
         const getVersion = this.db.prepare('SELECT MAX(version) as version FROM schema_version').get() as { version: number | null };
         const currentVersion = getVersion?.version || 0;
 
-        // Migration 1: Initial Schema
-        if (currentVersion < 1) {
-            this.runMigration1();
-            this.db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(1, Date.now());
+        const migrations = [
+            {
+                version: 1,
+                up: (db: Database.Database) => {
+                    // Requirements 14.2 & 14.3: Create decisions table and indexes
+                    db.exec(`
+                        CREATE TABLE IF NOT EXISTS decisions (
+                            id TEXT PRIMARY KEY,
+                            timestamp INTEGER NOT NULL,
+                            project_id TEXT NOT NULL,
+                            file_path TEXT NOT NULL,
+                            change_type TEXT NOT NULL,
+                            what TEXT NOT NULL,
+                            why TEXT NOT NULL,
+                            improvements TEXT NOT NULL,
+                            tradeoffs TEXT NOT NULL,
+                            production TEXT NOT NULL,
+                            approved INTEGER NOT NULL
+                        )
+                    `);
+
+                    db.exec(`CREATE INDEX IF NOT EXISTS idx_decisions_project_id ON decisions(project_id)`);
+                    db.exec(`CREATE INDEX IF NOT EXISTS idx_decisions_file_path ON decisions(file_path)`);
+                    db.exec(`CREATE INDEX IF NOT EXISTS idx_decisions_timestamp ON decisions(timestamp)`);
+                    db.exec(`CREATE INDEX IF NOT EXISTS idx_decisions_change_type ON decisions(change_type)`);
+                }
+            }
+            // Add future migrations here
+            // { version: 2, up: (db) => { db.exec('ALTER TABLE ...') } }
+        ];
+
+        // Apply pending migrations
+        for (const migration of migrations) {
+            if (currentVersion < migration.version) {
+                try {
+                    migration.up(this.db);
+                    this.db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(migration.version, Date.now());
+                } catch (err) {
+                    console.error(`Migration v${migration.version} failed:`, err);
+                    break;
+                }
+            }
         }
-    }
-
-    private runMigration1(): void {
-        if (!this.db) {return;}
-
-        // Requirements 14.2 & 14.3: Create decisions table and indexes
-        this.db.exec(`
-            CREATE TABLE IF NOT EXISTS decisions (
-                id TEXT PRIMARY KEY,
-                timestamp INTEGER NOT NULL,
-                project_id TEXT NOT NULL,
-                file_path TEXT NOT NULL,
-                change_type TEXT NOT NULL,
-                what TEXT NOT NULL,
-                why TEXT NOT NULL,
-                improvements TEXT NOT NULL,
-                tradeoffs TEXT NOT NULL,
-                production TEXT NOT NULL,
-                approved INTEGER NOT NULL
-            )
-        `);
-
-        this.db.exec(`CREATE INDEX IF NOT EXISTS idx_decisions_project_id ON decisions(project_id)`);
-        this.db.exec(`CREATE INDEX IF NOT EXISTS idx_decisions_file_path ON decisions(file_path)`);
-        this.db.exec(`CREATE INDEX IF NOT EXISTS idx_decisions_timestamp ON decisions(timestamp)`);
-        this.db.exec(`CREATE INDEX IF NOT EXISTS idx_decisions_change_type ON decisions(change_type)`);
     }
 
     /**

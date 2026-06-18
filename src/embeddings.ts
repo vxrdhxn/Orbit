@@ -1,22 +1,50 @@
 import * as vscode from 'vscode';
 
-let extractor: any;
+import { Worker } from 'worker_threads';
+import * as path from 'path';
+
+let worker: Worker | null = null;
+let msgIdCounter = 0;
+const pendingMessages = new Map<number, { resolve: (val: any) => void, reject: (err: any) => void }>();
+
+function getWorker(): Worker {
+  if (!worker) {
+    worker = new Worker(path.join(__dirname, 'embeddingsWorker.js'));
+    worker.on('message', (msg) => {
+      if (msg.type === 'ready') return;
+      const handlers = pendingMessages.get(msg.id);
+      if (handlers) {
+        pendingMessages.delete(msg.id);
+        if (msg.error) {
+          handlers.reject(new Error(msg.error));
+        } else {
+          handlers.resolve(msg.result);
+        }
+      }
+    });
+    worker.on('error', (err) => {
+      console.error('Embeddings worker error:', err);
+      // Reject all pending messages
+      for (const [id, handlers] of pendingMessages.entries()) {
+        handlers.reject(err);
+      }
+      pendingMessages.clear();
+      worker = null;
+    });
+  }
+  return worker;
+}
 
 async function embedOffline(texts: string[]): Promise<number[][]> {
-  if (!extractor) {
-    try {
-      const transformers = require('@xenova/transformers');
-      // allow fetching the model from huggingface
-      transformers.env.allowLocalModels = false; 
-      extractor = await transformers.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-    } catch (e) {
-      console.error('Failed to load @xenova/transformers', e);
-      throw new Error('Offline embeddings require @xenova/transformers to be installed.');
-    }
-  }
-  
-  const results = await extractor(texts, { pooling: 'mean', normalize: true });
-  return results.tolist();
+  const w = getWorker();
+  const id = ++msgIdCounter;
+  const config = vscode.workspace.getConfiguration('orbit');
+  const model = config.get<string>('embedding.model', 'Xenova/all-MiniLM-L6-v2');
+
+  return new Promise((resolve, reject) => {
+    pendingMessages.set(id, { resolve, reject });
+    w.postMessage({ type: 'embed', id, texts, model });
+  });
 }
 
 function getOnlineConfig() {

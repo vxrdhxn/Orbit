@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { vscode } from './utilities/vscode';
 import { MessageList } from './components/MessageList';
 import { InputArea } from './components/InputArea';
 import { DiffApproval } from './components/DiffApproval';
 import { DecisionHistory } from './components/DecisionHistory';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { ChatHistory, ChatSessionMetadata } from './components/ChatHistory';
-import { DiffProposal } from './types';
+import { ChatHistory } from './components/ChatHistory';
+import { useOrbitStore } from './store/useOrbitStore';
 
 declare global {
     interface Window {
@@ -14,30 +14,22 @@ declare global {
     }
 }
 
-interface Message {
-    role: 'user' | 'ai' | 'system';
-    content: string;
-}
-
 function App() {
-    const [view, setView] = useState<'chat' | 'diff' | 'history' | 'chatHistory'>(window.initialData ? 'diff' : 'chat');
-    const [proposal, setProposal] = useState<DiffProposal | null>(window.initialData || null);
-    const [decisions, setDecisions] = useState<any[]>([]);
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [chatHistory, setChatHistory] = useState<ChatSessionMetadata[]>([]);
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [models, setModels] = useState<string[]>([]);
-    const [currentModel, setCurrentModel] = useState<string>('');
-    const [selectedImage, setSelectedImage] = useState<string | null>(null);
-    const [statusMessage, setStatusMessage] = useState<string>('');
-    const [connectionState, setConnectionState] = useState<'Connected' | 'Disconnected' | 'Checking...'>('Checking...');
-    const [hasAttemptedInitialHistoryLoad, setHasAttemptedInitialHistoryLoad] = useState(false);
-
-    // To handle streaming updates correctly without dependency issues
-    const messagesRef = useRef<Message[]>([]);
-    useEffect(() => {
-        messagesRef.current = messages;
-    }, [messages]);
+    const {
+        view, setView,
+        proposal, setProposal,
+        decisions, setDecisions, appendDecisions,
+        messages, setMessages, addMessage, appendAIResponseChunk, clearChat,
+        chatHistory, setChatHistory,
+        isGenerating, setIsGenerating,
+        models, setModels,
+        currentModel, setCurrentModel,
+        selectedImage, setSelectedImage,
+        statusMessage, setStatusMessage,
+        connectionState, setConnectionState,
+        hasAttemptedInitialHistoryLoad, setHasAttemptedInitialHistoryLoad,
+        telemetry, setTelemetry
+    } = useOrbitStore();
 
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
@@ -45,34 +37,26 @@ function App() {
             switch (message.type) {
                 case 'updateHistory':
                     setChatHistory(message.value);
-                    // Startup logic: If on initial chat view with no messages, and we have history, show history
                     if (!hasAttemptedInitialHistoryLoad) {
-                        if (message.value && message.value.length > 0 && messages.length === 0 && view === 'chat') {
+                        const state = useOrbitStore.getState();
+                        if (message.value && message.value.length > 0 && state.messages.length === 0 && state.view === 'chat') {
                             setView('chatHistory');
                         }
                         setHasAttemptedInitialHistoryLoad(true);
                     }
                     break;
                 case 'addMessage':
-                    setMessages(prev => [...prev, { role: message.role, content: message.content }]);
+                    addMessage({ role: message.role, content: message.content });
                     setIsGenerating(message.role === 'user');
                     break;
                 case 'addResponse':
-                    setMessages(prev => [...prev, { role: 'ai', content: message.value }]);
+                    addMessage({ role: 'ai', content: message.value });
                     setIsGenerating(false);
                     setStatusMessage('');
                     break;
                 case 'addResponseChunk':
-                    // Guard against undefined/null chunks from the extension
                     if (message.value == null) break;
-                    setMessages(prev => {
-                        const last = prev[prev.length - 1];
-                        if (last && last.role === 'ai') {
-                            return [...prev.slice(0, -1), { ...last, content: last.content + message.value }];
-                        } else {
-                            return [...prev, { role: 'ai', content: message.value }];
-                        }
-                    });
+                    appendAIResponseChunk(message.value);
                     break;
                 case 'status':
                     setStatusMessage(message.value);
@@ -94,11 +78,7 @@ function App() {
                     setSelectedImage(message.value);
                     break;
                 case 'clearChat':
-                    setMessages([]);
-                    setIsGenerating(false);
-                    setSelectedImage(null);
-                    setStatusMessage('');
-                    setView('chat');
+                    clearChat();
                     break;
                 case 'loadChat':
                     setMessages(message.value);
@@ -112,6 +92,9 @@ function App() {
                     setProposal(message.value);
                     setView('diff');
                     break;
+                case 'telemetry':
+                    setTelemetry(message.value);
+                    break;
                 case 'showHistory':
                     setDecisions(message.value || []);
                     setView('history');
@@ -121,7 +104,7 @@ function App() {
                     break;
                 case 'appendDecisions':
                     if (message.value && message.value.length > 0) {
-                        setDecisions(prev => [...prev, ...message.value]);
+                        appendDecisions(message.value);
                     }
                     break;
             }
@@ -131,12 +114,12 @@ function App() {
         vscode.postMessage({ type: 'webviewReady' });
 
         return () => window.removeEventListener('message', handleMessage);
-    }, []); // Run once on mount to establish listener
+    }, [hasAttemptedInitialHistoryLoad, setChatHistory, setHasAttemptedInitialHistoryLoad, setView, addMessage, setIsGenerating, setStatusMessage, appendAIResponseChunk, setConnectionState, setModels, setCurrentModel, setSelectedImage, clearChat, setMessages, setProposal, setDecisions, appendDecisions]);
 
     const handleSend = (text: string) => {
         if (isGenerating) return;
 
-        setMessages(prev => [...prev, { role: 'user', content: text }]);
+        addMessage({ role: 'user', content: text });
         setIsGenerating(true);
         vscode.postMessage({ type: 'sendMessage', value: text });
         setSelectedImage(null);
@@ -227,6 +210,15 @@ function App() {
                               style={{ color: isGenerating ? 'var(--accent-primary)' : (connectionState === 'Connected' ? 'var(--text-dim)' : '#f48771'), fontSize: '10px' }}></span>
                         {isGenerating ? 'Reasoning...' : connectionState}
                     </div>
+                    {telemetry && (
+                        <>
+                            <div style={{ width: '1px', height: '14px', background: 'var(--border-dim)' }}></div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }} title={`Last generation took ${(telemetry.durationMs/1000).toFixed(1)}s`}>
+                                <span className="codicon codicon-dashboard" style={{ fontSize: '12px' }}></span>
+                                {telemetry.tps} tps
+                            </div>
+                        </>
+                    )}
                     <div style={{ width: '1px', height: '14px', background: 'var(--border-dim)' }}></div>
                     <button className="clickable" title="Chat History" onClick={() => setView('chatHistory')} style={{ background: 'transparent' }}>
                         <span className="codicon codicon-history" style={{ fontSize: '14px', color: 'var(--text-dim)' }}></span>

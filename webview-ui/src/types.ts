@@ -6,6 +6,11 @@ export interface StructuredResponse {
     production: string;
 }
 
+export interface Message {
+    role: 'user' | 'ai' | 'system';
+    content: string;
+}
+
 export interface DiffHunk {
     id: string;
     oldStart: number;

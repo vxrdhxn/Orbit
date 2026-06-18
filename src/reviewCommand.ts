@@ -12,28 +12,65 @@ export class ReviewCommand {
     ) { }
 
     async execute() {
-        // Determine scope: Selection or active file
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            vscode.window.showWarningMessage('Open a file to review.');
-            return;
+        const scopeOptions = ['Active File', 'Open Files', 'Entire Workspace'];
+        const scope = await vscode.window.showQuickPick(scopeOptions, { placeHolder: 'Select Review Scope' });
+        if (!scope) return;
+
+        const codeInputs: CodeInput[] = [];
+
+        if (scope === 'Active File') {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                vscode.window.showWarningMessage('Open a file to review.');
+                return;
+            }
+            const selection = editor.selection;
+            const text = selection.isEmpty ? editor.document.getText() : editor.document.getText(selection);
+            codeInputs.push({
+                content: text,
+                fileName: editor.document.fileName,
+                language: editor.document.languageId,
+                startLine: selection.isEmpty ? 1 : selection.start.line + 1,
+                endLine: selection.isEmpty ? editor.document.lineCount : selection.end.line + 1
+            });
+        } else if (scope === 'Open Files') {
+            const editors = vscode.workspace.textDocuments.filter(doc => !doc.isClosed && doc.uri.scheme === 'file');
+            if (editors.length === 0) {
+                vscode.window.showWarningMessage('No open files to review.');
+                return;
+            }
+            for (const doc of editors) {
+                codeInputs.push({
+                    content: doc.getText(),
+                    fileName: doc.fileName,
+                    language: doc.languageId,
+                    startLine: 1,
+                    endLine: doc.lineCount
+                });
+            }
+        } else if (scope === 'Entire Workspace') {
+            const files = await vscode.workspace.findFiles('**/*.{ts,js,py,go,rs,java,c,cpp}', '**/node_modules/**');
+            if (files.length === 0) {
+                vscode.window.showWarningMessage('No supported files found in workspace.');
+                return;
+            }
+            // Limit to max 10 files for performance
+            const limit = Math.min(files.length, 10);
+            for (let i = 0; i < limit; i++) {
+                try {
+                    const doc = await vscode.workspace.openTextDocument(files[i]);
+                    codeInputs.push({
+                        content: doc.getText(),
+                        fileName: doc.fileName,
+                        language: doc.languageId,
+                        startLine: 1,
+                        endLine: doc.lineCount
+                    });
+                } catch (e) {
+                    console.error('Failed to read file', files[i]);
+                }
+            }
         }
-
-        const selection = editor.selection;
-        const text = selection.isEmpty ? editor.document.getText() : editor.document.getText(selection);
-        const fileName = editor.document.fileName;
-        const language = editor.document.languageId;
-
-        const startLine = selection.isEmpty ? 1 : selection.start.line + 1;
-        const endLine = selection.isEmpty ? editor.document.lineCount : selection.end.line + 1;
-
-        const codeInput: CodeInput = {
-            content: text,
-            fileName,
-            language,
-            startLine,
-            endLine
-        };
 
         // Select Preset
         let preset: ReviewPreset;
@@ -64,14 +101,14 @@ export class ReviewCommand {
                     promptModifiers: preset.config.promptModifiers
                 };
 
-                const report = await this.reviewService.reviewCode([codeInput], options);
+                const report = await this.reviewService.reviewCode(codeInputs, options);
 
                 // Consolidate findings by line for better UI experience
                 report.findings = CommentConsolidator.consolidate(report.findings);
 
                 // Show Results (Placeholder: Output Channel or Webview)
                 // For MVP: Output Channel or Markdown preview
-                await this.showResults(report, preset, language);
+                await this.showResults(report, preset, codeInputs[0]?.language || 'typescript');
 
             } catch (e: any) {
                 vscode.window.showErrorMessage(`Review failed: ${e.message}`);

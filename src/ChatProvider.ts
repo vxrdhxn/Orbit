@@ -166,13 +166,20 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         try {
             let currentTurnResponse = '';
             console.log('Starting stream generation...');
+            const startTime = Date.now();
+            let chunkCount = 0;
             await this._llmClient.generateStream(fullPrompt, (chunk) => {
                 if (chunk == null) {return;} // Guard: skip undefined/null chunks
                 currentTurnResponse += chunk;
+                chunkCount++;
                 webview.postMessage({ type: 'addResponseChunk', value: chunk });
             }, this._abortController.signal, images);
             
-            console.log('Stream generation completed. Length:', currentTurnResponse.length);
+            const durationMs = Date.now() - startTime;
+            const tps = (chunkCount / (durationMs / 1000)).toFixed(1);
+            webview.postMessage({ type: 'telemetry', value: { durationMs, tps, iteration } });
+            
+            console.log(`Stream generation completed. Length: ${currentTurnResponse.length}, TPS: ${tps}`);
 
 
             // Check for tool calls

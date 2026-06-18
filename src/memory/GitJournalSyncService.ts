@@ -70,7 +70,30 @@ export class GitJournalSyncService {
                 try {
                     // Check if git is initialized
                     await this.runGitCommand('status');
-                    
+                    // Fetch from remote and merge JSON manually to avoid Git conflicts on arrays
+                    let remoteDecisions: any[] = [];
+                    try {
+                        await this.runGitCommand('fetch origin');
+                        const { stdout } = await this.runGitCommand(`show origin/HEAD:.orbit/${this.syncFileName}`);
+                        if (stdout) {
+                            remoteDecisions = JSON.parse(stdout);
+                        }
+                    } catch (err) {
+                        // Remote might not exist or branch might not be tracked
+                    }
+
+                    if (remoteDecisions.length > 0) {
+                        const remoteIds = new Set(remoteDecisions.map((d: any) => d.id));
+                        const mergedDecisions = [...remoteDecisions];
+                        for (const localD of decisions) {
+                            if (!remoteIds.has(localD.id)) {
+                                mergedDecisions.push(localD);
+                            }
+                        }
+                        // Save merged decisions locally to be committed
+                        fs.writeFileSync(syncFilePath, JSON.stringify(mergedDecisions, null, 2), 'utf8');
+                    }
+
                     // Stage journal.json
                     await this.runGitCommand(`add .orbit/${this.syncFileName}`);
                     
@@ -81,12 +104,14 @@ export class GitJournalSyncService {
                         // Might fail if nothing to commit, ignore
                     }
 
-                    // Try to pull and rebase to resolve conflicts
-                    // If conflict happens, git will pause and user will see it in VS Code Git tab
+                    // Pull with rebase to sync up other files
                     try {
                         await this.runGitCommand('pull --rebase origin HEAD');
                     } catch (pullErr: any) {
-                        vscode.window.showWarningMessage('Orbit Sync: Merge conflict or network error during pull. Please check the Git tab.');
+                        // If rebase fails, it's likely a conflict. Abort to prevent stuck states.
+                        try { await this.runGitCommand('rebase --abort'); } catch(e) {}
+                        vscode.window.showWarningMessage('Orbit Sync: Merge conflict. Please manually pull and check the Git tab.');
+                        return; // Do not push if pull failed
                     }
 
                     // Try to push

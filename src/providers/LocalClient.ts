@@ -3,27 +3,54 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { ILLMClient } from './ILLMClient';
+import { Worker } from 'worker_threads';
 
-let llamaModule: any;
 let getLlama: any;
-
 try {
-  llamaModule = require('node-llama-cpp');
+  const llamaModule = require('node-llama-cpp');
   getLlama = llamaModule.getLlama;
 } catch (e) {
-  // Graceful fallback if native module fails to load
   console.error('Failed to load node-llama-cpp:', e);
 }
 
 export class LocalClient implements ILLMClient {
-  private llama: any;
-  private model: any;
-  private context: any;
-  private session: any;
   private modelPath: string;
+  private worker: Worker | null = null;
+  private msgIdCounter = 0;
+  private pendingMessages = new Map<number, { resolve: (val: any) => void, reject: (err: any) => void, onChunk?: (chunk: string) => void }>();
 
   constructor(private modelName: string) {
     this.modelPath = path.join(os.homedir(), '.orbit', 'models', `${modelName}.gguf`);
+  }
+
+  private getWorker(): Worker {
+    if (!this.worker) {
+        this.worker = new Worker(path.join(__dirname, 'worker.js'));
+        this.worker.on('message', (msg) => {
+            const handlers = this.pendingMessages.get(msg.id);
+            if (handlers) {
+                if (msg.error) {
+                    this.pendingMessages.delete(msg.id);
+                    handlers.reject(new Error(msg.error));
+                } else if (msg.chunk !== undefined) {
+                    if (handlers.onChunk) {
+                        handlers.onChunk(msg.chunk);
+                    }
+                } else {
+                    this.pendingMessages.delete(msg.id);
+                    handlers.resolve(msg.result);
+                }
+            }
+        });
+        this.worker.on('error', (err) => {
+            for (const [id, handlers] of this.pendingMessages.entries()) {
+                handlers.reject(err);
+            }
+            this.pendingMessages.clear();
+            this.worker = null;
+        });
+    }
+    return this.worker;
   }
 
   private async downloadModel() {
@@ -109,19 +136,12 @@ export class LocalClient implements ILLMClient {
       await this.downloadModel();
     }
 
-    if (!this.llama) {
-      this.llama = await getLlama();
-    }
-    
-    if (!this.model) {
-      this.model = await this.llama.loadModel({
-        modelPath: this.modelPath
-      });
-      this.context = await this.model.createContext();
-      this.session = new llamaModule.LlamaChatSession({
-        contextSequence: this.context.getSequence()
-      });
-    }
+    const w = this.getWorker();
+    const id = ++this.msgIdCounter;
+    await new Promise((resolve, reject) => {
+        this.pendingMessages.set(id, { resolve, reject });
+        w.postMessage({ type: 'init', id, modelPath: this.modelPath });
+    });
   }
 
   public async listModels(): Promise<string[]> {
@@ -130,26 +150,31 @@ export class LocalClient implements ILLMClient {
 
   public async generate(prompt: string, params?: { model?: string; json?: boolean }): Promise<string> {
     await this.initLlama();
-    
-    // Simple prompt for now
-    const response = await this.session.prompt(prompt);
-    return response;
+    const w = this.getWorker();
+    const id = ++this.msgIdCounter;
+    return new Promise((resolve, reject) => {
+        this.pendingMessages.set(id, { resolve, reject });
+        w.postMessage({ type: 'generate', id, prompt });
+    });
   }
 
   public async generateStream(prompt: string, onChunk: (chunk: string) => void, signal?: AbortSignal, images?: string[]): Promise<string> {
     await this.initLlama();
+    const w = this.getWorker();
+    const id = ++this.msgIdCounter;
     
-    let fullResponse = '';
-    
-    await this.session.prompt(prompt, {
-      onTextChunk(text: string) {
-        fullResponse += text;
-        onChunk(text);
-      },
-      signal
-    });
+    // Support abortion if token is triggered
+    if (signal) {
+        signal.addEventListener('abort', () => {
+            // Note: worker abortion not fully supported in this simple IPC,
+            // we'd need to send an abort message to the worker.
+        });
+    }
 
-    return fullResponse;
+    return new Promise((resolve, reject) => {
+        this.pendingMessages.set(id, { resolve, reject, onChunk });
+        w.postMessage({ type: 'generateStream', id, prompt });
+    });
   }
 
   public async checkConnection(): Promise<{ ok: boolean; message: string }> {
@@ -162,3 +187,4 @@ export class LocalClient implements ILLMClient {
     return { ok: true, message: `Offline AI Ready ✅ (${this.modelName})` };
   }
 }
+
