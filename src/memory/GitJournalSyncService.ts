@@ -8,7 +8,8 @@ const execAsync = require('util').promisify(exec);
 
 export class GitJournalSyncService {
     private fileWatcher: vscode.FileSystemWatcher | undefined;
-    private readonly syncFileName = 'journal.json';
+    private readonly syncFileName = 'journal.jsonl';
+    private readonly legacySyncFileName = 'journal.json';
     private isSyncing = false;
 
     constructor(
@@ -34,9 +35,6 @@ export class GitJournalSyncService {
             this.fileWatcher.onDidCreate(() => this.importFromWorkspace(syncFilePath));
 
             subscriptions.push(this.fileWatcher);
-
-            // Hook into git post-commit or periodically sync
-            // For this MVP, we will sync on journal save/export.
         }
 
         subscriptions.push(
@@ -55,66 +53,51 @@ export class GitJournalSyncService {
 
         try {
             const projectId = vscode.workspace.name || 'default';
-            const decisions = this.journal.exportDecisions(projectId);
-            
             const orbitDir = path.join(this.workspaceRoot, '.orbit');
             if (!fs.existsSync(orbitDir)) {
                 fs.mkdirSync(orbitDir, { recursive: true });
             }
             
             const syncFilePath = path.join(orbitDir, this.syncFileName);
-            fs.writeFileSync(syncFilePath, JSON.stringify(decisions, null, 2), 'utf8');
 
-            // Now perform Git Sync
             if (vscode.workspace.getConfiguration('orbit').get<string>('sync.method') === 'git') {
                 try {
-                    // Check if git is initialized
-                    await this.runGitCommand('status');
-                    // Fetch from remote and merge JSON manually to avoid Git conflicts on arrays
-                    let remoteDecisions: any[] = [];
+                    await this.runGitCommand('status'); // Check if git is initialized
+
+                    // 1. Fetch remote changes
                     try {
                         await this.runGitCommand('fetch origin');
                         const { stdout } = await this.runGitCommand(`show origin/HEAD:.orbit/${this.syncFileName}`);
                         if (stdout) {
-                            remoteDecisions = JSON.parse(stdout);
+                            const remoteRecords = stdout.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
+                            this.journal.importDecisions(remoteRecords);
                         }
                     } catch (err) {
                         // Remote might not exist or branch might not be tracked
                     }
 
-                    if (remoteDecisions.length > 0) {
-                        const remoteIds = new Set(remoteDecisions.map((d: any) => d.id));
-                        const mergedDecisions = [...remoteDecisions];
-                        for (const localD of decisions) {
-                            if (!remoteIds.has(localD.id)) {
-                                mergedDecisions.push(localD);
-                            }
-                        }
-                        // Save merged decisions locally to be committed
-                        fs.writeFileSync(syncFilePath, JSON.stringify(mergedDecisions, null, 2), 'utf8');
-                    }
+                    // 2. Export combined state from DB, sorted by timestamp
+                    const decisions = this.journal.exportDecisions(projectId).sort((a, b) => a.timestamp - b.timestamp);
+                    const fileContent = decisions.map(d => JSON.stringify(d)).join('\n');
+                    fs.writeFileSync(syncFilePath, fileContent, 'utf8');
 
-                    // Stage journal.json
+                    // 3. Stage and Commit
                     await this.runGitCommand(`add .orbit/${this.syncFileName}`);
-                    
-                    // Commit
                     try {
                         await this.runGitCommand(`commit -m "Orbit: Update team decision journal"`);
                     } catch (commitErr: any) {
                         // Might fail if nothing to commit, ignore
                     }
 
-                    // Pull with rebase to sync up other files
+                    // 4. Pull and Push
                     try {
                         await this.runGitCommand('pull --rebase origin HEAD');
                     } catch (pullErr: any) {
-                        // If rebase fails, it's likely a conflict. Abort to prevent stuck states.
                         try { await this.runGitCommand('rebase --abort'); } catch(e) {}
                         vscode.window.showWarningMessage('Orbit Sync: Merge conflict. Please manually pull and check the Git tab.');
-                        return; // Do not push if pull failed
+                        return;
                     }
 
-                    // Try to push
                     try {
                         await this.runGitCommand('push origin HEAD');
                     } catch (pushErr: any) {
@@ -127,7 +110,10 @@ export class GitJournalSyncService {
                     vscode.window.showErrorMessage('Orbit: Git sync failed. Is this a git repository?');
                 }
             } else {
-                vscode.window.showInformationMessage(`Orbit: Exported ${decisions.length} decisions to .orbit/journal.json`);
+                const decisions = this.journal.exportDecisions(projectId).sort((a, b) => a.timestamp - b.timestamp);
+                const fileContent = decisions.map(d => JSON.stringify(d)).join('\n');
+                fs.writeFileSync(syncFilePath, fileContent, 'utf8');
+                vscode.window.showInformationMessage(`Orbit: Exported ${decisions.length} decisions to .orbit/${this.syncFileName}`);
             }
         } catch (error) {
             console.error('Failed to export Orbit journal:', error);
@@ -139,19 +125,32 @@ export class GitJournalSyncService {
 
     public importFromWorkspace(syncFilePath: string, manual: boolean = false) {
         try {
-            if (!fs.existsSync(syncFilePath)) {
-                if (manual) { vscode.window.showInformationMessage('Orbit: No journal.json found in workspace.'); }
-                return;
+            // Also attempt to read legacy journal.json if present
+            const legacyPath = syncFilePath.replace('.jsonl', '.json');
+            let importedCount = 0;
+
+            if (fs.existsSync(legacyPath)) {
+                try {
+                    const content = fs.readFileSync(legacyPath, 'utf8');
+                    const records = JSON.parse(content) as any[];
+                    if (Array.isArray(records)) {
+                        importedCount += this.journal.importDecisions(records);
+                    }
+                } catch (e) {
+                    console.error('Failed to read legacy journal.json', e);
+                }
             }
 
-            const content = fs.readFileSync(syncFilePath, 'utf8');
-            const records = JSON.parse(content) as any[];
+            if (fs.existsSync(syncFilePath)) {
+                const content = fs.readFileSync(syncFilePath, 'utf8');
+                const records = content.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
+                importedCount += this.journal.importDecisions(records);
+            }
 
-            if (Array.isArray(records)) {
-                const importedCount = this.journal.importDecisions(records);
-                if (manual || importedCount > 0) {
-                    vscode.window.showInformationMessage(`Orbit: Imported ${importedCount} decisions from workspace journal.`);
-                }
+            if (manual || importedCount > 0) {
+                vscode.window.showInformationMessage(`Orbit: Imported decisions from workspace journal.`);
+            } else if (manual) {
+                vscode.window.showInformationMessage(`Orbit: No journal found in workspace.`);
             }
         } catch (error) {
             console.error('Failed to import Orbit journal:', error);
