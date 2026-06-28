@@ -2,21 +2,21 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { ChatProvider } from '../../ChatProvider';
 import { ILLMClient } from '../../providers/ILLMClient';
-import { ConnectionStatus } from '../../providers/types';
 
 class MockLLMClient implements ILLMClient {
   public isConnected = true;
-  async generateStream(prompt: string, onChunk: (chunk: string | null) => void, signal?: AbortSignal, images?: string[]): Promise<void> {
-    onChunk("This is a mock AI response");
+  async generate(prompt: string, params?: { model?: string; json?: boolean }): Promise<string> {
+    return "This is a mock AI response";
   }
-  async checkConnection(): Promise<ConnectionStatus> {
+  async generateStream(prompt: string, onChunk: (chunk: string) => void, signal?: AbortSignal, images?: string[]): Promise<string> {
+    onChunk("This is a mock AI response");
+    return "This is a mock AI response";
+  }
+  async checkConnection(): Promise<{ ok: boolean; message: string }> {
     return { ok: this.isConnected, message: this.isConnected ? 'Connected' : 'Offline' };
   }
   async listModels(): Promise<string[]> {
     return ['mock-model'];
-  }
-  async generateEmbedding(text: string): Promise<number[]> {
-    return [0.1, 0.2];
   }
 }
 

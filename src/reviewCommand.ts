@@ -77,7 +77,7 @@ export class ReviewCommand {
         try {
             preset = await this.presetManager.selectPreset({
                 isDiffReview: false,
-                fileType: language
+                fileType: codeInputs.length > 0 ? codeInputs[0].language : 'typescript'
             });
         } catch (e) {
             // Cancelled
