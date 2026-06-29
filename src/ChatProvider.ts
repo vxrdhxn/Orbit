@@ -743,6 +743,10 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       '',
       '## Context Awareness',
       'You can see the current open file and any files the user explicitly references or attaches.',
+      '',
+      '## Communication Style',
+      '- Provide well-structured, clean, and highly readable answers.',
+      '- Synthesize your findings into a clear summary. Do not output raw data dumps directly to the user.',
     ];
 
     if (editor) {
