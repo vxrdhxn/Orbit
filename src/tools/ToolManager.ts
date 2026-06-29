@@ -31,7 +31,7 @@ export class ToolManager {
                 case 'run':
                     return await this.runCommand(args.command);
                 case 'apply':
-                    return await this.applyCode(args.path, args.code);
+                    return await this.applyCode(args);
                 default:
                     return { output: `Unknown tool: ${name}`, isError: true };
             }
@@ -90,7 +90,13 @@ export class ToolManager {
         return { output: output || '(No output)' };
     }
 
-    private async applyCode(filePath: string, code: string): Promise<ToolResult> {
+    private async applyCode(args: any): Promise<ToolResult> {
+        const filePath = args.path;
+        const code = args.code;
+        if (!filePath || typeof code !== 'string') {
+            return { output: 'Failed to apply code. Missing required arguments: "path" (string) and "code" (string). Note: Ensure your JSON formatting is correct and escaping newlines appropriately.', isError: true };
+        }
+        
         const ws = vscode.workspace.workspaceFolders?.[0];
         if (!ws) {throw new Error('No workspace open');}
         

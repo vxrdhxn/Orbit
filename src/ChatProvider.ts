@@ -188,16 +188,23 @@ export class ChatProvider implements vscode.WebviewViewProvider {
             if (toolCallMatch) {
                 const toolName = toolCallMatch[1];
                 let toolArgs = {};
+                let parseError = null;
                 try {
                     toolArgs = JSON.parse(toolCallMatch[2].trim());
-                } catch (e) {
+                } catch (e: any) {
+                    parseError = e.message;
                     console.error('Failed to parse tool args', e);
                 }
 
                 // UI notification
                 webview.postMessage({ type: 'status', value: `Calling ${toolName}...` });
                 
-                const result = await this._toolManager.callTool(toolName, toolArgs);
+                let result: any;
+                if (parseError) {
+                    result = { output: `Failed to parse tool arguments as JSON: ${parseError}. Please ensure arguments are valid JSON. If you are writing code with the 'apply' tool, make sure to escape newlines properly, OR just output a standard markdown codeblock with the file path (e.g. \`\`\`typescript:path/to/file.ts) instead of using the apply tool.`, isError: true };
+                } else {
+                    result = await this._toolManager.callTool(toolName, toolArgs);
+                }
                 const observation = `\n<observation>\n${result.output}\n</observation>\n`;
                 
                 // Append to prompt for next iteration

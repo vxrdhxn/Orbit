@@ -85,11 +85,13 @@ async function embedOnline(texts: string[]): Promise<number[][]> {
 async function embedBatch(texts: string[]): Promise<number[][]> {
   const c = vscode.workspace.getConfiguration('orbit');
   const mode = c.get<string>('mode', 'cloud');
+  const apiKey = c.get<string>('onlineApiKey', '');
   
-  if (mode === 'offline') {
-    return await embedOffline(texts);
-  } else {
+  // Use online embeddings ONLY if custom mode is selected and an API key is provided
+  if (mode === 'custom' && apiKey) {
     return await embedOnline(texts);
+  } else {
+    return await embedOffline(texts);
   }
 }
 
