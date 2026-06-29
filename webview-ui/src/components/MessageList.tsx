@@ -26,12 +26,12 @@ const SafeMarkdown = ({ content }: { content: string }) => {
                     code({ node, className, children, ...props }: any) {
                         // react-markdown v9 removed the `inline` prop.
                         // Detect inline code by checking if the parent node is NOT <pre>.
-                        const isInline = !node?.properties?.className && 
-                            !(node?.position && node?.tagName === 'code' && 
-                              node?.parent?.tagName === 'pre');
+                        const isInline = !node?.properties?.className &&
+                            !(node?.position && node?.tagName === 'code' &&
+                                node?.parent?.tagName === 'pre');
                         // Simpler heuristic: if there's a language class, it's a code block
                         const match = /language-(\w+)/.exec(className || '');
-                        
+
                         if (!isInline && match) {
                             return (
                                 <CodeBlock
@@ -91,15 +91,15 @@ export const MessageList = ({ messages, isGenerating }: MessageListProps) => {
                 // Guard against undefined/null content and format tool calls/observations to be visible
                 const safeContent = (msg.content ?? '')
                     // Hide completed thinking blocks
-                    .replace(/<think>[\s\S]*?<\/think>/g, '🤔 *Thinking...*\n\n')
+                    .replace(/<think>[\s\S]*?<\/think>/g, '*Thinking...*\n\n')
                     // Hide currently streaming thinking blocks
-                    .replace(/<think>[\s\S]*$/g, '🤔 *Thinking...*\n\n')
+                    .replace(/<think>[\s\S]*$/g, '*Thinking...*\n\n')
                     // Format tool calls and observations
-                    .replace(/<tool_call\s+name="([^"]+)">/g, '🛠️ **Tool Called:** `$1`\n```json\n')
+                    .replace(/<tool_call\s+name="([^"]+)">/g, '**Tool Called:** `$1`\n```json\n')
                     .replace(/<\/tool_call>/g, '\n```\n')
-                    .replace(/<observation>/g, '🔍 **Observation:**\n```text\n')
+                    .replace(/<observation>/g, '**Observation:**\n```text\n')
                     .replace(/<\/observation>/g, '\n```\n');
-                
+
                 return (
                     <div key={i} className="animate-slide-up" style={{
                         display: 'flex',
@@ -124,8 +124,8 @@ export const MessageList = ({ messages, isGenerating }: MessageListProps) => {
                                 backgroundColor: msg.role === 'user' ? 'var(--bg-surface-lighter)' : 'hsla(190, 100%, 50%, 0.1)',
                                 border: '1px solid var(--border-dim)'
                             }}>
-                                <span className={`codicon ${msg.role === 'user' ? 'codicon-account' : 'codicon-hubot'}`} 
-                                      style={{ fontSize: '12px', color: msg.role === 'user' ? 'var(--text-muted)' : 'var(--accent-primary)' }}></span>
+                                <span className={`codicon ${msg.role === 'user' ? 'codicon-account' : 'codicon-hubot'}`}
+                                    style={{ fontSize: '12px', color: msg.role === 'user' ? 'var(--text-muted)' : 'var(--accent-primary)' }}></span>
                             </div>
                             <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                 {msg.role === 'user' ? 'You' : 'Orbit'}
