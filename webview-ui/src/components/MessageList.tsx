@@ -90,7 +90,12 @@ export const MessageList = ({ messages, isGenerating }: MessageListProps) => {
                 const isLastAI = i === messages.length - 1 && msg.role === 'ai' && isGenerating;
                 // Guard against undefined/null content and format tool calls/observations to be visible
                 const safeContent = (msg.content ?? '')
-                    .replace(/<tool_call name="([^"]+)">/g, '🛠️ **Tool Called:** `$1`\n```json\n')
+                    // Hide completed thinking blocks
+                    .replace(/<think>[\s\S]*?<\/think>/g, '🤔 *Thinking...*\n\n')
+                    // Hide currently streaming thinking blocks
+                    .replace(/<think>[\s\S]*$/g, '🤔 *Thinking...*\n\n')
+                    // Format tool calls and observations
+                    .replace(/<tool_call\s+name="([^"]+)">/g, '🛠️ **Tool Called:** `$1`\n```json\n')
                     .replace(/<\/tool_call>/g, '\n```\n')
                     .replace(/<observation>/g, '🔍 **Observation:**\n```text\n')
                     .replace(/<\/observation>/g, '\n```\n');
