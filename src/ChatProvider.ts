@@ -220,6 +220,10 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         }
     }
 
+    if (finalCombinedResponse.trim() === '') {
+        finalCombinedResponse = "⚠️ **Error**: Received an empty response from the AI. The API might be rate limited, or the selected model may not exist/be supported.";
+    }
+
     // Save final state
     let structuredReasoning;
     if (this._llmRouter) {

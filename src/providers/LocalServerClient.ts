@@ -95,12 +95,18 @@ export class LocalServerClient implements ILLMClient {
         if (trimmed.startsWith('data: ')) {
           try {
             const json = JSON.parse(trimmed.slice(6));
-            const content = json.choices[0]?.delta?.content;
+            if (json.error) {
+              throw new Error(json.error.message || JSON.stringify(json.error));
+            }
+            const content = json.choices?.[0]?.delta?.content;
             if (content) {
               fullResponse += content;
               onChunk(content);
             }
-          } catch (e) {
+          } catch (e: any) {
+            if (e.message && !e.message.includes('Unexpected token') && !e.message.includes('JSON')) {
+              throw e; // Rethrow actual API errors
+            }
             console.warn('Failed to parse stream JSON chunk:', trimmed);
           }
         }
