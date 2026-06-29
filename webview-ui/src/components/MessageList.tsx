@@ -88,8 +88,12 @@ export const MessageList = ({ messages, isGenerating }: MessageListProps) => {
         }}>
             {messages.map((msg, i) => {
                 const isLastAI = i === messages.length - 1 && msg.role === 'ai' && isGenerating;
-                // Guard against undefined/null content
-                const safeContent = msg.content ?? '';
+                // Guard against undefined/null content and format tool calls/observations to be visible
+                const safeContent = (msg.content ?? '')
+                    .replace(/<tool_call name="([^"]+)">/g, '🛠️ **Tool Called:** `$1`\n```json\n')
+                    .replace(/<\/tool_call>/g, '\n```\n')
+                    .replace(/<observation>/g, '🔍 **Observation:**\n```text\n')
+                    .replace(/<\/observation>/g, '\n```\n');
                 
                 return (
                     <div key={i} className="animate-slide-up" style={{
