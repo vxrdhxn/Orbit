@@ -91,14 +91,17 @@ export const MessageList = ({ messages, isGenerating }: MessageListProps) => {
                 // Guard against undefined/null content and format tool calls/observations to be visible
                 const safeContent = (msg.content ?? '')
                     // Hide completed thinking blocks
-                    .replace(/<think>[\s\S]*?<\/think>/g, '*Thinking...*\n\n')
+                    .replace(/<think>[\s\S]*?<\/think>/g, '> 🤔 *Thinking...*\n\n')
                     // Hide currently streaming thinking blocks
-                    .replace(/<think>[\s\S]*$/g, '*Thinking...*\n\n')
-                    // Format tool calls and observations
-                    .replace(/<tool_call\s+name="([^"]+)">/g, '**Tool Called:** `$1`\n```json\n')
-                    .replace(/<\/tool_call>/g, '\n```\n')
-                    .replace(/<observation>/g, '**Observation:**\n```text\n')
-                    .replace(/<\/observation>/g, '\n```\n');
+                    .replace(/<think>[\s\S]*$/g, '> 🤔 *Thinking...*\n\n')
+                    // Hide completed tool calls entirely
+                    .replace(/<tool_call\s+name="([^"]+)">[\s\S]*?<\/tool_call>/g, '> 🛠️ *Used `$1` tool*\n\n')
+                    // Hide currently streaming tool calls
+                    .replace(/<tool_call\s+name="([^"]+)">[\s\S]*$/g, '> 🛠️ *Using `$1` tool...*\n\n')
+                    // Hide completed observations entirely
+                    .replace(/<observation>[\s\S]*?<\/observation>/g, '')
+                    // Hide currently streaming observations
+                    .replace(/<observation>[\s\S]*$/g, '');
 
                 return (
                     <div key={i} className="animate-slide-up" style={{
