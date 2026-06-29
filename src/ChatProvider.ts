@@ -207,9 +207,16 @@ export class ChatProvider implements vscode.WebviewViewProvider {
                 }
                 const observation = `\n<observation>\n${result.output}\n</observation>\n`;
                 
+                // Truncate observation for the UI so it doesn't bloat the chat with 10,000 line file dumps
+                let uiOutput = result.output;
+                if (uiOutput.length > 500) {
+                    uiOutput = uiOutput.substring(0, 500) + '\n... [Output truncated for UI brevity]';
+                }
+                const uiObservation = `\n<observation>\n${uiOutput}\n</observation>\n`;
+                
                 // Append to prompt for next iteration
                 fullPrompt += currentTurnResponse + observation;
-                finalCombinedResponse += currentTurnResponse + observation;
+                finalCombinedResponse += currentTurnResponse + uiObservation;
             } else {
                 // No more tool calls, we are done
                 finalCombinedResponse += currentTurnResponse;
