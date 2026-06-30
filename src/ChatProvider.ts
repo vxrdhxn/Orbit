@@ -288,8 +288,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     if (editor) {
       const selection = editor.selection;
       const selectedText = selection.isEmpty ? editor.document.getText() : editor.document.getText(selection);
-      const truncated = selectedText.length > 12000
-        ? `${selectedText.slice(0, 12000)}\n... [TRUNCATED]`
+      const truncated = selectedText.length > 4000
+        ? `${selectedText.slice(0, 4000)}\n... [TRUNCATED]`
         : selectedText;
       sections.push(`Active file: ${editor.document.fileName}\n\`\`\`${editor.document.languageId}\n${truncated}\n\`\`\``);
     }
@@ -307,8 +307,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         const file = await this._fileReader.read(reference.path, {
           lineRange: reference.lineRange
         });
-        const truncated = file.content.length > 12000
-          ? `${file.content.slice(0, 12000)}\n... [TRUNCATED]`
+        const truncated = file.content.length > 4000
+          ? `${file.content.slice(0, 4000)}\n... [TRUNCATED]`
           : file.content;
         sections.push(`Referenced file: ${reference.path}\n\`\`\`\n${truncated}\n\`\`\``);
       } catch (error: any) {

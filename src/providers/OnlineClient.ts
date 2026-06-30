@@ -104,6 +104,7 @@ export class OnlineClient implements ILLMClient {
       model,
       messages: [{ role: 'user', content: prompt }],
       stream: false,
+      max_tokens: 1024,
     };
 
     if (params?.json) {
@@ -135,10 +136,11 @@ export class OnlineClient implements ILLMClient {
     const config = vscode.workspace.getConfiguration('orbit');
     const model = config.get<string>('onlineModel', 'gpt-4o');
 
-    const body = {
+    const body: any = {
       model,
       messages: [{ role: 'user', content: prompt }],
       stream: true,
+      max_tokens: 1024,
     };
 
     try {
