@@ -11,6 +11,7 @@ Interact with your codebase using a chat interface. Ask questions, request code 
 - **Inline Code Apply:** Review AI-suggested changes in a side-by-side diff view and apply them with one click.
 - **Auto-Apply Detection:** Orbit automatically detects when the AI suggests a fix for your active file and offers to open the diff.
 - **Context-Aware:** Orbit understands your active file and deep dependencies.
+- **Semantic Search:** Search your entire workspace with semantic understanding.
 - **Image Support:** Paste images directly into the chat for multimodal context.
 
 ### 🐚 Terminal Integration
@@ -20,6 +21,7 @@ Interact with your codebase using a chat interface. Ask questions, request code 
 Get instant feedback on your code or Git changes.
 - **Review Code:** Analyze the current file for bugs, improved practices, and readability.
 - **Review Git Changes:** Automatically review uncommitted changes in your git repository.
+- **PR Integration:** Connect AI review directly to Git branches and Pull Requests.
 
 ### ✈️ Orbit Pilot (Agentic Capabilities)
 - **Background Analysis:** Orbit silently analyzes your active files and reports issues to the VS Code Problems tab.
@@ -44,10 +46,22 @@ Orbit relies on **Ollama** to run LLMs locally.
 
 | Setting | Default | Description |
 | :--- | :--- | :--- |
-| `orbit.mode` | `cloud` | Operation mode (`cloud`, `custom`, `offline`). |
+| `orbit.mode` | `cloud` | Operation mode (`cloud`, `custom`, `offline`, `local-server`, `groq`, `openrouter`). |
 | `orbit.offlineModel` | `Qwen2.5-Coder-7B` | Offline model to use in `offline` mode. |
 | `orbit.onlineApiEndpoint` | `https://api.orbit-ai.com/v1` | Endpoint for `custom` mode. |
+| `orbit.onlineApiKey` | | API Key for `custom` mode. |
+| `orbit.groqApiKey` | | API Key for Groq. |
+| `orbit.openRouterApiKey` | | API Key for OpenRouter. |
+| `orbit.onlineModel` | `llama-3.3-70b-specdec` | Model ID for `custom` mode. |
+| `orbit.localServerEndpoint` | `http://localhost:1234/v1` | Endpoint for local inference server. |
+| `orbit.localServerModel` | `local-model` | Model ID for local inference server. |
 | `orbit.context.maxTokens` | `4000` | Max tokens for AI context. |
+| `orbit.context.includeDecisions`| `true` | Include past decisions in the AI context. |
+| `orbit.decisionJournal.enabled` | `true` | Enable the Decision Journal. |
+| `orbit.pilot.enabled` | `true` | Enable Orbit Pilot for proactive background analysis. |
+| `orbit.sync.enableWorkspaceSync`| `false` | Enable automatic syncing of the journal. |
+| `orbit.embedding.model` | `Xenova/all-MiniLM-L6-v2` | Model ID for offline semantic embeddings. |
+| `orbit.prIntegration.enabled` | `true` | Enable PR Integration. |
 
 ## ⌨️ Keyboard Shortcuts
 
