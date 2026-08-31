@@ -56,7 +56,7 @@ export class ServiceLocator {
         this.formatter = new ResponseFormatter();
         this.router = new LLMRouter(this.formatter, { maxRetries: 2, enforceFormat: true });
         this.llmClient = new SmartClient();
-        this.chatProvider = new ChatProvider(context, this.llmClient);
+        this.chatProvider = new ChatProvider(context, this.llmClient, this.router);
     }
 
     public initWorkspaceServices(context: vscode.ExtensionContext, workspaceFolder: vscode.Uri) {

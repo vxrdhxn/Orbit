@@ -335,7 +335,7 @@
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run rebuild:node && npm run compile-tests && npm run compile && npm run lint",
-    "test:e2e": "node ./out/test/runTest.js",
+    "test:e2e": "node ./out/src/test/runTest.js",
     "lint": "eslint src --ext ts",
     "test": "jest",
     "build:ui": "npm run build --prefix webview-ui",

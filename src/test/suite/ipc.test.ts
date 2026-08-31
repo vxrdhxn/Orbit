@@ -80,7 +80,10 @@ suite('ChatProvider IPC E2E Test Suite', () => {
         get: (key: string, def?: any) => def,
         update: (key: string, val: any) => Promise.resolve(),
       } as any,
-      workspaceState: {} as any,
+      workspaceState: {
+        get: (key: string, def?: any) => def,
+        update: (key: string, val: any) => Promise.resolve(),
+      } as any,
       secrets: {} as any,
       extensionPath: __dirname,
       storageUri: vscode.Uri.file(__dirname),

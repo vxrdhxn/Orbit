@@ -5,14 +5,6 @@ import * as fs from 'fs';
 import { ILLMClient } from './ILLMClient';
 import { Worker } from 'worker_threads';
 
-let getLlama: any;
-try {
-  const llamaModule = require('node-llama-cpp');
-  getLlama = llamaModule.getLlama;
-} catch (e) {
-  console.error('Failed to load node-llama-cpp:', e);
-}
-
 export class LocalClient implements ILLMClient {
   private modelPath: string;
   private worker: Worker | null = null;
@@ -128,10 +120,6 @@ export class LocalClient implements ILLMClient {
   }
 
   private async initLlama() {
-    if (!getLlama) {
-      throw new Error('Offline AI module not installed. Please rebuild native modules for Orbit.');
-    }
-
     if (!fs.existsSync(this.modelPath)) {
       await this.downloadModel();
     }
@@ -178,13 +166,9 @@ export class LocalClient implements ILLMClient {
   }
 
   public async checkConnection(): Promise<{ ok: boolean; message: string }> {
-    if (!getLlama) {
-      return { ok: false, message: 'Offline AI module not installed properly.' };
-    }
     if (!fs.existsSync(this.modelPath)) {
       return { ok: false, message: `Model not found at ${this.modelPath}.` };
     }
     return { ok: true, message: `Offline AI Ready ✅ (${this.modelName})` };
   }
 }
-

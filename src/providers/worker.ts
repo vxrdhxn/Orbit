@@ -4,31 +4,29 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 let llamaModule: any;
-let getLlama: any;
-
-try {
-  llamaModule = require('node-llama-cpp');
-  getLlama = llamaModule.getLlama;
-} catch (e) {
-  console.error('Worker failed to load node-llama-cpp:', e);
-}
-
 let llama: any = null;
 let model: any = null;
 let context: any = null;
 let session: any = null;
 
-async function initLlama(modelPath: string) {
-    if (!getLlama) {
-        throw new Error('Offline AI module not installed.');
+async function loadLlamaModule() {
+    if (!llamaModule) {
+        // node-llama-cpp is ESM-only. Keep this import native so the worker,
+        // not the CommonJS extension bundle, resolves it at runtime.
+        llamaModule = await import(/* webpackIgnore: true */ 'node-llama-cpp');
     }
+    return llamaModule;
+}
+
+async function initLlama(modelPath: string) {
+    const module = await loadLlamaModule();
     if (!llama) {
-        llama = await getLlama();
+        llama = await module.getLlama();
     }
     if (!model) {
         model = await llama.loadModel({ modelPath });
         context = await model.createContext();
-        session = new llamaModule.LlamaChatSession({
+        session = new module.LlamaChatSession({
             contextSequence: context.getSequence()
         });
     }

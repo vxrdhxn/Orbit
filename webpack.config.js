@@ -32,6 +32,11 @@ module.exports = {
                 use: [
                     {
                         loader: 'ts-loader',
+                        options: {
+                            // Preserve dynamic import() so webpackIgnore can leave
+                            // node-llama-cpp for the worker's native ESM loader.
+                            compilerOptions: { module: 'esnext' },
+                        },
                     },
                 ],
             },
