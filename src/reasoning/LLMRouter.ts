@@ -29,11 +29,15 @@ export class LLMRouter {
         // Improved regexes to match sections in slightly varying formats
         // Matches e.g. "### What changed", "What:", "**What:**", etc.
         const sectionsMatch = {
-            what: /(?:(?:###|##)?\s*\**What(?:\s+changed)?\**:?\**\s*)([\s\S]*?)(?=(?:(?:###|##)?\s*\**Why\**:?)|(?:(?:###|##)?\s*\**Improvements\**:?)|(?:(?:###|##)?\s*\**Tradeoffs\**:?)|(?:(?:###|##)?\s*\**Production(?:\s+Considerations)?\**:?)|$)/i,
-            why: /(?:(?:###|##)?\s*\**Why\**:?\**\s*)([\s\S]*?)(?=(?:(?:###|##)?\s*\**What\**:?)|(?:(?:###|##)?\s*\**Improvements\**:?)|(?:(?:###|##)?\s*\**Tradeoffs\**:?)|(?:(?:###|##)?\s*\**Production(?:\s+Considerations)?\**:?)|$)/i,
-            improvements: /(?:(?:###|##)?\s*\**Improvements\**:?\**\s*)([\s\S]*?)(?=(?:(?:###|##)?\s*\**What\**:?)|(?:(?:###|##)?\s*\**Why\**:?)|(?:(?:###|##)?\s*\**Tradeoffs\**:?)|(?:(?:###|##)?\s*\**Production(?:\s+Considerations)?\**:?)|$)/i,
-            tradeoffs: /(?:(?:###|##)?\s*\**Tradeoffs\**:?\**\s*)([\s\S]*?)(?=(?:(?:###|##)?\s*\**What\**:?)|(?:(?:###|##)?\s*\**Why\**:?)|(?:(?:###|##)?\s*\**Improvements\**:?)|(?:(?:###|##)?\s*\**Production(?:\s+Considerations)?\**:?)|$)/i,
-            production: /(?:(?:###|##)?\s*\**Production(?:\s+Considerations)?\**:?\**\s*)([\s\S]*?)(?=(?:(?:###|##)?\s*\**What\**:?)|(?:(?:###|##)?\s*\**Why\**:?)|(?:(?:###|##)?\s*\**Improvements\**:?)|(?:(?:###|##)?\s*\**Tradeoffs\**:?)|$)/i
+            what: /(?:^|\n)\s*(?:#{2,3}\s*)?(?:\*\*)?What(?:\s+changed)?(?:\*\*)?\s*:?\s*\n?([\s\S]*?)(?=(?:^|\n)\s*(?:#{2,3}\s*)?(?:\*\*)?(?:Why|Improvements|Tradeoffs|Production(?:\s+Considerations)?)(?:\*\*)?\s*:?\s*(?:\n|$)|$)/i,
+
+            why: /(?:^|\n)\s*(?:#{2,3}\s*)?(?:\*\*)?Why(?:\*\*)?\s*:?\s*\n?([\s\S]*?)(?=(?:^|\n)\s*(?:#{2,3}\s*)?(?:\*\*)?(?:What(?:\s+changed)?|Improvements|Tradeoffs|Production(?:\s+Considerations)?)(?:\*\*)?\s*:?\s*(?:\n|$)|$)/i,
+
+            improvements: /(?:^|\n)\s*(?:#{2,3}\s*)?(?:\*\*)?Improvements(?:\*\*)?\s*:?\s*\n?([\s\S]*?)(?=(?:^|\n)\s*(?:#{2,3}\s*)?(?:\*\*)?(?:What(?:\s+changed)?|Why|Tradeoffs|Production(?:\s+Considerations)?)(?:\*\*)?\s*:?\s*(?:\n|$)|$)/i,
+
+            tradeoffs: /(?:^|\n)\s*(?:#{2,3}\s*)?(?:\*\*)?Tradeoffs(?:\*\*)?\s*:?\s*\n?([\s\S]*?)(?=(?:^|\n)\s*(?:#{2,3}\s*)?(?:\*\*)?(?:What(?:\s+changed)?|Why|Improvements|Production(?:\s+Considerations)?)(?:\*\*)?\s*:?\s*(?:\n|$)|$)/i,
+
+            production: /(?:^|\n)\s*(?:#{2,3}\s*)?(?:\*\*)?Production(?:\s+Considerations)?(?:\*\*)?\s*:?\s*\n?([\s\S]*?)(?=(?:^|\n)\s*(?:#{2,3}\s*)?(?:\*\*)?(?:What(?:\s+changed)?|Why|Improvements|Tradeoffs)(?:\*\*)?\s*:?\s*(?:\n|$)|$)/i
         };
 
         // Extract "what changed" as an array (usually a bulleted list)
