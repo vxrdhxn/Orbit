@@ -165,9 +165,13 @@ export class LocalClient implements ILLMClient {
     });
   }
 
-  public async checkConnection(): Promise<{ ok: boolean; message: string }> {
+  public async checkConnection(): Promise<{ ok: boolean; message: string; canBootstrap?: boolean }> {
     if (!fs.existsSync(this.modelPath)) {
-      return { ok: false, message: `Model not found at ${this.modelPath}.` };
+      return {
+        ok: false,
+        canBootstrap: true,
+        message: `Model not found at ${this.modelPath}. It will download when you send a message.`
+      };
     }
     return { ok: true, message: `Offline AI Ready ✅ (${this.modelName})` };
   }

@@ -137,7 +137,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     console.log('Connection check result:', status);
     webview.postMessage({ type: 'updateConnectionState', value: status });
     
-    if (!status.ok) {
+    if (!status.ok && !status.canBootstrap) {
         console.warn('Connection failed:', status.message);
         const errorMessage = `⚠️ **Connection Error**: ${status.message}`;
         webview.postMessage({ type: 'addResponse', value: errorMessage });

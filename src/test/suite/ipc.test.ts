@@ -5,6 +5,7 @@ import { ILLMClient } from '../../providers/ILLMClient';
 
 class MockLLMClient implements ILLMClient {
   public isConnected = true;
+  public canBootstrap = false;
   async generate(prompt: string, params?: { model?: string; json?: boolean }): Promise<string> {
     return "This is a mock AI response";
   }
@@ -12,8 +13,12 @@ class MockLLMClient implements ILLMClient {
     onChunk("This is a mock AI response");
     return "This is a mock AI response";
   }
-  async checkConnection(): Promise<{ ok: boolean; message: string }> {
-    return { ok: this.isConnected, message: this.isConnected ? 'Connected' : 'Offline' };
+  async checkConnection(): Promise<{ ok: boolean; message: string; canBootstrap?: boolean }> {
+    return {
+      ok: this.isConnected,
+      canBootstrap: this.canBootstrap,
+      message: this.isConnected ? 'Connected' : 'Offline model not installed'
+    };
   }
   async listModels(): Promise<string[]> {
     return ['mock-model'];
@@ -122,5 +127,21 @@ suite('ChatProvider IPC E2E Test Suite', () => {
     const chunkMsg = mockWebviewView.webview.postedMessages.find(m => m.type === 'addResponseChunk');
     assert.ok(chunkMsg, 'Should send response chunks');
     assert.strictEqual(chunkMsg.value, 'This is a mock AI response', 'Should match mock LLM output');
+  });
+
+  test('IPC: Allows an offline model to bootstrap on the first message', async () => {
+    mockClient.isConnected = false;
+    mockClient.canBootstrap = true;
+    chatProvider.resolveWebviewView(mockWebviewView as any, {} as any, {} as any);
+    mockWebviewView.webview.postedMessages = [];
+
+    mockWebviewView.webview.simulateMessageReceive({ type: 'sendMessage', value: 'Hello' });
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    const errorMessage = mockWebviewView.webview.postedMessages.find(m =>
+      m.type === 'addResponse' && String(m.value).includes('Connection Error'));
+    const chunkMessage = mockWebviewView.webview.postedMessages.find(m => m.type === 'addResponseChunk');
+    assert.strictEqual(errorMessage, undefined, 'A bootstrap-capable offline model should not be blocked');
+    assert.ok(chunkMessage, 'Should start generation so LocalClient can download the model');
   });
 });

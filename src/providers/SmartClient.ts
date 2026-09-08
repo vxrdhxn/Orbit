@@ -55,7 +55,7 @@ export class SmartClient implements ILLMClient {
     return await this.getClient().generateStream(safePrompt, onChunk, signal, images);
   }
 
-  public async checkConnection(): Promise<{ ok: boolean; message: string }> {
+  public async checkConnection(): Promise<{ ok: boolean; message: string; canBootstrap?: boolean }> {
     const client = this.getClient();
     return await client.checkConnection();
   }
