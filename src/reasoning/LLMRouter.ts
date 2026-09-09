@@ -1,5 +1,6 @@
 import { StructuredResponse, LLMRouterConfig } from './types';
 import { ResponseFormatter } from './ResponseFormatter';
+import { ILLMClient } from '../providers/ILLMClient';
 
 export class LLMRouter {
     private formatter: ResponseFormatter;
@@ -14,6 +15,51 @@ export class LLMRouter {
      * Transforms a raw LLM output string into a StructuredResponse.
      * Uses regex and heuristics to extract sections.
      */
+
+    public async generate(
+        client: ILLMClient,
+        prompt: string,
+        options?: {
+            signal?: AbortSignal;
+        }
+    ): Promise<StructuredResponse> {
+        let lastRawResponse = '';
+
+        for (let attempt = 0; attempt <= this.config.maxRetries; attempt++) {
+            if (options?.signal?.aborted) {
+                throw new Error('Generation aborted');
+            }
+
+            const generationPrompt =
+                attempt === 0
+                    ? this.appendStructuredInstructions(prompt)
+                    : `${prompt}
+
+The previous response did not satisfy the required structure.
+
+Regenerate the response using these exact sections:
+### What changed
+### Why
+### Improvements
+### Tradeoffs
+### Production Considerations
+
+Do not omit any section.`;
+
+            lastRawResponse = await client.generate(generationPrompt);
+
+            const structured = this.transformResponse(lastRawResponse);
+
+            if (structured) {
+                return structured;
+            }
+        }
+
+        throw new Error(
+            `Unable to generate a valid structured response after ${this.config.maxRetries + 1} attempts.`
+        );
+    }
+
     public transformResponse(rawText: string): StructuredResponse | null {
         // First temporarily isolate code blocks so we don't accidentally match headers inside code
         const { processedText, codeBlocks } = this.formatter.extractCodeBlocks(rawText);
@@ -125,5 +171,4 @@ You must format your response with the following exact headings:
 `;
         return prompt + '\n\n' + instructions;
     }
-
 }
