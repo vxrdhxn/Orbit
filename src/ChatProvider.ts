@@ -120,148 +120,204 @@ export class ChatProvider implements vscode.WebviewViewProvider {
   }
 
   private async _processMessage(userMsg: string, webview: vscode.Webview, appendToUI: boolean = false) {
-    console.log('Processing message (Agentic Loop):', userMsg);
+      console.log('Processing message (Agentic Loop):', userMsg);
 
-    if (appendToUI) {
-      webview.postMessage({ type: 'addMessage', role: 'user', content: userMsg });
-    }
+      if (appendToUI) {
+          webview.postMessage({type: 'addMessage', role: 'user', content: userMsg});
+      }
 
-    // Add to current session
-    this._currentSession.messages.push({ role: 'user', content: userMsg, timestamp: Date.now() });
+      // Add to current session
+      this._currentSession.messages.push({role: 'user', content: userMsg, timestamp: Date.now()});
 
-    webview.postMessage({ type: 'status', value: 'Initializing...' });
-    console.log('0. Performing connection check...');
+      webview.postMessage({type: 'status', value: 'Initializing...'});
+      console.log('0. Performing connection check...');
 
-    // 0. Proactive connection check
-    const status = await this._llmClient.checkConnection();
-    console.log('Connection check result:', status);
-    webview.postMessage({ type: 'updateConnectionState', value: status });
-    
-    if (!status.ok && !status.canBootstrap) {
-        console.warn('Connection failed:', status.message);
-        const errorMessage = `⚠️ **Connection Error**: ${status.message}`;
-        webview.postMessage({ type: 'addResponse', value: errorMessage });
-        
-        // Save to session history so it doesn't disappear on refresh
-        this._currentSession.messages.push({ role: 'ai', content: errorMessage, timestamp: Date.now() });
-        this._saveHistory();
-        webview.postMessage({ type: 'status', value: '' });
-        return;
-    }
+      // 0. Proactive connection check
+      const status = await this._llmClient.checkConnection();
+      console.log('Connection check result:', status);
+      webview.postMessage({type: 'updateConnectionState', value: status});
 
-    if (this._abortController) {this._abortController.abort();}
-    this._abortController = new AbortController();
+      if (!status.ok && !status.canBootstrap) {
+          console.warn('Connection failed:', status.message);
+          const errorMessage = `⚠️ **Connection Error**: ${status.message}`;
+          webview.postMessage({type: 'addResponse', value: errorMessage});
 
-    let iteration = 0;
-    let fullPrompt = await this._buildInitialPrompt(userMsg);
-    const images = await this._getCurrentImagePayload();
-    let finalCombinedResponse = '';
+          // Save to session history so it doesn't disappear on refresh
+          this._currentSession.messages.push({role: 'ai', content: errorMessage, timestamp: Date.now()});
+          this._saveHistory();
+          webview.postMessage({type: 'status', value: ''});
+          return;
+      }
 
-    while (iteration < this._maxIterations) {
-        iteration++;
-        const statusVal = iteration === 1 ? 'Reasoning...' : `Executing Step ${iteration}...`;
-        console.log(`Agent Loop Iteration ${iteration}: ${statusVal}`);
-        webview.postMessage({ type: 'status', value: statusVal });
+      if (this._abortController) {
+          this._abortController.abort();
+      }
+      this._abortController = new AbortController();
+      let wasCancelled = false;
+      let iteration = 0;
+      let fullPrompt = await this._buildInitialPrompt(userMsg);
+      const images = await this._getCurrentImagePayload();
+      let finalCombinedResponse = '';
 
-        try {
-            let currentTurnResponse = '';
-            console.log('Starting stream generation...');
-            const startTime = Date.now();
-            let chunkCount = 0;
-            await this._llmClient.generateStream(fullPrompt, (chunk) => {
-                if (chunk == null) {return;} // Guard: skip undefined/null chunks
-                currentTurnResponse += chunk;
-                chunkCount++;
-                webview.postMessage({ type: 'addResponseChunk', value: chunk });
-            }, this._abortController.signal, images);
-            
-            const durationMs = Date.now() - startTime;
-            const tps = (chunkCount / (durationMs / 1000)).toFixed(1);
-            webview.postMessage({ type: 'telemetry', value: { durationMs, tps, iteration } });
-            
-            console.log(`Stream generation completed. Length: ${currentTurnResponse.length}, TPS: ${tps}`);
+      while (iteration < this._maxIterations) {
+          iteration++;
+          const statusVal = iteration === 1 ? 'Reasoning...' : `Executing Step ${iteration}...`;
+          console.log(`Agent Loop Iteration ${iteration}: ${statusVal}`);
+          webview.postMessage({type: 'status', value: statusVal});
+
+          try {
+              let currentTurnResponse = '';
+              console.log('Starting stream generation...');
+              const startTime = Date.now();
+              let chunkCount = 0;
+              await this._llmClient.generateStream(
+                  fullPrompt,
+                  (chunk) => {
+                      if (chunk == null) {
+                          return;
+                      }
+
+                      currentTurnResponse += chunk;
+                      chunkCount++;
+                  },
+                  this._abortController?.signal,
+                  images
+              );
+
+              const durationMs = Date.now() - startTime;
+              const tps = (chunkCount / (durationMs / 1000)).toFixed(1);
+              webview.postMessage({type: 'telemetry', value: {durationMs, tps, iteration}});
+
+              console.log(`Stream generation completed. Length: ${currentTurnResponse.length}, TPS: ${tps}`);
 
 
-            // Check for tool calls
-            const toolCallMatch = currentTurnResponse.match(/<tool_call name="([^"]+)">([\s\S]*?)<\/tool_call>/);
-            
-            if (toolCallMatch) {
-                const toolName = toolCallMatch[1];
-                let toolArgs = {};
-                let parseError = null;
-                try {
-                    toolArgs = JSON.parse(toolCallMatch[2].trim());
-                } catch (e: any) {
-                    parseError = e.message;
-                    console.error('Failed to parse tool args', e);
-                }
+              // Check for tool calls
+              const toolCallMatch = currentTurnResponse.match(/<tool_call name="([^"]+)">([\s\S]*?)<\/tool_call>/);
 
-                // UI notification
-                webview.postMessage({ type: 'status', value: `Calling ${toolName}...` });
-                
-                let result: any;
-                if (parseError) {
-                    result = { output: `Failed to parse tool arguments as JSON: ${parseError}. Please ensure arguments are valid JSON. If you are writing code with the 'apply' tool, make sure to escape newlines properly, OR just output a standard markdown codeblock with the file path (e.g. \`\`\`typescript:path/to/file.ts) instead of using the apply tool.`, isError: true };
-                } else {
-                    result = await this._toolManager.callTool(toolName, toolArgs);
-                }
-                const observation = `\n<observation>\n${result.output}\n</observation>\n`;
-                
-                // Truncate observation for the UI so it doesn't bloat the chat with 10,000 line file dumps
-                let uiOutput = result.output;
-                if (uiOutput.length > 500) {
-                    uiOutput = uiOutput.substring(0, 500) + '\n... [Output truncated for UI brevity]';
-                }
-                const uiObservation = `\n<observation>\n${uiOutput}\n</observation>\n`;
-                
-                // Append to prompt for next iteration
-                fullPrompt += currentTurnResponse + observation;
-                finalCombinedResponse += currentTurnResponse + uiObservation;
-            } else {
-                // No more tool calls, we are done
-                finalCombinedResponse += currentTurnResponse;
-                break;
-            }
-        } catch (e: any) {
-            if (e.name === 'AbortError') {
-                webview.postMessage({ type: 'status', value: 'Cancelled' });
-            } else {
-                const errorMsg = `\n\n⚠️ **Error**: ${e.message}`;
-                webview.postMessage({ type: 'addResponseChunk', value: errorMsg });
-                finalCombinedResponse += errorMsg;
-            }
-            break;
-        }
-    }
+              if (toolCallMatch) {
+                  const toolName = toolCallMatch[1];
+                  let toolArgs = {};
+                  let parseError = null;
+                  try {
+                      toolArgs = JSON.parse(toolCallMatch[2].trim());
+                  } catch (e: any) {
+                      parseError = e.message;
+                      console.error('Failed to parse tool args', e);
+                  }
 
-    if (finalCombinedResponse.trim() === '') {
-        finalCombinedResponse = "⚠️ **Error**: Received an empty response from the AI. The API might be rate limited, or the selected model may not exist/be supported.";
-    }
+                  // UI notification
+                  webview.postMessage({type: 'status', value: `Calling ${toolName}...`});
 
-    // Save final state
-    let structuredReasoning;
-    if (this._llmRouter) {
-        const parsed = this._llmRouter.transformResponse(finalCombinedResponse);
-        if (parsed) {
-            structuredReasoning = parsed;
-        }
-    }
+                  let result: any;
+                  if (parseError) {
+                      result = {
+                          output: `Failed to parse tool arguments as JSON: ${parseError}. Please ensure arguments are valid JSON. If you are writing code with the 'apply' tool, make sure to escape newlines properly, OR just output a standard markdown codeblock with the file path (e.g. \`\`\`typescript:path/to/file.ts) instead of using the apply tool.`,
+                          isError: true
+                      };
+                  } else {
+                      result = await this._toolManager.callTool(toolName, toolArgs);
+                  }
+                  const observation = `\n<observation>\n${result.output}\n</observation>\n`;
 
-    this._currentSession.messages.push({ 
-        role: 'ai', 
-        content: finalCombinedResponse, 
-        timestamp: Date.now(),
-        structuredReasoning
-    });
-    this._saveHistory();
-    this._abortController = null;
-    this._currentImage = null;
-    webview.postMessage({ type: 'status', value: '' });
-    // Update UI with the final structured reasoning if available
-    webview.postMessage({ type: 'loadChat', value: this._currentSession.messages });
+                  // Truncate observation for the UI so it doesn't bloat the chat with 10,000 line file dumps
+                  let uiOutput = result.output;
+                  if (uiOutput.length > 500) {
+                      uiOutput = uiOutput.substring(0, 500) + '\n... [Output truncated for UI brevity]';
+                  }
+                  const uiObservation = `\n<observation>\n${uiOutput}\n</observation>\n`;
 
-    // Final Auto-Apply check
-    this._tryAutoApply(finalCombinedResponse, webview);
+                  // Append to prompt for next iteration
+                  fullPrompt += currentTurnResponse + observation;
+                  finalCombinedResponse += currentTurnResponse + uiObservation;
+              } else {
+                  // No more tool calls, we are done
+                  finalCombinedResponse += currentTurnResponse;
+                  break;
+              }
+          } catch (e: any) {
+              if (e.name === 'AbortError') {
+                  wasCancelled = true;
+                  webview.postMessage({type: 'status', value: 'Cancelled'});
+              } else {
+                  const errorMsg = `\n\n⚠️ **Error**: ${e.message}`;
+                  finalCombinedResponse += errorMsg;
+              }
+              break;
+          }
+
+          if (wasCancelled) {
+              this._abortController = null;
+              this._currentImage = null;
+              webview.postMessage({type: 'status', value: ''});
+              return;
+          }
+
+          if (finalCombinedResponse.trim() === '') {
+              finalCombinedResponse = "⚠️ **Error**: Received an empty response from the AI. The API might be rate limited, or the selected model may not exist/be supported.";
+          }
+
+          // Save final state
+          let structuredReasoning;
+
+          try {
+              if (this._llmRouter) {
+                  const validation = await this._llmRouter.validateOrRegenerate(
+                      this._llmClient,
+                      finalCombinedResponse,
+                      fullPrompt,
+                      {
+                          signal: this._abortController?.signal
+                      }
+                  );
+
+                  finalCombinedResponse = validation.rawResponse;
+                  structuredReasoning = validation.structured;
+              }
+          } catch (e: any) {
+              const errorMessage =
+                  `⚠️ **Response formatting failed**: ${e.message}`;
+
+              webview.postMessage({
+                  type: 'addResponse',
+                  value: errorMessage
+              });
+
+              this._currentSession.messages.push({
+                  role: 'ai',
+                  content: errorMessage,
+                  timestamp: Date.now()
+              });
+
+              await this._saveHistory();
+
+              this._abortController = null;
+              this._currentImage = null;
+              webview.postMessage({type: 'status', value: ''});
+
+              return;
+          }
+
+          webview.postMessage({
+              type: 'addResponseChunk',
+              value: finalCombinedResponse
+          });
+
+          this._currentSession.messages.push({
+              role: 'ai',
+              content: finalCombinedResponse,
+              timestamp: Date.now(),
+              structuredReasoning
+          });
+          this._saveHistory();
+          this._abortController = null;
+          this._currentImage = null;
+          webview.postMessage({type: 'status', value: ''});
+          // Update UI with the final structured reasoning if available
+          webview.postMessage({type: 'loadChat', value: this._currentSession.messages});
+
+          // Final Auto-Apply check
+          this._tryAutoApply(finalCombinedResponse, webview);
+      }
   }
 
   private async _buildInitialPrompt(userMsg: string): Promise<string> {
