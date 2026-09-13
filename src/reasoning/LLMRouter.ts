@@ -122,7 +122,7 @@ Do not omit any section.`;
         throw new Error(
             `Unable to generate a valid structured response after ${this.config.maxRetries + 1} attempts.`
         );
-    }   
+    }
 
     public transformResponse(rawText: string): StructuredResponse | null {
         // First temporarily isolate code blocks so we don't accidentally match headers inside code
