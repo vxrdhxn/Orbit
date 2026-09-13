@@ -60,6 +60,70 @@ Do not omit any section.`;
         );
     }
 
+    public async validateOrRegenerate(
+        client: ILLMClient,
+        rawResponse: string,
+        prompt: string,
+        options?: {
+            signal?: AbortSignal;
+        }
+    ): Promise<{
+        rawResponse: string;
+        structured: StructuredResponse;
+    }> {
+        let currentResponse = rawResponse;
+
+        for (let attempt = 0; attempt <= this.config.maxRetries; attempt++) {
+            if (options?.signal?.aborted) {
+                throw new Error('Generation aborted');
+            }
+
+            const structured = this.transformResponse(currentResponse);
+
+            if (structured) {
+                return {
+                    rawResponse: currentResponse,
+                    structured
+                };
+            }
+
+            if (attempt === this.config.maxRetries) {
+                break;
+            }
+
+            const regenerationPrompt = `${prompt}
+
+The previous response did not satisfy the required structured response format.
+
+Previous response:
+${currentResponse}
+
+Regenerate the response with these exact sections:
+### What changed
+- Bulleted list of changes
+
+### Why
+Detailed reasoning
+
+### Improvements
+Potential future improvements
+
+### Tradeoffs
+Tradeoffs made
+
+### Production Considerations
+What should be considered before shipping
+
+Do not omit any section.`;
+
+            currentResponse = await client.generate(regenerationPrompt);
+        }
+
+        throw new Error(
+            `Unable to generate a valid structured response after ${this.config.maxRetries + 1} attempts.`
+        );
+    }   
+
     public transformResponse(rawText: string): StructuredResponse | null {
         // First temporarily isolate code blocks so we don't accidentally match headers inside code
         const { processedText, codeBlocks } = this.formatter.extractCodeBlocks(rawText);
