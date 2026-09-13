@@ -18,6 +18,7 @@ export const workspace = {
     }],
     openTextDocument: jest.fn(),
     showTextDocument: jest.fn(),
+    applyEdit: jest.fn(),
     fs: {
         stat: jest.fn(),
     },
@@ -39,6 +40,10 @@ export const FileType = {
 
 export class Range {
     constructor(public startLine: number, public startChar: number, public endLine: number, public endChar: number) { }
+}
+
+export class WorkspaceEdit {
+    replace = jest.fn();
 }
 
 export class Position {
