@@ -25,8 +25,9 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
         const range = new vscode.Range(0, 0, 0, 0); // Top of file
         const cmd: vscode.Command = {
             title: `Orbit: ${total} issues found`,
-            command: 'devmind.showReviewPanel', // Make sure this exists or use a dummy
-            arguments: []
+            command: 'orbit.showFindings',
+            arguments: [fileFindings],
+            tooltip: 'View all findings in this file'
         };
         lenses.push(new vscode.CodeLens(range, cmd));
 
