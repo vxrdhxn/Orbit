@@ -84,52 +84,101 @@ export class HunkParser {
  * Applies a subset of hunks to original content.
  */
 export class PartialDiffApplicator {
-    static apply(original: string, hunks: DiffHunk[], selectedIds?: string[]): string {
-        const origLines = original.replace(/\r\n/g, '\n').split('\n');
+    static apply(
+        original: string,
+        hunks: DiffHunk[],
+        selectedIds?: string[]
+    ): string {
+        const origLines = original
+            .replace(/\r\n/g, '\n')
+            .split('\n');
 
-        // Filter and sort active hunks
-        const activeHunks = (selectedIds
-            ? hunks.filter(h => selectedIds.includes(h.id))
-            : hunks
-        ).sort((a, b) => a.oldStart - b.oldStart);
+        const activeHunks = (
+            selectedIds
+                ? hunks.filter(hunk => selectedIds.includes(hunk.id))
+                : hunks
+        )
+            .slice()
+            .sort((a, b) => a.oldStart - b.oldStart);
 
-        let out: string[] = [];
-        let origPos = 1; // 1-based line numbers
+        let output: string[] = [];
+        let originalPosition = 1;
 
         for (const hunk of activeHunks) {
-            // Copy unchanged lines up to the hunk start
-            while (origPos < hunk.oldStart && origPos - 1 < origLines.length) {
-                out.push(origLines[origPos - 1]);
-                origPos++;
+            if (
+                !Number.isInteger(hunk.oldStart) ||
+                !Number.isInteger(hunk.oldLen) ||
+                hunk.oldStart < 1 ||
+                hunk.oldLen < 0
+            ) {
+                throw new Error('Invalid diff hunk metadata.');
             }
 
-            // Process hunk lines
+            if (hunk.oldStart < originalPosition) {
+                throw new Error(
+                    'Overlapping or incorrectly ordered diff hunks.'
+                );
+            }
+
+            while (
+                originalPosition < hunk.oldStart &&
+                originalPosition <= origLines.length
+                ) {
+                output.push(origLines[originalPosition - 1]);
+                originalPosition++;
+            }
+
+            let consumedLines = 0;
+
             for (const line of hunk.lines) {
                 if (line.startsWith(' ')) {
-                    // context
-                    if (origPos - 1 < origLines.length) {
-                        out.push(origLines[origPos - 1]);
-                        origPos++;
+                    const expectedLine = line.slice(1);
+                    const actualLine = origLines[originalPosition - 1];
+
+                    if (
+                        originalPosition > origLines.length ||
+                        actualLine !== expectedLine
+                    ) {
+                        throw new Error(
+                            'Diff context does not match the current file.'
+                        );
                     }
+
+                    output.push(actualLine);
+                    originalPosition++;
+                    consumedLines++;
                 } else if (line.startsWith('-')) {
-                    // removal
-                    if (origPos - 1 < origLines.length) {
-                        origPos++;
+                    const expectedLine = line.slice(1);
+                    const actualLine = origLines[originalPosition - 1];
+
+                    if (
+                        originalPosition > origLines.length ||
+                        actualLine !== expectedLine
+                    ) {
+                        throw new Error(
+                            'Diff removal does not match the current file.'
+                        );
                     }
+
+                    originalPosition++;
+                    consumedLines++;
                 } else if (line.startsWith('+')) {
-                    // addition
-                    out.push(line.slice(1));
+                    output.push(line.slice(1));
                 }
-                // ignore '\ No newline at end of file' and other markers
+            }
+
+            if (consumedLines !== hunk.oldLen) {
+                throw new Error(
+                    'Diff hunk line count does not match its metadata.'
+                );
             }
         }
 
-        // Append remaining original lines
-        while (origPos - 1 < origLines.length) {
-            out.push(origLines[origPos - 1]);
-            origPos++;
+        while (originalPosition <= origLines.length) {
+            output.push(origLines[originalPosition - 1]);
+            originalPosition++;
         }
 
-        return out.join('\n');
+        return output.join('\n');
     }
 }
