@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { FixApplicator } from '../../../src/reviewFixes';
 import {
     Finding,
@@ -86,7 +87,7 @@ describe('FixApplicator', () => {
         expect(vscode.workspace.openTextDocument)
             .toHaveBeenCalledWith(
                 expect.objectContaining({
-                    fsPath: '/mock/root/src/example.ts',
+                    fsPath: path.resolve('/mock/root/src/example.ts'),
                 })
             );
 
