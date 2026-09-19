@@ -83,6 +83,18 @@
       {
         "command": "orbit.viewDecisionHistory",
         "title": "Orbit: View Decision History"
+      },
+      {
+        "command": "orbit.toggleMode",
+        "title": "Orbit: Toggle Online/Offline Mode"
+      },
+      {
+        "command": "orbit.showFindings",
+        "title": "Orbit: Show Findings"
+      },
+      {
+        "command": "orbit.viewReasoning",
+        "title": "Orbit: View AI Reasoning"
       }
     ],
     "keybindings": [
