@@ -55,4 +55,11 @@ export class Selection {
 }
 
 export class ExtensionContext { }
-export const ViewColumn = { Beside: 1 };
+export const ViewColumn = {
+    One: 1,
+    Beside: 2,
+};
+
+export const TextEditorRevealType = {
+    InCenter: 2,
+};

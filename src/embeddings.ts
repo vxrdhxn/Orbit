@@ -11,7 +11,9 @@ function getWorker(): Worker {
   if (!worker) {
     worker = new Worker(path.join(__dirname, 'embeddingsWorker.js'));
     worker.on('message', (msg) => {
-      if (msg.type === 'ready') return;
+      if (msg.type === 'ready') {
+        return;
+      }
       const handlers = pendingMessages.get(msg.id);
       if (handlers) {
         pendingMessages.delete(msg.id);

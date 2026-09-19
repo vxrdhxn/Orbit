@@ -173,7 +173,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
               await this._llmClient.generateStream(
                   fullPrompt,
                   (chunk) => {
-                      if (chunk == null) {
+                      if (chunk === null || chunk === undefined) {
                           return;
                       }
 

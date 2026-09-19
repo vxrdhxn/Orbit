@@ -14,7 +14,9 @@ export class ReviewCommand {
     async execute() {
         const scopeOptions = ['Active File', 'Open Files', 'Entire Workspace'];
         const scope = await vscode.window.showQuickPick(scopeOptions, { placeHolder: 'Select Review Scope' });
-        if (!scope) return;
+        if (!scope) {
+            return;
+        }
 
         const codeInputs: CodeInput[] = [];
 
