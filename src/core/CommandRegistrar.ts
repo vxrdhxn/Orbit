@@ -120,9 +120,57 @@ export class CommandRegistrar {
             ),
             vscode.commands.registerCommand('orbit.viewReasoning', (finding) => {
                 if (finding?.reasoning) {
-                    const md = this.services.formatter.renderMarkdown(finding.reasoning);
-                    const panel = vscode.window.createWebviewPanel('orbitReasoning', 'AI Reasoning', vscode.ViewColumn.Beside, { enableScripts: true });
-                    panel.webview.html = `<html><body><script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script><div id="content"></div><script>document.getElementById('content').innerHTML = marked.parse(\`${md.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`);</script></body></html>`;
+                    const html = this.services.formatter.renderWebview(
+                        finding.reasoning
+                    );
+
+                    const panel = vscode.window.createWebviewPanel(
+                        'orbitReasoning',
+                        'AI Reasoning',
+                        vscode.ViewColumn.Beside,
+                        {
+                            enableScripts: false
+                        }
+                    );
+
+                    panel.webview.html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta
+                    http-equiv="Content-Security-Policy"
+                    content="default-src 'none'; style-src 'unsafe-inline';"
+                >
+                <style>
+                    body {
+                        font-family: var(--vscode-font-family);
+                        color: var(--vscode-foreground);
+                        padding: 16px;
+                        line-height: 1.6;
+                    }
+
+                    h4 {
+                        color: var(--vscode-textLink-foreground);
+                        margin-bottom: 8px;
+                    }
+
+                    pre {
+                        background: var(--vscode-textCodeBlock-background);
+                        padding: 12px;
+                        overflow-x: auto;
+                    }
+
+                    code {
+                        font-family: var(--vscode-editor-font-family);
+                    }
+                </style>
+            </head>
+            <body>
+                ${html}
+            </body>
+            </html>
+        `;
                 }
             }),
             vscode.commands.registerCommand('orbit.analyzePerformance', () => runAnalyzePerformance(this.services.performanceAnalyzer!, performanceOutputChannel)),
