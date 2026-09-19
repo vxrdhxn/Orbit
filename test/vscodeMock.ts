@@ -21,6 +21,8 @@ export const workspace = {
     applyEdit: jest.fn(),
     fs: {
         stat: jest.fn(),
+        readDirectory: jest.fn(),
+        readFile: jest.fn(),
     },
     findFiles: jest.fn(() => Promise.resolve([])),
 };
