@@ -1,3 +1,4 @@
+import { Finding } from '../reviewTypes';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { ServiceLocator } from './ServiceLocator';
@@ -7,6 +8,7 @@ import { runAnalyzePerformance } from '../commands/analyzePerformance';
 import { runViewDecisionHistory } from '../commands/viewDecisionHistory';
 import { runSearch } from '../searchCommand';
 import { buildIndex, updateFile } from '../indexer';
+import { showFindings } from '../commands/showFindings';
 
 export class CommandRegistrar {
     private aiStatusItem: vscode.StatusBarItem;
@@ -112,9 +114,10 @@ export class CommandRegistrar {
                 await updateFile(workspaceFolder, editor.document.uri);
                 vscode.window.showInformationMessage(`Orbit: Indexed ${path.basename(editor.document.fileName)}.`);
             }),
-            vscode.commands.registerCommand('orbit.showFindings', (findings) => {
-                vscode.window.showInformationMessage(`Showing ${findings?.length || 0} local findings.`);
-            }),
+            vscode.commands.registerCommand(
+                'orbit.showFindings',
+                (findings: Finding[]) => showFindings(findings)
+            ),
             vscode.commands.registerCommand('orbit.viewReasoning', (finding) => {
                 if (finding?.reasoning) {
                     const md = this.services.formatter.renderMarkdown(finding.reasoning);
