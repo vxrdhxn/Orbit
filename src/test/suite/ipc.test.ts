@@ -47,10 +47,10 @@ class MockWebview implements vscode.Webview {
     return localResource;
   }
 
-  public simulateMessageReceive(message: any) {
-    for (const handler of this.messageHandlers) {
-      handler(message);
-    }
+  public async simulateMessageReceive(message: any): Promise<void> {
+    await Promise.all(
+        this.messageHandlers.map(handler => handler(message))
+    );
   }
 }
 
@@ -116,16 +116,27 @@ suite('ChatProvider IPC E2E Test Suite', () => {
     mockWebviewView.webview.postedMessages = [];
 
     // Send a message
-    mockWebviewView.webview.simulateMessageReceive({ type: 'sendMessage', value: 'Hello' });
+    await mockWebviewView.webview.simulateMessageReceive({
+      type: 'sendMessage',
+      value: 'Hello'
+    });
     
     // Give it a tick to process async LLM stream
-    await new Promise(resolve => setTimeout(resolve, 50));
+
     
     const statusMsg = mockWebviewView.webview.postedMessages.find(m => m.type === 'status' && m.value === 'Initializing...');
     assert.ok(statusMsg, 'Should send Initializing status');
 
-    const chunkMsg = mockWebviewView.webview.postedMessages.find(m => m.type === 'addResponseChunk');
-    assert.ok(chunkMsg, 'Should send response chunks');
+    const chunkMsg = mockWebviewView.webview.postedMessages.find(
+        m => m.type === 'addResponseChunk'
+    );
+
+    assert.ok(
+        chunkMsg,
+        `Should send response chunks. Actual messages: ${JSON.stringify(
+            mockWebviewView.webview.postedMessages
+        )}`
+    );
     assert.strictEqual(chunkMsg.value, 'This is a mock AI response', 'Should match mock LLM output');
   });
 
@@ -135,13 +146,20 @@ suite('ChatProvider IPC E2E Test Suite', () => {
     chatProvider.resolveWebviewView(mockWebviewView as any, {} as any, {} as any);
     mockWebviewView.webview.postedMessages = [];
 
-    mockWebviewView.webview.simulateMessageReceive({ type: 'sendMessage', value: 'Hello' });
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await mockWebviewView.webview.simulateMessageReceive({
+      type: 'sendMessage',
+      value: 'Hello'
+    });
 
     const errorMessage = mockWebviewView.webview.postedMessages.find(m =>
       m.type === 'addResponse' && String(m.value).includes('Connection Error'));
     const chunkMessage = mockWebviewView.webview.postedMessages.find(m => m.type === 'addResponseChunk');
     assert.strictEqual(errorMessage, undefined, 'A bootstrap-capable offline model should not be blocked');
-    assert.ok(chunkMessage, 'Should start generation so LocalClient can download the model');
+    assert.ok(
+        chunkMessage,
+        `Should start generation. Actual messages: ${JSON.stringify(
+            mockWebviewView.webview.postedMessages
+        )}`
+    );
   });
 });

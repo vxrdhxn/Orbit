@@ -234,26 +234,37 @@ export class ChatProvider implements vscode.WebviewViewProvider {
                   finalCombinedResponse += currentTurnResponse;
                   break;
               }
+
+
+
           } catch (e: any) {
               if (e.name === 'AbortError') {
                   wasCancelled = true;
-                  webview.postMessage({type: 'status', value: 'Cancelled'});
+                  webview.postMessage({ type: 'status', value: 'Cancelled' });
               } else {
                   const errorMsg = `\n\n⚠️ **Error**: ${e.message}`;
                   finalCombinedResponse += errorMsg;
               }
               break;
           }
+      }
+
 
           if (wasCancelled) {
               this._abortController = null;
               this._currentImage = null;
-              webview.postMessage({type: 'status', value: ''});
+
+              webview.postMessage({
+                  type: 'status',
+                  value: ''
+              });
+
               return;
           }
 
           if (finalCombinedResponse.trim() === '') {
-              finalCombinedResponse = "⚠️ **Error**: Received an empty response from the AI. The API might be rate limited, or the selected model may not exist/be supported.";
+              finalCombinedResponse =
+                  "⚠️ **Error**: Received an empty response from the AI. The API might be rate limited, or the selected model may not exist/be supported.";
           }
 
           // Save final state
@@ -318,7 +329,6 @@ export class ChatProvider implements vscode.WebviewViewProvider {
           // Final Auto-Apply check
           this._tryAutoApply(finalCombinedResponse, webview);
       }
-  }
 
   private async _buildInitialPrompt(userMsg: string): Promise<string> {
     const editor = vscode.window.activeTextEditor;
