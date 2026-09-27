@@ -5,6 +5,10 @@ export const window = {
     showInformationMessage: jest.fn(),
     withProgress: jest.fn(),
     createStatusBarItem: jest.fn(() => ({ show: jest.fn(), text: '' })),
+    createTerminal: jest.fn(() => ({
+        show: jest.fn(),
+        sendText: jest.fn(),
+    })),
 };
 
 export const workspace = {
