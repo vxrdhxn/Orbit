@@ -29,10 +29,57 @@ export class InlineApplyService {
      * @param proposedContent - The full new content for the file
      * @returns true if accepted, false if rejected or failed
      */
+
+    private validateWorkspacePath(targetFilePath: string): string {
+        const workspaceRoot =
+            vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+        if (!workspaceRoot) {
+            throw new Error('No workspace open');
+        }
+
+        if (
+            typeof targetFilePath !== 'string' ||
+            targetFilePath.trim() === ''
+        ) {
+            throw new Error('A valid file path is required');
+        }
+
+        const resolvedRoot = path.resolve(workspaceRoot);
+        const resolvedTarget = path.resolve(targetFilePath);
+
+        const relativePath = path.relative(
+            resolvedRoot,
+            resolvedTarget
+        );
+
+        if (
+            relativePath === '..' ||
+            relativePath.startsWith(`..${path.sep}`) ||
+            path.isAbsolute(relativePath)
+        ) {
+            throw new Error(
+                'Access denied: path is outside the workspace'
+            );
+        }
+
+        return resolvedTarget;
+    }
+
     async proposeChange(
         targetFilePath: string,
         proposedContent: string
     ): Promise<boolean> {
+        let validatedPath: string;
+
+        try {
+            validatedPath = this.validateWorkspacePath(targetFilePath);
+        } catch (e: any) {
+            vscode.window.showErrorMessage(e.message);
+            return false;
+        }
+
+        targetFilePath = validatedPath;
         // Resolve any previous pending proposal as rejected before cleanup.
         if (this._pendingResolve) {
             this._pendingResolve(false);

@@ -9,6 +9,14 @@ jest.mock('vscode', () => ({
         file: jest.fn((p) => ({ fsPath: p, scheme: 'file' }))
     },
     workspace: {
+        workspaceFolders: [
+            {
+                uri: {
+                    fsPath: '/test',
+                    scheme: 'file'
+                }
+            }
+        ],
         fs: {
             readFile: jest.fn(),
             writeFile: jest.fn()
@@ -75,7 +83,9 @@ describe('InlineApplyService', () => {
         expect(vscode.workspace.fs.writeFile).toHaveBeenCalledTimes(1);
         expect(vscode.workspace.fs.writeFile).toHaveBeenCalledWith(
             expect.objectContaining({
-                fsPath: targetPath
+                fsPath: expect.stringMatching(
+                    /[\\/]test[\\/]file\.ts$/
+                )
             }),
             expect.anything()
         );
@@ -141,5 +151,50 @@ describe('InlineApplyService', () => {
                 'The file changed while the proposal was open'
             )
         );
+    });
+
+    it('should reject a file outside the workspace', async () => {
+        const accepted = await service.proposeChange(
+            '/outside/file.ts',
+            'proposed'
+        );
+
+        expect(accepted).toBe(false);
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+            'Access denied: path is outside the workspace'
+        );
+
+        expect(vscode.workspace.fs.readFile).not.toHaveBeenCalled();
+        expect(vscode.workspace.fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    it('should reject a path traversal attempt', async () => {
+        const accepted = await service.proposeChange(
+            '/test/../outside/file.ts',
+            'proposed'
+        );
+
+        expect(accepted).toBe(false);
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+            'Access denied: path is outside the workspace'
+        );
+
+        expect(vscode.workspace.fs.readFile).not.toHaveBeenCalled();
+        expect(vscode.workspace.fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    it('should reject an empty file path', async () => {
+        const accepted = await service.proposeChange('', 'proposed');
+
+        expect(accepted).toBe(false);
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+            'A valid file path is required'
+        );
+
+        expect(vscode.workspace.fs.readFile).not.toHaveBeenCalled();
+        expect(vscode.workspace.fs.writeFile).not.toHaveBeenCalled();
     });
 });
