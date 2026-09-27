@@ -40,7 +40,7 @@ export class ToolManager {
         }
     }
 
-    private resolveWorkspacePath(filePath: string = '.'): string {
+    private async resolveWorkspacePath(filePath: string = '.'): Promise<string> {
         const workspaceRoot =
             vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
@@ -69,10 +69,9 @@ export class ToolManager {
     }
 
     private async listDir(dirPath: string = '.'): Promise<ToolResult> {
-        const ws = vscode.workspace.workspaceFolders?.[0];
-        if (!ws) {throw new Error('No workspace open');}
+        const resolvedPath = await this.resolveWorkspacePath(dirPath);
 
-        const uri = vscode.Uri.file(this.resolveWorkspacePath(dirPath));
+        const uri = vscode.Uri.file(resolvedPath);
         const entries = await vscode.workspace.fs.readDirectory(uri);
         
         const output = entries
@@ -83,10 +82,9 @@ export class ToolManager {
     }
 
     private async readFile(filePath: string): Promise<ToolResult> {
-        const ws = vscode.workspace.workspaceFolders?.[0];
-        if (!ws) {throw new Error('No workspace open');}
+        const resolvedPath = await this.resolveWorkspacePath(filePath);
 
-        const uri = vscode.Uri.file(this.resolveWorkspacePath(filePath));
+        const uri = vscode.Uri.file(resolvedPath);
         const bytes = await vscode.workspace.fs.readFile(uri);
         const content = Buffer.from(bytes).toString('utf8');
         
@@ -125,7 +123,7 @@ export class ToolManager {
             return { output: 'Failed to apply code. Missing required arguments: "path" (string) and "code" (string). Note: Ensure your JSON formatting is correct and escaping newlines appropriately.', isError: true };
         }
 
-        const fullPath = this.resolveWorkspacePath(filePath);
+        const fullPath = await this.resolveWorkspacePath(filePath);
 
         const accepted = await this._inlineApply.proposeChange(fullPath, code);
         return { 
