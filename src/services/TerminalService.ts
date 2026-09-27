@@ -15,26 +15,37 @@ export class TerminalService {
     /**
      * Asks the user for confirmation, then runs a command and returns the output.
      */
-    async runWithConfirmation(command: string, cwd?: string): Promise<CommandResult | null> {
-        // Safety: always ask user before executing
+    async runWithConfirmation(
+        command: string,
+        cwd?: string
+    ): Promise<CommandResult | null> {
+        if (!command || !command.trim()) {
+            throw new Error('Command cannot be empty.');
+        }
+
+        const validatedCwd = this.validateCwd(cwd);
+
         const choice = await vscode.window.showWarningMessage(
             `Orbit wants to run a command:\n\n${command}`,
-            { modal: true, detail: `Working directory: ${cwd || 'workspace root'}` },
+            {
+                modal: true,
+                detail: `Working directory: ${validatedCwd}`
+            },
             'Run',
             'Cancel'
         );
 
         if (choice !== 'Run') {
-            return null; // User cancelled
+            return null;
         }
 
-        return this.execute(command, cwd);
+        return this.execute(command, validatedCwd);
     }
 
     /**
      * Runs a command directly (for trusted/internal use).
      */
-    async execute(command: string, cwd?: string): Promise<CommandResult> {
+    private async execute(command: string, cwd?: string): Promise<CommandResult> {
         if (!command || !command.trim()) {
             throw new Error('Command cannot be empty.');
         }
