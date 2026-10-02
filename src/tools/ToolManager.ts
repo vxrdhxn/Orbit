@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { resolveWorkspacePath } from '../utils/workspacePath';
 import { performSearch } from '../searchCommand';
 import { TerminalService } from '../services/TerminalService';
 import { InlineApplyService } from '../services/InlineApplyService';
@@ -40,36 +41,10 @@ export class ToolManager {
         }
     }
 
-    private async resolveWorkspacePath(filePath: string = '.'): Promise<string> {
-        const workspaceRoot =
-            vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
-        if (!workspaceRoot) {
-            throw new Error('No workspace open');
-        }
-
-        if (typeof filePath !== 'string' || filePath.trim() === '') {
-            throw new Error('A valid file path is required');
-        }
-
-        const resolvedRoot = path.resolve(workspaceRoot);
-        const resolvedPath = path.resolve(resolvedRoot, filePath);
-
-        const relativePath = path.relative(resolvedRoot, resolvedPath);
-
-        if (
-            relativePath === '..' ||
-            relativePath.startsWith(`..${path.sep}`) ||
-            path.isAbsolute(relativePath)
-        ) {
-            throw new Error('Access denied: path is outside the workspace');
-        }
-
-        return resolvedPath;
-    }
 
     private async listDir(dirPath: string = '.'): Promise<ToolResult> {
-        const resolvedPath = await this.resolveWorkspacePath(dirPath);
+        const resolvedPath = await resolveWorkspacePath(dirPath);
 
         const uri = vscode.Uri.file(resolvedPath);
         const entries = await vscode.workspace.fs.readDirectory(uri);
@@ -82,8 +57,7 @@ export class ToolManager {
     }
 
     private async readFile(filePath: string): Promise<ToolResult> {
-        const resolvedPath = await this.resolveWorkspacePath(filePath);
-
+        const resolvedPath = await resolveWorkspacePath(filePath);
         const uri = vscode.Uri.file(resolvedPath);
         const bytes = await vscode.workspace.fs.readFile(uri);
         const content = Buffer.from(bytes).toString('utf8');
@@ -123,7 +97,7 @@ export class ToolManager {
             return { output: 'Failed to apply code. Missing required arguments: "path" (string) and "code" (string). Note: Ensure your JSON formatting is correct and escaping newlines appropriately.', isError: true };
         }
 
-        const fullPath = await this.resolveWorkspacePath(filePath);
+        const fullPath = await resolveWorkspacePath(filePath);
 
         const accepted = await this._inlineApply.proposeChange(fullPath, code);
         return { 

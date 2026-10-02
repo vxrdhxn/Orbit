@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
+import { resolveWorkspacePath } from '../utils/workspacePath';
 
 /**
  * Manages the inline code apply lifecycle:
@@ -73,13 +74,15 @@ export class InlineApplyService {
         let validatedPath: string;
 
         try {
-            validatedPath = this.validateWorkspacePath(targetFilePath);
+            validatedPath = await resolveWorkspacePath(targetFilePath);
         } catch (e: any) {
             vscode.window.showErrorMessage(e.message);
             return false;
         }
 
         targetFilePath = validatedPath;
+
+        // rest of lifecycle unchanged...
         // Resolve any previous pending proposal as rejected before cleanup.
         if (this._pendingResolve) {
             this._pendingResolve(false);

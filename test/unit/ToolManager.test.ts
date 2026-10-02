@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ToolManager } from '../../src/tools/ToolManager';
 
 describe('ToolManager workspace path security', () => {
@@ -57,20 +59,34 @@ describe('ToolManager workspace path security', () => {
     it('allows a valid workspace path in apply', async () => {
         inlineApplyService.proposeChange.mockResolvedValue(true);
 
-        const result = await toolManager.callTool('apply', {
-            path: 'src/example.ts',
-            code: 'const example = true;',
-        });
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
-        expect(result.isError).toBe(false);
-        expect(result.output).toBe('Changes accepted and applied.');
+        if (!workspaceRoot) {
+            throw new Error('Test workspace is not configured');
+        }
 
-        expect(
-            inlineApplyService.proposeChange
-        ).toHaveBeenCalledWith(
-            expect.stringContaining('src'),
-            'const example = true;'
-        );
+        const sourceDir = path.join(workspaceRoot, 'src');
+        const sourceFile = path.join(sourceDir, 'example.ts');
+
+        fs.mkdirSync(sourceDir, { recursive: true });
+        fs.writeFileSync(sourceFile, 'const example = false;');
+
+        try {
+            const result = await toolManager.callTool('apply', {
+                path: 'src/example.ts',
+                code: 'const example = true;',
+            });
+
+            expect(result.isError).toBe(false);
+            expect(result.output).toBe('Changes accepted and applied.');
+            expect(inlineApplyService.proposeChange).toHaveBeenCalledWith(
+                expect.stringContaining('src'),
+                'const example = true;'
+            );
+        } finally {
+            fs.rmSync(sourceFile, { force: true });
+            fs.rmSync(sourceDir, { recursive: true, force: true });
+        }
     });
 
     it('rejects empty paths', async () => {

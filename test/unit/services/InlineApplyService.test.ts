@@ -36,7 +36,8 @@ jest.mock('fs', () => ({
     writeFileSync: jest.fn(),
     unlinkSync: jest.fn(),
     promises: {
-        writeFile: jest.fn()
+        writeFile: jest.fn(),
+        realpath: jest.fn((p) => Promise.resolve(p))
     }
 }));
 
