@@ -11,8 +11,15 @@ Codebase mapping complete.
 **Changes:** Removed extension-host CommonJS loading; added a native, Webpack-preserved
 worker import; configured the webpack TypeScript loader to retain `import()`.
 
-**Verification:** Webpack build and TypeScript test compilation passed. The cached VS Code
-E2E suite exited successfully; its existing IPC coverage uses a mock LLM, not native inference.
+**Verification:**
+- Webpack compilation passed successfully.
+- `dist/extension.js` contains no `require('node-llama-cpp')`.
+- `dist/worker.js` contains the native dynamic import:
+  `import(/* webpackIgnore: true */ 'node-llama-cpp')`.
+- Existing offline model-file validation remains intact in `LocalClient`.
+- Full Jest suite passed: 27 test suites and 126 tests.
+- TypeScript test compilation passed.
+- The cached VS Code E2E suite exited successfully; its existing IPC coverage uses a mock LLM, not native inference.
 
 **Remaining:** Run a live offline generation smoke test on a host with an installed GGUF model
 and the VS Code Electron ABI used by the production extension.
