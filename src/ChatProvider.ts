@@ -158,6 +158,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       let fullPrompt = await this._buildInitialPrompt(userMsg);
       const images = await this._getCurrentImagePayload();
       let finalCombinedResponse = '';
+      let shouldStop = false;
 
       while (iteration < this._maxIterations) {
           iteration++;
@@ -198,6 +199,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
                   const toolName = toolCallMatch[1];
                   let toolArgs = {};
                   let parseError = null;
+
                   try {
                       toolArgs = JSON.parse(toolCallMatch[2].trim());
                   } catch (e: any) {
@@ -205,30 +207,45 @@ export class ChatProvider implements vscode.WebviewViewProvider {
                       console.error('Failed to parse tool args', e);
                   }
 
-                  // UI notification
-                  webview.postMessage({type: 'status', value: `Calling ${toolName}...`});
+                  webview.postMessage({
+                      type: 'status',
+                      value: `Calling ${toolName}...`
+                  });
 
                   let result: any;
+
                   if (parseError) {
                       result = {
                           output: `Failed to parse tool arguments as JSON: ${parseError}. Please ensure arguments are valid JSON. If you are writing code with the 'apply' tool, make sure to escape newlines properly, OR just output a standard markdown codeblock with the file path (e.g. \`\`\`typescript:path/to/file.ts) instead of using the apply tool.`,
                           isError: true
                       };
+
+                      shouldStop = true;
                   } else {
                       result = await this._toolManager.callTool(toolName, toolArgs);
                   }
-                  const observation = `\n<observation>\n${result.output}\n</observation>\n`;
 
-                  // Truncate observation for the UI so it doesn't bloat the chat with 10,000 line file dumps
+                  const observation =
+                      `\n<observation>\n${result.output}\n</observation>\n`;
+
                   let uiOutput = result.output;
-                  if (uiOutput.length > 500) {
-                      uiOutput = uiOutput.substring(0, 500) + '\n... [Output truncated for UI brevity]';
-                  }
-                  const uiObservation = `\n<observation>\n${uiOutput}\n</observation>\n`;
 
-                  // Append to prompt for next iteration
+                  if (uiOutput.length > 500) {
+                      uiOutput =
+                          uiOutput.substring(0, 500) +
+                          '\n... [Output truncated for UI brevity]';
+                  }
+
+                  const uiObservation =
+                      `\n<observation>\n${uiOutput}\n</observation>\n`;
+
                   fullPrompt += currentTurnResponse + observation;
                   finalCombinedResponse += currentTurnResponse + uiObservation;
+
+                  if (shouldStop) {
+                      break;
+                  }
+
               } else {
                   // No more tool calls, we are done
                   finalCombinedResponse += currentTurnResponse;

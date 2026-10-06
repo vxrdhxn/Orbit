@@ -23,7 +23,7 @@ export class TerminalService {
             throw new Error('Command cannot be empty.');
         }
 
-        const validatedCwd = this.validateCwd(cwd);
+        const validatedCwd = await this.validateCwd(cwd);
 
         const choice = await vscode.window.showWarningMessage(
             `Orbit wants to run a command:\n\n${command}`,
@@ -50,7 +50,7 @@ export class TerminalService {
             throw new Error('Command cannot be empty.');
         }
 
-        const workspacePath = this.validateCwd(cwd);
+        const workspacePath = await this.validateCwd(cwd);
 
         return new Promise((resolve) => {
             exec(
@@ -88,7 +88,7 @@ export class TerminalService {
             throw new Error('Command cannot be empty.');
         }
 
-        const validatedCwd = this.validateCwd(cwd);
+        const validatedCwd = await this.validateCwd(cwd);
         const choice = await vscode.window.showWarningMessage(
             `Orbit wants to run a command:\n\n${command}`,
             {
@@ -113,25 +113,33 @@ export class TerminalService {
 
         return terminal;
     }
-    private validateCwd(cwd?: string): string | undefined {
-        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+    private validateCwd(cwd?: string): string {
+        const workspaceRoot =
+            vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
         if (!workspaceRoot) {
             throw new Error('No workspace is open.');
         }
 
         const targetCwd = cwd || workspaceRoot;
+
         const resolvedRoot = path.resolve(workspaceRoot);
         const resolvedCwd = path.resolve(targetCwd);
 
-        const relativePath = path.relative(resolvedRoot, resolvedCwd);
+        const relativePath = path.relative(
+            resolvedRoot,
+            resolvedCwd
+        );
 
         if (
             relativePath === '..' ||
             relativePath.startsWith(`..${path.sep}`) ||
             path.isAbsolute(relativePath)
         ) {
-            throw new Error('Access denied: working directory is outside the workspace.');
+            throw new Error(
+                'Access denied: working directory is outside the workspace.'
+            );
         }
 
         return resolvedCwd;

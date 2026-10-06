@@ -97,4 +97,90 @@ describe('ToolManager workspace path security', () => {
         expect(result.isError).toBe(true);
         expect(result.output).toContain('valid file path');
     });
+
+    it('rejects null tool arguments', async () => {
+        const result = await toolManager.callTool('read', null);
+
+        expect(result.isError).toBe(true);
+        expect(result.output).toContain(
+            'Tool arguments must be a JSON object'
+        );
+    });
+
+    it('rejects array tool arguments', async () => {
+        const result = await toolManager.callTool('read', []);
+
+        expect(result.isError).toBe(true);
+        expect(result.output).toContain(
+            'Tool arguments must be a JSON object'
+        );
+    });
+
+    it('rejects non-string search queries', async () => {
+        const result = await toolManager.callTool('search', {
+            query: 123,
+        });
+
+        expect(result.isError).toBe(true);
+        expect(result.output).toContain(
+            'query must be a non-empty string'
+        );
+    });
+
+    it('rejects empty search queries', async () => {
+        const result = await toolManager.callTool('search', {
+            query: '   ',
+        });
+
+        expect(result.isError).toBe(true);
+        expect(result.output).toContain(
+            'query must be a non-empty string'
+        );
+    });
+
+    it('rejects non-string run commands', async () => {
+        const result = await toolManager.callTool('run', {
+            command: 123,
+        });
+
+        expect(result.isError).toBe(true);
+        expect(result.output).toContain(
+            'command must be a non-empty string'
+        );
+
+        expect(
+            terminalService.runWithConfirmation
+        ).not.toHaveBeenCalled();
+    });
+
+    it('rejects empty run commands', async () => {
+        const result = await toolManager.callTool('run', {
+            command: '   ',
+        });
+
+        expect(result.isError).toBe(true);
+        expect(result.output).toContain(
+            'command must be a non-empty string'
+        );
+
+        expect(
+            terminalService.runWithConfirmation
+        ).not.toHaveBeenCalled();
+    });
+
+    it('rejects invalid apply code', async () => {
+        const result = await toolManager.callTool('apply', {
+            path: 'src/example.ts',
+            code: 123,
+        });
+
+        expect(result.isError).toBe(true);
+        expect(result.output).toContain(
+            'code must be a non-empty string'
+        );
+
+        expect(
+            inlineApplyService.proposeChange
+        ).not.toHaveBeenCalled();
+    });
 });

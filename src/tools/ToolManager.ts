@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { resolveWorkspacePath } from '../utils/workspacePath';
 import { performSearch } from '../searchCommand';
 import { TerminalService } from '../services/TerminalService';
@@ -21,27 +20,80 @@ export class ToolManager {
      */
     async callTool(name: string, args: any): Promise<ToolResult> {
         console.log(`[ToolManager] Calling tool: ${name}`, args);
+
         try {
+            const validatedArgs = this.validateToolArgs(args);
+
             switch (name) {
                 case 'ls':
-                    return await this.listDir(args.path);
+                    return await this.listDir(
+                        validatedArgs.path as string | undefined
+                    );
+
                 case 'read':
-                    return await this.readFile(args.path);
+                    return await this.readFile(
+                        this.validateStringArgument(
+                            validatedArgs.path,
+                            'path',
+                            'A valid file path is required'
+                        )
+                    );
+
                 case 'search':
-                    return await this.search(args.query);
+                    return await this.search(
+                        this.validateStringArgument(
+                            validatedArgs.query,
+                            'query'
+                        )
+                    );
+
                 case 'run':
-                    return await this.runCommand(args.command);
+                    return await this.runCommand(
+                        this.validateStringArgument(
+                            validatedArgs.command,
+                            'command'
+                        )
+                    );
+
                 case 'apply':
-                    return await this.applyCode(args);
+                    return await this.applyCode(validatedArgs);
+
                 default:
-                    return { output: `Unknown tool: ${name}`, isError: true };
+                    return {
+                        output: `Unknown tool: ${name}`,
+                        isError: true
+                    };
             }
         } catch (e: any) {
-            return { output: `Error executing tool ${name}: ${e.message}`, isError: true };
+            return {
+                output: `Error executing tool ${name}: ${e.message}`,
+                isError: true
+            };
         }
     }
 
+    private validateStringArgument(
+        value: unknown,
+        argumentName: string,
+        errorMessage?: string
+    ): string {
+        if (typeof value !== 'string' || value.trim() === '') {
+            throw new Error(
+                errorMessage ||
+                `${argumentName} must be a non-empty string`
+            );
+        }
 
+        return value;
+    }
+
+    private validateToolArgs(args: unknown): Record<string, unknown> {
+        if (args === null || typeof args !== 'object' || Array.isArray(args)) {
+            throw new Error('Tool arguments must be a JSON object');
+        }
+
+        return args as Record<string, unknown>;
+    }
 
     private async listDir(dirPath: string = '.'): Promise<ToolResult> {
         const resolvedPath = await resolveWorkspacePath(dirPath);
@@ -91,17 +143,41 @@ export class ToolManager {
     }
 
     private async applyCode(args: any): Promise<ToolResult> {
+        if (!args || typeof args !== 'object' || Array.isArray(args)) {
+            return {
+                output: 'Failed to apply code. Tool arguments must be an object.',
+                isError: true
+            };
+        }
+
         const filePath = args.path;
         const code = args.code;
-        if (!filePath || typeof code !== 'string') {
-            return { output: 'Failed to apply code. Missing required arguments: "path" (string) and "code" (string). Note: Ensure your JSON formatting is correct and escaping newlines appropriately.', isError: true };
+
+        if (typeof filePath !== 'string' || filePath.trim() === '') {
+            return {
+                output: 'Failed to apply code. path must be a non-empty string.',
+                isError: true
+            };
+        }
+
+        if (typeof code !== 'string' || code.trim() === '') {
+            return {
+                output: 'Failed to apply code. code must be a non-empty string.',
+                isError: true
+            };
         }
 
         const fullPath = await resolveWorkspacePath(filePath);
 
-        const accepted = await this._inlineApply.proposeChange(fullPath, code);
-        return { 
-            output: accepted ? 'Changes accepted and applied.' : 'Changes rejected by user.',
+        const accepted = await this._inlineApply.proposeChange(
+            fullPath,
+            code
+        );
+
+        return {
+            output: accepted
+                ? 'Changes accepted and applied.'
+                : 'Changes rejected by user.',
             isError: !accepted
         };
     }

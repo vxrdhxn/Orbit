@@ -127,4 +127,83 @@ describe('TerminalService', () => {
         expect(result?.stdout.trim()).toBe('1');
         expect(result?.exitCode).toBe(0);
     });
+
+    it('should return a failed command result when execution exits non-zero', async () => {
+        (
+            vscode.window.showWarningMessage as jest.Mock
+        ).mockResolvedValue('Run');
+
+        const result = await service.runWithConfirmation(
+            'node -e "process.stderr.write(\'failure\'); process.exit(2)"'
+        );
+
+        expect(result).not.toBeNull();
+        expect(result?.stderr).toContain('failure');
+        expect(result?.exitCode).toBe(2);
+    });
+
+    it('should accept a working directory inside the workspace', async () => {
+        (
+            vscode.window.showWarningMessage as jest.Mock
+        ).mockResolvedValue('Run');
+
+        const result = await service.runWithConfirmation(
+            'node -p process.cwd()',
+            '/mock/root/src'
+        );
+
+        // The mocked workspace path does not necessarily exist on disk,
+        // so execution may fail at the OS level. The important assertion
+        // is that validation itself does not reject the path.
+        expect(vscode.window.showWarningMessage).toHaveBeenCalled();
+    });
+
+    it('should not create a terminal when the user cancels', async () => {
+        (
+            vscode.window.showWarningMessage as jest.Mock
+        ).mockResolvedValue('Cancel');
+
+        const result = await service.runInTerminal(
+            'echo test'
+        );
+
+        expect(result).toBeNull();
+        expect(vscode.window.createTerminal).not.toHaveBeenCalled();
+    });
+
+    it('should create and run a terminal when the user confirms', async () => {
+        (
+            vscode.window.showWarningMessage as jest.Mock
+        ).mockResolvedValue('Run');
+
+        const terminal = {
+            show: jest.fn(),
+            sendText: jest.fn()
+        };
+
+        (
+            vscode.window.createTerminal as jest.Mock
+        ).mockReturnValue(terminal);
+
+        const result = await service.runInTerminal(
+            'echo test',
+            'Orbit Test'
+        );
+
+        expect(result).toBe(terminal);
+
+        expect(vscode.window.createTerminal).toHaveBeenCalledWith({
+            name: 'Orbit Test',
+            cwd: expect.any(String)
+        });
+
+        const terminalOptions = (
+            vscode.window.createTerminal as jest.Mock
+        ).mock.calls[0][0];
+
+        expect(terminalOptions.cwd).toMatch(/mock[\\/]root$/);
+
+        expect(terminal.show).toHaveBeenCalled();
+        expect(terminal.sendText).toHaveBeenCalledWith('echo test');
+    });
 });
