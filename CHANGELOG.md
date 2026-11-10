@@ -2,7 +2,7 @@
 
 All notable changes to the "Orbit" extension will be documented in this file.
 
-## [Unreleased]
+## [2.0.1] - 2026-11-10
 
 ### Added
 - **Hybrid providers**: Free cloud pool (Pollinations), Groq, OpenRouter, local OpenAI-compatible servers, and a custom API endpoint, with fallback provider pooling and rate-limit queueing. Ollama support was replaced by a built-in offline runtime.

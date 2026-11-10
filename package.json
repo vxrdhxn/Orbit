@@ -2,7 +2,7 @@
   "name": "orbit",
   "displayName": "Orbit",
   "description": "A VS Code extension providing agentic AI chat features offline, online, and via custom API keys",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "publisher": "vxrdhxn",
   "icon": "resources/icon.png",
   "engines": {
