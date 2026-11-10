@@ -17,6 +17,17 @@ import { LLMRouter } from './reasoning/LLMRouter';
 import { StructuredResponse } from './reasoning/types';
 import { log } from './logger';
 
+const MAX_HISTORY_MESSAGES = 6;
+const MAX_HISTORY_CHARS = 1500;
+
+/** Removes a leading/trailing markdown code fence the model may wrap file content in. */
+function stripCodeFence(text: string): string {
+    return text
+        .replace(/^\s*```[^\n]*\n/, '')
+        .replace(/\n?```\s*$/, '\n')
+        .replace(/^\n/, '');
+}
+
 export interface ChatMessage {
   role: 'user' | 'ai';
   content: string;
@@ -194,18 +205,25 @@ export class ChatProvider implements vscode.WebviewViewProvider {
 
 
               // Check for tool calls
-              const toolCallMatch = currentTurnResponse.match(/<tool_call name="([^"]+)">([\s\S]*?)<\/tool_call>/);
+              const toolCallMatch = currentTurnResponse.match(/<tool_call name="([^"]+)"([^>]*)>([\s\S]*?)<\/tool_call>/);
 
               if (toolCallMatch) {
                   const toolName = toolCallMatch[1];
+                  const pathAttribute = toolCallMatch[2].match(/path="([^"]+)"/)?.[1];
+                  const toolBody = toolCallMatch[3];
                   let toolArgs = {};
                   let parseError = null;
 
-                  try {
-                      toolArgs = JSON.parse(toolCallMatch[2].trim());
-                  } catch (e: any) {
-                      parseError = e.message;
-                      console.error('Failed to parse tool args', e);
+                  if (toolName === 'apply' && pathAttribute) {
+                      // Raw-code form: the body is the file content, no JSON escaping needed.
+                      toolArgs = { path: pathAttribute, code: stripCodeFence(toolBody) };
+                  } else {
+                      try {
+                          toolArgs = JSON.parse(toolBody.trim());
+                      } catch (e: any) {
+                          parseError = e.message;
+                          log(`Failed to parse tool args: ${e.message}`);
+                      }
                   }
 
                   webview.postMessage({
@@ -285,48 +303,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
                   "⚠️ **Error**: Received an empty response from the AI. The API might be rate limited, or the selected model may not exist/be supported.";
           }
 
-          // Save final state
-          let structuredReasoning;
-
-          try {
-              // Only code-change requests get the structured report; chat stays conversational.
-              if (this._llmRouter && this._isCodeChangeRequest(userMsg)) {
-                  const validation = await this._llmRouter.validateOrRegenerate(
-                      this._llmClient,
-                      finalCombinedResponse,
-                      fullPrompt,
-                      {
-                          signal: this._abortController?.signal
-                      }
-                  );
-
-                  finalCombinedResponse = validation.rawResponse;
-                  structuredReasoning = validation.structured;
-              }
-          } catch (e: any) {
-              const errorMessage =
-                  `⚠️ **Response formatting failed**: ${e.message}`;
-
-              webview.postMessage({
-                  type: 'addResponse',
-                  value: errorMessage
-              });
-
-              this._currentSession.messages.push({
-                  role: 'ai',
-                  content: errorMessage,
-                  timestamp: Date.now()
-              });
-
-              await this._saveHistory();
-
-              this._abortController = null;
-              this._currentImage = null;
-              webview.postMessage({type: 'status', value: ''});
-
-              return;
-          }
-
+          // Save final state. Replies are plain agent-style markdown; no report template.
           webview.postMessage({
               type: 'addResponseChunk',
               value: finalCombinedResponse
@@ -335,8 +312,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
           this._currentSession.messages.push({
               role: 'ai',
               content: finalCombinedResponse,
-              timestamp: Date.now(),
-              structuredReasoning
+              timestamp: Date.now()
           });
           this._saveHistory();
           this._abortController = null;
@@ -345,8 +321,10 @@ export class ChatProvider implements vscode.WebviewViewProvider {
           // Update UI with the final structured reasoning if available
           webview.postMessage({type: 'loadChat', value: this._currentSession.messages});
 
-          // Final Auto-Apply check
-          this._tryAutoApply(finalCombinedResponse, webview);
+          // Fallback: if the model wrote a code block instead of calling apply, still offer the diff.
+          if (this._isCodeChangeRequest(userMsg) && !finalCombinedResponse.includes('<tool_call name="apply"')) {
+              this._tryAutoApply(finalCombinedResponse, webview);
+          }
       }
 
   private async _buildInitialPrompt(userMsg: string): Promise<string> {
@@ -356,14 +334,16 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     const context = await this._buildFileContext(userMsg, editor);
     
     // Include past conversation history within this session
-    const history = this._currentSession.messages.slice(0, -1).map(m =>
-        `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`
-    ).join('\n\n');
+    // Only the most recent turns, each shortened, so local models don't spend
+    // minutes re-reading old conversation on every message.
+    const history = this._currentSession.messages.slice(0, -1).slice(-MAX_HISTORY_MESSAGES).map(m => {
+        const text = m.content.length > MAX_HISTORY_CHARS
+            ? `${m.content.substring(0, MAX_HISTORY_CHARS)}... [truncated]`
+            : m.content;
+        return `${m.role === 'user' ? 'User' : 'Assistant'}: ${text}`;
+    }).join('\n\n');
     
     let finalPrompt = `${systemPrompt}\n\n${toolInstructions}\n\n${context}\n\nConversation History:\n${history || '(No previous messages)'}\n\nUser Question: ${userMsg}\n\nResponse:`;
-    if (this._llmRouter && this._isCodeChangeRequest(userMsg)) {
-        finalPrompt = this._llmRouter.appendStructuredInstructions(finalPrompt);
-    }
     return finalPrompt;
   }
 
@@ -823,13 +803,20 @@ export class ChatProvider implements vscode.WebviewViewProvider {
    */
   private _buildSystemPrompt(editor?: vscode.TextEditor): string {
     const parts = [
-      'You are Orbit, an advanced AI coding assistant for VS Code.',
-      '## Code Modification Rules',
-      '- If the user asks you to create, edit, modify, fix, replace, or write code in a file, you MUST use the apply tool.',
-      '- NEVER claim that a file was modified unless the apply tool was actually executed successfully.',
-      '- Do NOT use a normal markdown code block as a substitute for the apply tool when modifying a file.',
-      '- The apply tool must contain the target file path and the complete resulting file contents.',
-      '- If the user asks only for an explanation or example, respond normally without modifying files.',
+      'You are Orbit, an AI coding agent working inside the user\'s VS Code. You talk like a helpful teammate: friendly, direct and brief.',
+      '',
+      '## How you work',
+      '- Reply to greetings and questions in a few natural sentences. No headings, no reports, no bullet-point essays.',
+      '- When the user wants something done, say in one short sentence what you are going to do, then do it with a tool.',
+      '- After a tool result, tell the user in one or two sentences what happened and, if useful, what to try next.',
+      '- Ask a short question only when you genuinely cannot proceed.',
+      '',
+      '## Changing files',
+      '- To create, edit, fix or write code in a file, you MUST call the apply tool with the file path and the complete resulting file contents.',
+      '- If the user says "the file" or "this file", they mean the file they currently have open.',
+      '- The user sees a diff and approves it before anything is saved. NEVER say a file was changed unless the apply tool result says it was saved.',
+      '- If the apply result says the change was rejected or failed, say so honestly and offer to adjust.',
+      '- If the user only wants an explanation or an example, answer in chat and do not touch files.',
       '',
       '## Terminal & Commands',
       '- For shell commands, use: ```bash',
@@ -839,10 +826,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       'You can see the current open file and any files the user explicitly references or attaches.',
       '',
       '## Communication Style',
-      '- Talk like a friendly, capable coding agent. Reply to greetings and general questions naturally and briefly, in plain conversational language.',
-      '- Do not use report headings (What changed, Why, Improvements, Tradeoffs) unless you are asked to change code.',
-      '- Provide well-structured, clean, and highly readable answers.',
-      '- Synthesize your findings into a clear summary. Do not output raw data dumps directly to the user.',
+      '- Keep answers short and readable. Summarize findings; do not dump raw data.',
     ];
 
     if (editor) {
@@ -878,15 +862,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
 
       if (!matchesByPath && !matchesByLang) {return;}
 
-      // Auto-apply: ask the user if they want to apply
-      const choice = await vscode.window.showInformationMessage(
-        `Orbit detected code changes for ${path.basename(activeFile)}. Apply them?`,
-        'Apply & Review Diff',
-        'Skip'
-      );
-
-      if (choice !== 'Apply & Review Diff') {return;}
-
+      // The diff's Accept / Reject prompt is the approval step, so go straight to it.
       if (this._inlineApply.hasPendingProposal) {
         await this._inlineApply.reject();
       }
@@ -895,8 +871,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       webview.postMessage({
         type: 'addResponse',
         value: accepted
-          ? '✅ Changes accepted and applied.'
-          : '❌ Changes rejected — file restored.'
+          ? `✅ Saved your changes to ${path.basename(activeFile)}.`
+          : `❌ Okay, I left ${path.basename(activeFile)} unchanged.`
       });
     } catch (e) {
       console.error('[ChatProvider] Auto-apply failed:', e);

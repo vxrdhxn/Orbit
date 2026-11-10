@@ -78,7 +78,7 @@ describe('ToolManager workspace path security', () => {
             });
 
             expect(result.isError).toBe(false);
-            expect(result.output).toBe('Changes accepted and applied.');
+            expect(result.output).toBe('Changes accepted by the user and saved to src/example.ts.');
             expect(inlineApplyService.proposeChange).toHaveBeenCalledWith(
                 expect.stringContaining('src'),
                 'const example = true;'
@@ -192,7 +192,8 @@ describe('ToolManager tool definitions', () => {
         const definitions = toolManager.getToolDefinitions();
 
         expect(definitions).toContain('REQUIRED whenever the user asks you to create, edit, fix, replace, or write code in a file');
-        expect(definitions).toContain('Never claim that a file was changed unless you called the apply tool');
+        expect(definitions).toContain('Never claim that a file was changed unless the apply tool returned "saved"');
         expect(definitions).toContain('complete resulting file contents');
+        expect(definitions).toContain('<tool_call name="apply" path="hello.js">');
     });
 });

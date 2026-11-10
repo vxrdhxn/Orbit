@@ -157,8 +157,31 @@ describe('ChatProvider system prompt', () => {
 
         const prompt: string = provider._buildSystemPrompt();
 
-        expect(prompt).toContain('you MUST use the apply tool');
-        expect(prompt).toContain('NEVER claim that a file was modified unless the apply tool was actually executed');
-        expect(prompt).toContain('Do NOT use a normal markdown code block as a substitute for the apply tool');
+        expect(prompt).toContain('you MUST call the apply tool');
+        expect(prompt).toContain('NEVER say a file was changed unless the apply tool result says it was saved');
+    });
+
+    it('asks for a conversational agent style, not a report', () => {
+        const context: any = {
+            globalState: { get: jest.fn().mockReturnValue([]), update: jest.fn() },
+            workspaceState: { get: jest.fn().mockReturnValue([]), update: jest.fn() },
+        };
+        const provider: any = new ChatProvider(context, {} as any);
+
+        const prompt: string = provider._buildSystemPrompt();
+
+        expect(prompt).toContain('No headings, no reports');
+    });
+
+    it('only treats change-like messages as code-change requests', () => {
+        const context: any = {
+            globalState: { get: jest.fn().mockReturnValue([]), update: jest.fn() },
+            workspaceState: { get: jest.fn().mockReturnValue([]), update: jest.fn() },
+        };
+        const provider: any = new ChatProvider(context, {} as any);
+
+        expect(provider._isCodeChangeRequest('hello')).toBe(false);
+        expect(provider._isCodeChangeRequest('what does this function do?')).toBe(false);
+        expect(provider._isCodeChangeRequest("write a print statement which prints 'Hello'")).toBe(true);
     });
 });

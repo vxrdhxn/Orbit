@@ -177,8 +177,8 @@ export class ToolManager {
 
         return {
             output: accepted
-                ? 'Changes accepted and applied.'
-                : 'Changes rejected by user.',
+                ? `Changes accepted by the user and saved to ${filePath}.`
+                : `The user rejected the change. ${filePath} was NOT modified.`,
             isError: !accepted
         };
     }
@@ -193,20 +193,25 @@ AVAILABLE TOOLS:
 2. read: Read the full content of a file. Args: { "path": string }
 3. search: Perform a semantic search for code blocks. Args: { "query": string }
 4. run: Run a terminal command (requires user approval). Args: { "command": string }
-5. apply: Modify a file. REQUIRED whenever the user asks you to create, edit, fix, replace, or write code in a file. Args: { "path": string, "code": string }
+5. apply: Create or modify a file. REQUIRED whenever the user asks you to create, edit, fix, replace, or write code in a file. The user reviews a diff and approves before anything is saved.
 
 IMPORTANT:
-- Never claim that a file was changed unless you called the apply tool.
-- If the user asks to write code into the currently open file, use apply.
-- The "code" argument must contain the complete resulting file contents.
+- Never claim that a file was changed unless the apply tool returned "saved".
+- If the user asks to write code into the currently open file, use apply on that file.
+- The code must be the complete resulting file contents, not a fragment.
 
 TOOL CALL FORMAT:
-To use a tool, output a block like this:
-<tool_call name="tool_name">
-{ "arg1": "value1" }
+For ls, read, search and run, use JSON arguments:
+<tool_call name="read">
+{ "path": "src/index.ts" }
 </tool_call>
 
-You can only call ONE tool at a time. After calling a tool, wait for the observation result.
+For apply, put the path in the tag and write the file contents as plain text (no JSON, no escaping, no code fences):
+<tool_call name="apply" path="hello.js">
+console.log('Hello');
+</tool_call>
+
+You can only call ONE tool at a time. After calling a tool, stop and wait for the observation result.
 `;
     }
 }
