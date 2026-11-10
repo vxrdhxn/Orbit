@@ -12,3 +12,8 @@ debug_router.ts
 debug_router.js
 .idea
 .pnpm-store
+
+.agent
+.agents
+.gemini
+.kiro
