@@ -184,3 +184,15 @@ describe('ToolManager workspace path security', () => {
         ).not.toHaveBeenCalled();
     });
 });
+
+describe('ToolManager tool definitions', () => {
+    it('marks apply as required for file changes', () => {
+        const toolManager = new ToolManager({} as any, {} as any);
+
+        const definitions = toolManager.getToolDefinitions();
+
+        expect(definitions).toContain('REQUIRED whenever the user asks you to create, edit, fix, replace, or write code in a file');
+        expect(definitions).toContain('Never claim that a file was changed unless you called the apply tool');
+        expect(definitions).toContain('complete resulting file contents');
+    });
+});

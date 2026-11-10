@@ -146,3 +146,19 @@ describe('ChatProvider agent loop', () => {
         expect(llmClient.generateStream).toHaveBeenCalledTimes(1);
     });
 });
+
+describe('ChatProvider system prompt', () => {
+    it('requires the apply tool for file modifications', () => {
+        const context: any = {
+            globalState: { get: jest.fn().mockReturnValue([]), update: jest.fn() },
+            workspaceState: { get: jest.fn().mockReturnValue([]), update: jest.fn() },
+        };
+        const provider: any = new ChatProvider(context, {} as any);
+
+        const prompt: string = provider._buildSystemPrompt();
+
+        expect(prompt).toContain('you MUST use the apply tool');
+        expect(prompt).toContain('NEVER claim that a file was modified unless the apply tool was actually executed');
+        expect(prompt).toContain('Do NOT use a normal markdown code block as a substitute for the apply tool');
+    });
+});
