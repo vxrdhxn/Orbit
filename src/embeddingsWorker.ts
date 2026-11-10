@@ -1,11 +1,17 @@
 import { parentPort } from 'worker_threads';
+import { resolvePackageEntryUrl } from './runtime/runtimeResolve';
 
 let pipeline: any = null;
 let env: any = null;
 
 async function init() {
     if (!pipeline) {
-        const transformers = require('@xenova/transformers');
+        // Installed on first use into ~/.orbit/runtime; fall back to a normal
+        // require for a development checkout.
+        const entryUrl = resolvePackageEntryUrl('@xenova/transformers', [__dirname]);
+        const transformers = entryUrl
+            ? await import(/* webpackIgnore: true */ entryUrl)
+            : require('@xenova/transformers');
         pipeline = transformers.pipeline;
         env = transformers.env;
         // Optimization for local usage

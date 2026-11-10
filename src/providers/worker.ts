@@ -2,6 +2,7 @@ import { parentPort } from 'worker_threads';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
+import { resolvePackageEntryUrl } from '../runtime/runtimeResolve';
 
 let llamaModule: any;
 let llama: any = null;
@@ -13,7 +14,10 @@ async function loadLlamaModule() {
     if (!llamaModule) {
         // node-llama-cpp is ESM-only. Keep this import native so the worker,
         // not the CommonJS extension bundle, resolves it at runtime.
-        llamaModule = await import(/* webpackIgnore: true */ 'node-llama-cpp');
+        // It is installed on first use into ~/.orbit/runtime; fall back to the
+        // bare specifier for a development checkout.
+        const entryUrl = resolvePackageEntryUrl('node-llama-cpp', [__dirname]);
+        llamaModule = await import(/* webpackIgnore: true */ entryUrl ?? 'node-llama-cpp');
     }
     return llamaModule;
 }

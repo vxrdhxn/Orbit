@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 
 import { Worker } from 'worker_threads';
 import * as path from 'path';
+import { ensureRuntimePackage } from './runtime/RuntimeInstaller';
 
 let worker: Worker | null = null;
 let msgIdCounter = 0;
@@ -38,6 +39,7 @@ function getWorker(): Worker {
 }
 
 async function embedOffline(texts: string[]): Promise<number[][]> {
+  await ensureRuntimePackage('@xenova/transformers');
   const w = getWorker();
   const id = ++msgIdCounter;
   const config = vscode.workspace.getConfiguration('orbit');

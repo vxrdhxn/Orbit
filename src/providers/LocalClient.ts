@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { ILLMClient } from './ILLMClient';
 import { Worker } from 'worker_threads';
+import { ensureRuntimePackage } from '../runtime/RuntimeInstaller';
 
 export class LocalClient implements ILLMClient {
   private modelPath: string;
@@ -120,6 +121,8 @@ export class LocalClient implements ILLMClient {
   }
 
   private async initLlama() {
+    await ensureRuntimePackage('node-llama-cpp');
+
     if (!fs.existsSync(this.modelPath)) {
       await this.downloadModel();
     }
