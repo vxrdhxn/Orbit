@@ -113,6 +113,32 @@ describe('InlineApplyService', () => {
         );
     });
 
+    it('should skip the diff when the file already has the proposed contents', async () => {
+        (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from('same'));
+
+        const accepted = await service.proposeChange('/test/file.ts', 'same');
+
+        expect(accepted).toBe(true);
+        expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
+        expect(vscode.workspace.fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    it('should release a waiting proposal when reject() is called (Stop button)', async () => {
+        (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(Buffer.from('original'));
+        (vscode.commands.executeCommand as jest.Mock).mockResolvedValue(undefined);
+        // The user never answers the Accept / Reject prompt.
+        (vscode.window.showInformationMessage as jest.Mock).mockReturnValue(new Promise(() => undefined));
+
+        const waiting = service.proposeChange('/test/file.ts', 'proposed');
+        await new Promise(resolve => setImmediate(resolve));
+        expect(service.hasPendingProposal).toBe(true);
+
+        await service.reject();
+
+        await expect(waiting).resolves.toBe(false);
+        expect(service.hasPendingProposal).toBe(false);
+    });
+
     it('should reject changes without modifying the actual file', async () => {
         const targetPath = '/test/file.ts';
         const originalContent = 'original';

@@ -132,6 +132,15 @@ export class InlineApplyService {
             return false;
         }
 
+        // Nothing to review if the file already holds exactly this content.
+        if (this._originalContent === proposedContent) {
+            this.cleanup();
+            vscode.window.showInformationMessage(
+                `Orbit: ${path.basename(targetFilePath)} already has these contents.`
+            );
+            return true;
+        }
+
         this._targetUri = targetUri;
         this._proposedContent = proposedContent;
 
@@ -306,6 +315,12 @@ export class InlineApplyService {
      * discards the temporary preview files.
      */
     async reject(): Promise<void> {
+        // Release anyone still waiting for the user's answer (e.g. the agent loop).
+        if (this._pendingResolve) {
+            this._pendingResolve(false);
+            this._pendingResolve = null;
+        }
+
         this.cleanup();
 
         vscode.window.showInformationMessage(

@@ -168,16 +168,28 @@ export class LocalClient implements ILLMClient {
     const w = this.getWorker();
     const id = ++this.msgIdCounter;
     
-    // Support abortion if token is triggered
-    if (signal) {
-        signal.addEventListener('abort', () => {
-            // Note: worker abortion not fully supported in this simple IPC,
-            // we'd need to send an abort message to the worker.
-        });
-    }
-
     return new Promise((resolve, reject) => {
+        const abortError = () => {
+            const error = new Error('Generation cancelled');
+            error.name = 'AbortError';
+            return error;
+        };
+
+        if (signal?.aborted) {
+            reject(abortError());
+            return;
+        }
+
         this.pendingMessages.set(id, { resolve, reject, onChunk });
+
+        // Stop button: tell the worker to stop computing and fail this request right away.
+        signal?.addEventListener('abort', () => {
+            w.postMessage({ type: 'abort' });
+            if (this.pendingMessages.delete(id)) {
+                reject(abortError());
+            }
+        }, { once: true });
+
         w.postMessage({ type: 'generateStream', id, prompt });
     });
   }

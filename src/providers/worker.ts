@@ -9,6 +9,8 @@ let llama: any = null;
 let model: any = null;
 let context: any = null;
 let session: any = null;
+// Lets the extension cancel the generation that is currently running.
+let currentAbort: AbortController | null = null;
 
 async function loadLlamaModule() {
     if (!llamaModule) {
@@ -93,12 +95,24 @@ parentPort?.on('message', async (msg) => {
             parentPort?.postMessage({ id: msg.id, result: response });
         } else if (msg.type === 'generateStream') {
             session.resetChatHistory();
-            const response = await session.prompt(msg.prompt, {
-                onTextChunk(text: string) {
-                    parentPort?.postMessage({ id: msg.id, chunk: text });
+            const abort = new AbortController();
+            currentAbort = abort;
+            try {
+                const response = await session.prompt(msg.prompt, {
+                    signal: abort.signal,
+                    stopOnAbortSignal: true,
+                    onTextChunk(text: string) {
+                        parentPort?.postMessage({ id: msg.id, chunk: text });
+                    }
+                });
+                parentPort?.postMessage({ id: msg.id, result: response });
+            } finally {
+                if (currentAbort === abort) {
+                    currentAbort = null;
                 }
-            });
-            parentPort?.postMessage({ id: msg.id, result: response });
+            }
+        } else if (msg.type === 'abort') {
+            currentAbort?.abort();
         }
     } catch (err: any) {
         parentPort?.postMessage({ id: msg.id, error: err.message });

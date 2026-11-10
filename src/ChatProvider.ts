@@ -165,6 +165,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
           this._abortController.abort();
       }
       this._abortController = new AbortController();
+      // Keep our own reference: this._abortController is replaced by the next message.
+      const signal = this._abortController.signal;
       let wasCancelled = false;
       let iteration = 0;
       let fullPrompt = await this._buildInitialPrompt(userMsg);
@@ -174,6 +176,10 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       let nudged = false;
 
       while (iteration < this._maxIterations) {
+          if (signal.aborted) {
+              wasCancelled = true;
+              break;
+          }
           iteration++;
           const statusVal = iteration === 1 ? 'Reasoning...' : `Executing Step ${iteration}...`;
           log(`Agent Loop Iteration ${iteration}: ${statusVal}`);
@@ -194,7 +200,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
                       currentTurnResponse += chunk;
                       chunkCount++;
                   },
-                  this._abortController?.signal,
+                  signal,
                   images
               );
 
@@ -260,8 +266,25 @@ export class ChatProvider implements vscode.WebviewViewProvider {
                   const uiObservation =
                       `\n<observation>\n${uiOutput}\n</observation>\n`;
 
+                  if (signal.aborted) {
+                      wasCancelled = true;
+                      break;
+                  }
+
                   fullPrompt += currentTurnResponse + observation;
                   finalCombinedResponse += currentTurnResponse + uiObservation;
+
+                  // Once the user has accepted or rejected a file change, the job is finished.
+                  // Say so directly instead of running another slow model pass that may
+                  // re-propose the same change and wait on another Accept prompt.
+                  const rejectedByUser = result.output.startsWith('The user rejected');
+                  if (toolName === 'apply' && !parseError && (!result.isError || rejectedByUser)) {
+                      const target = (toolArgs as any).path;
+                      finalCombinedResponse += rejectedByUser
+                          ? `\n\nOkay, I left \`${target}\` unchanged.`
+                          : `\n\nDone. I saved the change to \`${target}\`.`;
+                      shouldStop = true;
+                  }
 
                   if (shouldStop) {
                       break;
@@ -529,6 +552,10 @@ export class ChatProvider implements vscode.WebviewViewProvider {
           if (this._abortController) {
             this._abortController.abort();
             this._abortController = null;
+            // A diff waiting for Accept/Reject would otherwise keep the agent stuck.
+            if (this._inlineApply.hasPendingProposal) {
+              await this._inlineApply.reject();
+            }
             webviewView.webview.postMessage({ type: 'status', value: 'Generation cancelled.' });
           }
           break;
