@@ -15,6 +15,7 @@ import { TerminalService } from './services/TerminalService';
 import { parseCodeBlocks, languageMatchesFile, isTerminalLanguage } from './utils/codeBlockParser';
 import { LLMRouter } from './reasoning/LLMRouter';
 import { StructuredResponse } from './reasoning/types';
+import { log } from './logger';
 
 export interface ChatMessage {
   role: 'user' | 'ai';
@@ -120,7 +121,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
   }
 
   private async _processMessage(userMsg: string, webview: vscode.Webview, appendToUI: boolean = false) {
-      console.log('Processing message (Agentic Loop):', userMsg);
+      log(`Processing message (Agentic Loop): ${userMsg}`);
 
       if (appendToUI) {
           webview.postMessage({type: 'addMessage', role: 'user', content: userMsg});
@@ -130,11 +131,11 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       this._currentSession.messages.push({role: 'user', content: userMsg, timestamp: Date.now()});
 
       webview.postMessage({type: 'status', value: 'Initializing...'});
-      console.log('0. Performing connection check...');
+      log('Performing connection check...');
 
       // 0. Proactive connection check
       const status = await this._llmClient.checkConnection();
-      console.log('Connection check result:', status);
+      log(`Connection check result: ${JSON.stringify(status)}`);
       webview.postMessage({type: 'updateConnectionState', value: status});
 
       if (!status.ok && !status.canBootstrap) {
@@ -163,12 +164,12 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       while (iteration < this._maxIterations) {
           iteration++;
           const statusVal = iteration === 1 ? 'Reasoning...' : `Executing Step ${iteration}...`;
-          console.log(`Agent Loop Iteration ${iteration}: ${statusVal}`);
+          log(`Agent Loop Iteration ${iteration}: ${statusVal}`);
           webview.postMessage({type: 'status', value: statusVal});
 
           try {
               let currentTurnResponse = '';
-              console.log('Starting stream generation...');
+              log('Starting stream generation...');
               const startTime = Date.now();
               let chunkCount = 0;
               await this._llmClient.generateStream(
@@ -189,7 +190,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
               const tps = (chunkCount / (durationMs / 1000)).toFixed(1);
               webview.postMessage({type: 'telemetry', value: {durationMs, tps, iteration}});
 
-              console.log(`Stream generation completed. Length: ${currentTurnResponse.length}, TPS: ${tps}`);
+              log(`Stream generation completed. Length: ${currentTurnResponse.length}, TPS: ${tps}`);
 
 
               // Check for tool calls
@@ -440,7 +441,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
           break;
         }
         case 'webviewReady': {
-          console.log('Received webviewReady, sending model list and history');
+          log('Received webviewReady, sending model list and history');
           await this._sendConnectionStatus(webviewView.webview);
           await this._sendModelList(webviewView.webview);
           await this._sendHistory(webviewView.webview);
@@ -780,7 +781,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       if (models.length > 0 && (!currentModel || !models.includes(currentModel))) {
         currentModel = models[0];
         await config.update(isOffline ? 'offlineModel' : 'onlineModel', currentModel, vscode.ConfigurationTarget.Global);
-        console.log(`Orbit: Auto-selected model "${currentModel}" (previous model not found)`);
+        log(`Orbit: Auto-selected model "${currentModel}" (previous model not found)`);
       }
 
       webview.postMessage({

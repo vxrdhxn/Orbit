@@ -3,6 +3,7 @@ import { resolveWorkspacePath } from '../utils/workspacePath';
 import { performSearch } from '../searchCommand';
 import { TerminalService } from '../services/TerminalService';
 import { InlineApplyService } from '../services/InlineApplyService';
+import { log } from '../logger';
 
 export interface ToolResult {
     output: string;
@@ -19,7 +20,7 @@ export class ToolManager {
      * Dispatches a tool call by name and arguments.
      */
     async callTool(name: string, args: any): Promise<ToolResult> {
-        console.log(`[ToolManager] Calling tool: ${name}`, args);
+        log(`[ToolManager] Calling tool: ${name}`);
 
         try {
             const validatedArgs = this.validateToolArgs(args);

@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
 import { ServiceLocator } from './core/ServiceLocator';
 import { CommandRegistrar } from './core/CommandRegistrar';
+import { log } from './logger';
 
 export function activate(context: vscode.ExtensionContext) {
     try {
-        console.log('Orbit v2.0.1 (Hybrid AI) is active!');
+        log('Orbit v2.0.1 (Hybrid AI) is active!');
 
         // Bootstrap Core Infrastructure
         const services = new ServiceLocator();
@@ -21,7 +22,7 @@ export function activate(context: vscode.ExtensionContext) {
             services.initWorkspaceServices(context, workspaceFolder);
             registrar.registerWorkspaceCommands(workspaceFolder);
         } else {
-            console.log('Orbit: No workspace folders found. Chat is available, but advanced features (review, pilot, etc.) require an open folder.');
+            log('Orbit: No workspace folders found. Chat is available, but advanced features (review, pilot, etc.) require an open folder.');
         }
 
     } catch (error) {
