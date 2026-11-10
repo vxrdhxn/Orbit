@@ -86,9 +86,13 @@ parentPort?.on('message', async (msg) => {
             await initLlama(msg.modelPath);
             parentPort?.postMessage({ id: msg.id, result: 'ok' });
         } else if (msg.type === 'generate') {
+            // Every prompt already carries the full context and history, so do not
+            // let the session stack its own copy on top of it.
+            session.resetChatHistory();
             const response = await session.prompt(msg.prompt);
             parentPort?.postMessage({ id: msg.id, result: response });
         } else if (msg.type === 'generateStream') {
+            session.resetChatHistory();
             const response = await session.prompt(msg.prompt, {
                 onTextChunk(text: string) {
                     parentPort?.postMessage({ id: msg.id, chunk: text });

@@ -48,7 +48,9 @@ export class LocalClient implements ILLMClient {
 
   private async downloadModel() {
     let url = '';
-    if (this.modelName.toLowerCase().includes('qwen2.5-coder-7b')) {
+    if (this.modelName.toLowerCase().includes('qwen2.5-coder-1.5b')) {
+      url = 'https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf?download=true';
+    } else if (this.modelName.toLowerCase().includes('qwen2.5-coder-7b')) {
       url = 'https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf?download=true';
     } else {
       throw new Error(`Automatic download not supported for model: ${this.modelName}. Please download it manually to ${this.modelPath}`);
@@ -136,7 +138,19 @@ export class LocalClient implements ILLMClient {
   }
 
   public async listModels(): Promise<string[]> {
-    return [this.modelName];
+    // Offer every model file the user has downloaded, plus the configured one.
+    const names = new Set<string>([this.modelName]);
+    try {
+      const dir = path.dirname(this.modelPath);
+      for (const file of fs.readdirSync(dir)) {
+        if (file.toLowerCase().endsWith('.gguf')) {
+          names.add(file.slice(0, -'.gguf'.length));
+        }
+      }
+    } catch {
+      // The models folder does not exist yet.
+    }
+    return [...names];
   }
 
   public async generate(prompt: string, params?: { model?: string; json?: boolean }): Promise<string> {
