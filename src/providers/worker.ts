@@ -22,17 +22,61 @@ async function loadLlamaModule() {
     return llamaModule;
 }
 
-async function initLlama(modelPath: string) {
-    const module = await loadLlamaModule();
-    if (!llama) {
-        llama = await module.getLlama();
+// Keeps the context small so the model fits on machines with limited memory.
+const MAX_CONTEXT_SIZE = 4096;
+
+async function disposeAll() {
+    for (const resource of [session, context, model, llama]) {
+        try {
+            await resource?.dispose();
+        } catch {
+            // Already disposed or never fully created.
+        }
     }
-    if (!model) {
-        model = await llama.loadModel({ modelPath });
-        context = await model.createContext();
+    session = context = model = llama = null;
+}
+
+async function loadModelOn(module: any, modelPath: string, useGpu: boolean) {
+    // Assign to locals first so a failure never leaves half-initialized state.
+    const newLlama = await module.getLlama(useGpu ? undefined : { gpu: false });
+    try {
+        const newModel = await newLlama.loadModel({ modelPath });
+        const newContext = await newModel.createContext({ contextSize: { max: MAX_CONTEXT_SIZE } });
+        llama = newLlama;
+        model = newModel;
+        context = newContext;
         session = new module.LlamaChatSession({
-            contextSequence: context.getSequence()
+            contextSequence: newContext.getSequence()
         });
+    } catch (err) {
+        await newLlama.dispose().catch(() => undefined);
+        throw err;
+    }
+}
+
+async function initLlama(modelPath: string) {
+    if (session) {
+        return;
+    }
+
+    const module = await loadLlamaModule();
+
+    try {
+        await loadModelOn(module, modelPath, true);
+    } catch (gpuError: any) {
+        // GPU/Vulkan can run out of memory (shared memory on integrated GPUs).
+        // Retry on the CPU before giving up.
+        await disposeAll();
+        try {
+            await loadModelOn(module, modelPath, false);
+        } catch (cpuError: any) {
+            await disposeAll();
+            throw new Error(
+                `Could not load the model. GPU attempt: ${gpuError?.message}. ` +
+                `CPU attempt: ${cpuError?.message}. ` +
+                'This usually means not enough free memory: close other apps or pick a smaller model.'
+            );
+        }
     }
 }
 
