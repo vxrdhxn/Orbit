@@ -80,6 +80,17 @@ Orbit relies on **Ollama** to run LLMs locally.
 4.  Compile Extension: `npm run compile`
 5.  Run: Press `F5` to open the Extension Development Host.
 
+### Testing
+
+- Unit tests: `npm test`
+- Real offline inference (opt-in): the test in `test/unit/providers/LocalClient.inference.test.ts` loads a real GGUF model through `LocalClient` and generates once. It is skipped unless `ORBIT_TEST_MODEL` points to a GGUF file, and it needs the built worker, so run `npm run compile` first.
+
+```powershell
+npm run compile
+$env:ORBIT_TEST_MODEL = "$HOME\.orbit\models\Qwen2.5-Coder-7B.gguf"
+npx jest test/unit/providers
+```
+
 ## 📄 License
 
 [MIT](LICENSE)

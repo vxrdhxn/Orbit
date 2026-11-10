@@ -11,8 +11,8 @@ export class LocalClient implements ILLMClient {
   private msgIdCounter = 0;
   private pendingMessages = new Map<number, { resolve: (val: any) => void, reject: (err: any) => void, onChunk?: (chunk: string) => void }>();
 
-  constructor(private modelName: string) {
-    this.modelPath = path.join(os.homedir(), '.orbit', 'models', `${modelName}.gguf`);
+  constructor(private modelName: string, modelPath?: string) {
+    this.modelPath = modelPath ?? path.join(os.homedir(), '.orbit', 'models', `${modelName}.gguf`);
   }
 
   private getWorker(): Worker {
