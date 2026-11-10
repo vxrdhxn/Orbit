@@ -7,6 +7,7 @@ All notable changes to the "Orbit" extension will be documented in this file.
 ### Added
 - **Hybrid providers**: Free cloud pool (Pollinations), Groq, OpenRouter, local OpenAI-compatible servers, and a custom API endpoint, with fallback provider pooling and rate-limit queueing. Ollama support was replaced by a built-in offline runtime.
 - **Offline model bootstrap**: The default GGUF model downloads on the first message in `offline` mode, and runs through `node-llama-cpp` inside a worker thread.
+- **On-demand runtime install**: `node-llama-cpp` and `@xenova/transformers` are no longer bundled in the extension. Orbit asks once, then installs them with `npm` into `~/.orbit/runtime`. This keeps the package small (about 4 MB) and works on every platform. Requires Node.js.
 - **Structured router generation**: Structured, validated reasoning responses with retries (`orbit.reasoning.maxRetries`, `orbit.reasoning.fallbackToRaw`) and tolerant response parsing.
 - **Safe inline apply**: Proposed edits open as a diff and are written only after approval; review suggested fixes can be applied safely.
 - **GitHub PR comment integration**: Post review findings to the active pull request through the GitHub CLI (`orbit.prIntegration.enabled`).

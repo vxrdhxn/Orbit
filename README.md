@@ -35,7 +35,8 @@ Get instant feedback on your code or Git changes.
 
 Orbit works out of the box in the default `cloud` mode. Other modes need:
 
-- **`offline`:** no extra install. Orbit runs a GGUF model locally with `node-llama-cpp`. The default `Qwen2.5-Coder-7B` is downloaded to `~/.orbit/models` on first use (several GB).
+- **`offline`:** [Node.js](https://nodejs.org) (for `npm`). On first use Orbit asks, then installs `node-llama-cpp` into `~/.orbit/runtime` (several hundred MB) and downloads the default `Qwen2.5-Coder-7B` model to `~/.orbit/models` (several GB).
+- **Local semantic search:** the first index also asks to install `@xenova/transformers` (about 100 MB) into `~/.orbit/runtime`.
 - **`local-server`:** a running OpenAI-compatible server such as LM Studio (see `orbit.localServerEndpoint`).
 - **`custom`, `groq`, `openrouter`:** an API key for the provider.
 
