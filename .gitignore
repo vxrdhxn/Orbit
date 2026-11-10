@@ -10,3 +10,5 @@ dist
 *.txt
 debug_router.ts
 debug_router.js
+.idea
+.pnpm-store
