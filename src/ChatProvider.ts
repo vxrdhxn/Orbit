@@ -289,7 +289,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
           let structuredReasoning;
 
           try {
-              if (this._llmRouter) {
+              // Only code-change requests get the structured report; chat stays conversational.
+              if (this._llmRouter && this._isCodeChangeRequest(userMsg)) {
                   const validation = await this._llmRouter.validateOrRegenerate(
                       this._llmClient,
                       finalCombinedResponse,
@@ -360,10 +361,18 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     ).join('\n\n');
     
     let finalPrompt = `${systemPrompt}\n\n${toolInstructions}\n\n${context}\n\nConversation History:\n${history || '(No previous messages)'}\n\nUser Question: ${userMsg}\n\nResponse:`;
-    if (this._llmRouter) {
+    if (this._llmRouter && this._isCodeChangeRequest(userMsg)) {
         finalPrompt = this._llmRouter.appendStructuredInstructions(finalPrompt);
     }
     return finalPrompt;
+  }
+
+  /**
+   * True when the user is asking Orbit to create or change code. Greetings,
+   * questions and explanations return false and get a normal conversational reply.
+   */
+  private _isCodeChangeRequest(userMsg: string): boolean {
+    return /\b(create|add|edit|modify|change|fix|refactor|rewrite|write|implement|update|replace|remove|delete|rename|optimi[sz]e|generate|apply|convert|migrate)\b/i.test(userMsg);
   }
 
   private async _buildFileContext(userMsg: string, editor?: vscode.TextEditor): Promise<string> {
@@ -830,6 +839,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       'You can see the current open file and any files the user explicitly references or attaches.',
       '',
       '## Communication Style',
+      '- Talk like a friendly, capable coding agent. Reply to greetings and general questions naturally and briefly, in plain conversational language.',
+      '- Do not use report headings (What changed, Why, Improvements, Tradeoffs) unless you are asked to change code.',
       '- Provide well-structured, clean, and highly readable answers.',
       '- Synthesize your findings into a clear summary. Do not output raw data dumps directly to the user.',
     ];
