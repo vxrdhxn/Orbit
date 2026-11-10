@@ -171,6 +171,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       const images = await this._getCurrentImagePayload();
       let finalCombinedResponse = '';
       let shouldStop = false;
+      let nudged = false;
 
       while (iteration < this._maxIterations) {
           iteration++;
@@ -205,7 +206,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
 
 
               // Check for tool calls
-              const toolCallMatch = currentTurnResponse.match(/<tool_call name="([^"]+)"([^>]*)>([\s\S]*?)<\/tool_call>/);
+              // The closing tag is optional: small models often stop right after the file contents.
+              const toolCallMatch = currentTurnResponse.match(/<tool_call name="([^"]+)"([^>]*)>([\s\S]*?)(?:<\/tool_call>|$)/);
 
               if (toolCallMatch) {
                   const toolName = toolCallMatch[1];
@@ -266,6 +268,17 @@ export class ChatProvider implements vscode.WebviewViewProvider {
                   }
 
               } else {
+                  // The model may claim a change without calling apply or showing any code.
+                  // Do not show that claim; nudge it once to actually do the work.
+                  const editor = vscode.window.activeTextEditor;
+                  const hasCode = parseCodeBlocks(currentTurnResponse).some(b => !isTerminalLanguage(b.language));
+
+                  if (!nudged && editor && !hasCode && this._isCodeChangeRequest(userMsg)) {
+                      nudged = true;
+                      fullPrompt += `${currentTurnResponse}\n\nSystem: You have not changed any file yet. Do it now.\n${this._applyReminder(editor)}\n\nResponse:`;
+                      continue;
+                  }
+
                   // No more tool calls, we are done
                   finalCombinedResponse += currentTurnResponse;
                   break;
@@ -336,15 +349,31 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     // Include past conversation history within this session
     // Only the most recent turns, each shortened, so local models don't spend
     // minutes re-reading old conversation on every message.
-    const history = this._currentSession.messages.slice(0, -1).slice(-MAX_HISTORY_MESSAGES).map(m => {
+    // Old report-style replies are dropped: small models copy whatever format they see in history.
+    const isOldReport = (m: ChatMessage) =>
+        !!m.structuredReasoning || /(^|\n)\s*(#{1,3}\s*)?\**What changed\**/i.test(m.content);
+    const history = this._currentSession.messages.slice(0, -1).filter(m => !isOldReport(m)).slice(-MAX_HISTORY_MESSAGES).map(m => {
         const text = m.content.length > MAX_HISTORY_CHARS
             ? `${m.content.substring(0, MAX_HISTORY_CHARS)}... [truncated]`
             : m.content;
         return `${m.role === 'user' ? 'User' : 'Assistant'}: ${text}`;
     }).join('\n\n');
     
-    let finalPrompt = `${systemPrompt}\n\n${toolInstructions}\n\n${context}\n\nConversation History:\n${history || '(No previous messages)'}\n\nUser Question: ${userMsg}\n\nResponse:`;
-    return finalPrompt;
+    // Small models forget the tool format by the end of a long prompt, so repeat it next to the question.
+    const reminder = this._isCodeChangeRequest(userMsg) && editor
+        ? `\n\n${this._applyReminder(editor)}`
+        : '';
+
+    return `${systemPrompt}\n\n${toolInstructions}\n\n${context}\n\nConversation History:\n${history || '(No previous messages)'}\n\nUser Question: ${userMsg}${reminder}\n\nResponse:`;
+  }
+
+  /** Short instruction showing the exact apply call for the file the user has open. */
+  private _applyReminder(editor: vscode.TextEditor): string {
+    // Without a workspace folder, asRelativePath returns a long absolute path; the file name is enough.
+    const target = vscode.workspace.workspaceFolders?.length
+        ? vscode.workspace.asRelativePath(editor.document.uri, false)
+        : path.basename(editor.document.fileName);
+    return `Your answer must be one short sentence followed by:\n<tool_call name="apply" path="${target}">\n[full new contents of ${target}]\n</tool_call>`;
   }
 
   /**

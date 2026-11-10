@@ -92,8 +92,8 @@ export const MessageList = ({ messages, isGenerating }: MessageListProps) => {
                 let safeContent = (msg.content ?? '')
                     .replace(/<think>[\s\S]*?<\/think>/g, '')
                     .replace(/<think>[\s\S]*$/g, '')
-                    .replace(/<tool_call\s+name="([^"]+)">[\s\S]*?<\/tool_call>/g, '')
-                    .replace(/<tool_call\s+name="([^"]+)">[\s\S]*$/g, '')
+                    .replace(/<tool_call\s+name="[^"]+"[^>]*>[\s\S]*?<\/tool_call>/g, '')
+                    .replace(/<tool_call\s+name="[^"]+"[^>]*>[\s\S]*$/g, '')
                     .replace(/<observation>[\s\S]*?<\/observation>/g, '')
                     .replace(/<observation>[\s\S]*$/g, '')
                     .trim();

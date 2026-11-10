@@ -173,6 +173,26 @@ describe('ChatProvider system prompt', () => {
         expect(prompt).toContain('No headings, no reports');
     });
 
+    it('drops old report-style replies from the prompt history', async () => {
+        const context: any = {
+            globalState: { get: jest.fn().mockReturnValue([]), update: jest.fn() },
+            workspaceState: { get: jest.fn().mockReturnValue([]), update: jest.fn() },
+        };
+        const provider: any = new ChatProvider(context, {} as any);
+        provider._buildFileContext = jest.fn().mockResolvedValue('');
+        provider._currentSession.messages = [
+            { role: 'user', content: 'hello', timestamp: 1 },
+            { role: 'ai', content: '### What changed\n- nothing\n### Why\nbecause', timestamp: 2 },
+            { role: 'ai', content: 'Hi! How can I help?', timestamp: 3 },
+            { role: 'user', content: 'what is a closure?', timestamp: 4 },
+        ];
+
+        const prompt: string = await provider._buildInitialPrompt('what is a closure?');
+
+        expect(prompt).not.toContain('What changed');
+        expect(prompt).toContain('Hi! How can I help?');
+    });
+
     it('only treats change-like messages as code-change requests', () => {
         const context: any = {
             globalState: { get: jest.fn().mockReturnValue([]), update: jest.fn() },
