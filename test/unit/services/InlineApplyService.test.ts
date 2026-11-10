@@ -19,13 +19,15 @@ jest.mock('vscode', () => ({
         ],
         fs: {
             readFile: jest.fn(),
-            writeFile: jest.fn()
+            writeFile: jest.fn(),
+            createDirectory: jest.fn()
         },
         textDocuments: []
     },
     window: {
         showInformationMessage: jest.fn(),
-        showErrorMessage: jest.fn()
+        showErrorMessage: jest.fn(),
+        showTextDocument: jest.fn()
     },
     commands: {
         executeCommand: jest.fn()
@@ -88,6 +90,25 @@ describe('InlineApplyService', () => {
                     /[\\/]test[\\/]file\.ts$/
                 )
             }),
+            expect.anything()
+        );
+    });
+
+    it('should create a file that does not exist yet once the user accepts', async () => {
+        const notFound: any = new Error('EntryNotFound (FileSystemError): file not found');
+        notFound.code = 'FileNotFound';
+
+        (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(notFound);
+        (vscode.workspace.fs.writeFile as jest.Mock).mockResolvedValue(undefined);
+        (vscode.commands.executeCommand as jest.Mock).mockResolvedValue(undefined);
+        (vscode.window.showInformationMessage as jest.Mock).mockResolvedValue('Accept ✓');
+
+        const accepted = await service.proposeChange('/test/brand-new.ts', 'console.log("hi");');
+
+        expect(accepted).toBe(true);
+        expect(vscode.workspace.fs.createDirectory).toHaveBeenCalledTimes(1);
+        expect(vscode.workspace.fs.writeFile).toHaveBeenCalledWith(
+            expect.objectContaining({ fsPath: expect.stringMatching(/[\\/]test[\\/]brand-new\.ts$/) }),
             expect.anything()
         );
     });

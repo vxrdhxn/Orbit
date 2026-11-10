@@ -14,14 +14,31 @@ async function realpathIfExists(targetPath: string): Promise<string | null> {
     }
 }
 
+/**
+ * The folder file tools are allowed to touch: the open workspace folder, or,
+ * when the user opened a single file without a folder, that file's directory.
+ */
+function getAllowedRoot(): string | undefined {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (workspaceRoot) {
+        return workspaceRoot;
+    }
+
+    const activeDocument = vscode.window.activeTextEditor?.document;
+    if (activeDocument && activeDocument.uri.scheme === 'file') {
+        return path.dirname(activeDocument.uri.fsPath);
+    }
+
+    return undefined;
+}
+
 export async function resolveWorkspacePath(
     filePath: string = '.'
 ): Promise<string> {
-    const workspaceRoot =
-        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const workspaceRoot = getAllowedRoot();
 
     if (!workspaceRoot) {
-        throw new Error('No workspace open');
+        throw new Error('No workspace open. Open a folder or a file first.');
     }
 
     if (typeof filePath !== 'string' || filePath.trim() === '') {

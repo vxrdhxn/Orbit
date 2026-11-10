@@ -31,6 +31,26 @@ export class InlineApplyService {
      * @returns true if accepted, false if rejected or failed
      */
 
+    /**
+     * Reads a file as text. A file that does not exist yet reads as empty,
+     * so the agent can create new files; any other error is rethrown.
+     */
+    private async readFileOrEmpty(uri: vscode.Uri): Promise<string> {
+        try {
+            const bytes = await vscode.workspace.fs.readFile(uri);
+            return Buffer.from(bytes).toString('utf8');
+        } catch (e: any) {
+            const notFound =
+                e?.code === 'FileNotFound' ||
+                e?.code === 'ENOENT' ||
+                /ENOENT|FileNotFound|EntryNotFound/i.test(String(e?.message));
+            if (notFound) {
+                return '';
+            }
+            throw e;
+        }
+    }
+
     private validateWorkspacePath(targetFilePath: string): string {
         const workspaceRoot =
             vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -94,6 +114,7 @@ export class InlineApplyService {
         const targetUri = vscode.Uri.file(targetFilePath);
 
         // 1. Read and save the current original content.
+        // A file that does not exist yet is treated as empty, so the agent can create files.
         try {
             const openDocument = vscode.workspace.textDocuments.find(
                 document => document.uri.fsPath === targetUri.fsPath
@@ -102,10 +123,7 @@ export class InlineApplyService {
             if (openDocument) {
                 this._originalContent = openDocument.getText();
             } else {
-                const originalBytes =
-                    await vscode.workspace.fs.readFile(targetUri);
-                this._originalContent =
-                    Buffer.from(originalBytes).toString('utf8');
+                this._originalContent = await this.readFileOrEmpty(targetUri);
             }
         } catch (e) {
             vscode.window.showErrorMessage(
@@ -228,9 +246,7 @@ export class InlineApplyService {
 
         const currentContent = currentDocument
             ? currentDocument.getText()
-            : Buffer.from(
-                await vscode.workspace.fs.readFile(targetUri)
-            ).toString('utf8');
+            : await this.readFileOrEmpty(targetUri);
 
         // Never overwrite changes made after the proposal was created.
         if (currentContent !== this._originalContent) {
@@ -265,10 +281,15 @@ export class InlineApplyService {
         } else {
             const encoder = new TextEncoder();
 
+            await vscode.workspace.fs.createDirectory(
+                vscode.Uri.file(path.dirname(targetUri.fsPath))
+            );
             await vscode.workspace.fs.writeFile(
                 targetUri,
                 encoder.encode(this._proposedContent)
             );
+            // Open the new file so the user sees what the agent wrote.
+            await vscode.window.showTextDocument(targetUri, { preview: false });
         }
 
         vscode.window.showInformationMessage(
