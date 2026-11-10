@@ -76,6 +76,20 @@ Orbit works out of the box in the default `cloud` mode. Other modes need:
 | `Ctrl + Alt + P` | **Analyze Performance** |
 | `Ctrl + Alt + H` | **View Decision History** |
 
+## 🔒 Security
+
+Orbit lets an AI model act on your workspace, so file and command access is restricted:
+
+- **Workspace-restricted tools.** The agent's `ls`, `read` and `apply` tools resolve every path against the open workspace folder. Paths that escape it (`..`, absolute paths elsewhere, or symlinks that resolve outside) are rejected with `Access denied`.
+- **Inline apply validation.** Proposed edits are checked against the workspace before anything happens, open as a diff, and are written only after you click **Accept**. Rejecting leaves the real file untouched.
+- **Terminal command hardening.** Commands never run silently: each one shows a modal prompt with the command and working directory and runs only on **Run**. The working directory must be inside the workspace, empty commands are refused, and captured runs have a 30-second timeout and a 1 MB output cap.
+- **Tool argument validation.** Malformed tool arguments (null, arrays, empty paths, non-string commands or queries, empty `apply` code) are rejected before reaching a tool.
+- **Escaped webview output.** Structured AI responses are HTML-escaped before being rendered in the chat.
+- **PR comments.** Posting a review to a pull request goes through the GitHub CLI (`gh pr comment`, using your existing `gh` login) with arguments passed directly, not through a shell. It is controlled by `orbit.prIntegration.enabled`.
+- **Prompt size cap.** Prompts over 200,000 characters are truncated before they are sent to a model.
+
+In `cloud`, `custom`, `groq` and `openrouter` modes your prompts and code context are sent to the chosen provider. Use `offline` or `local-server` mode to keep everything on your machine.
+
 ## 💻 Development
 
 1.  Clone the repository.
