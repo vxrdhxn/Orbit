@@ -76,6 +76,32 @@ Orbit works out of the box in the default `cloud` mode. Other modes need:
 | `Ctrl + Alt + P` | **Analyze Performance** |
 | `Ctrl + Alt + H` | **View Decision History** |
 
+Shortcuts apply when the editor has focus (`Cmd` replaces `Ctrl` on macOS).
+
+## 🧭 Commands
+
+Open the Command Palette (`Ctrl + Shift + P`) and type `Orbit`:
+
+| Command | ID |
+| :--- | :--- |
+| Orbit: Open Chat | `orbit.chat` |
+| Orbit: Explain Selection | `orbit.explain` |
+| Orbit: Search Codebase | `orbit.search` |
+| Orbit: Index Workspace for Semantic Search | `orbit.indexWorkspace` |
+| Orbit: Update Semantic Index for Current File | `orbit.indexCurrentFile` |
+| Orbit: Review Code | `orbit.review` |
+| Orbit: Edit Code | `orbit.edit` |
+| Orbit: Health Check | `orbit.health` |
+| Orbit: Analyze Algorithmic Performance | `orbit.analyzePerformance` |
+| Orbit: Toggle Pilot Mode | `orbit.pilot.toggle` |
+| Orbit: Undo Last Pilot Fix | `orbit.pilot.undo` |
+| Orbit: Export Journal to Workspace | `orbit.sync.export` |
+| Orbit: Import Journal from Workspace | `orbit.sync.import` |
+| Orbit: View Decision History | `orbit.viewDecisionHistory` |
+| Orbit: Toggle Online/Offline Mode | `orbit.toggleMode` |
+| Orbit: Show Findings | `orbit.showFindings` |
+| Orbit: View AI Reasoning | `orbit.viewReasoning` |
+
 ## 🔒 Security
 
 Orbit lets an AI model act on your workspace, so file and command access is restricted:
