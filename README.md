@@ -33,14 +33,11 @@ Get instant feedback on your code or Git changes.
 
 ## 📋 Prerequisites
 
-Orbit relies on **Ollama** to run LLMs locally.
+Orbit works out of the box in the default `cloud` mode. Other modes need:
 
-1.  **Install Ollama:** [Download here](https://ollama.com/)
-2.  **Pull Recommended Models:**
-    ```bash
-    ollama pull qwen2.5-coder:7b
-    ollama pull nomic-embed-text
-    ```
+- **`offline`:** no extra install. Orbit runs a GGUF model locally with `node-llama-cpp`. The default `Qwen2.5-Coder-7B` is downloaded to `~/.orbit/models` on first use (several GB).
+- **`local-server`:** a running OpenAI-compatible server such as LM Studio (see `orbit.localServerEndpoint`).
+- **`custom`, `groq`, `openrouter`:** an API key for the provider.
 
 ## ⚙️ Configuration
 
@@ -48,20 +45,27 @@ Orbit relies on **Ollama** to run LLMs locally.
 | :--- | :--- | :--- |
 | `orbit.mode` | `cloud` | Operation mode (`cloud`, `custom`, `offline`, `local-server`, `groq`, `openrouter`). |
 | `orbit.offlineModel` | `Qwen2.5-Coder-7B` | Offline model to use in `offline` mode. |
-| `orbit.onlineApiEndpoint` | `https://api.orbit-ai.com/v1` | Endpoint for `custom` mode. |
+| `orbit.onlineApiEndpoint` | `https://api.openai.com/v1` | OpenAI-compatible endpoint for `custom` mode. |
 | `orbit.onlineApiKey` | | API Key for `custom` mode. |
 | `orbit.groqApiKey` | | API Key for Groq. |
 | `orbit.openRouterApiKey` | | API Key for OpenRouter. |
 | `orbit.onlineModel` | `llama-3.3-70b-specdec` | Model ID for `custom` mode. |
 | `orbit.localServerEndpoint` | `http://localhost:1234/v1` | Endpoint for local inference server. |
 | `orbit.localServerModel` | `local-model` | Model ID for local inference server. |
+| `orbit.reasoning.maxRetries` | `3` | Max retries for structured reasoning generation. |
+| `orbit.reasoning.fallbackToRaw` | `true` | Fall back to raw output if structured generation fails after max retries. |
 | `orbit.context.maxTokens` | `4000` | Max tokens for AI context. |
 | `orbit.context.includeDecisions`| `true` | Include past decisions in the AI context. |
 | `orbit.decisionJournal.enabled` | `true` | Enable the Decision Journal. |
+| `orbit.decisionJournal.maxHistoryItems` | `50` | Max historical decisions shown in the history view. |
+| `orbit.performance.showUncertainty` | `true` | Show uncertainty levels in performance analysis results. |
 | `orbit.pilot.enabled` | `true` | Enable Orbit Pilot for proactive background analysis. |
+| `orbit.pilot.autoFixLevel` | `none` | Level of findings Pilot fixes automatically (`none`, `suggestion`, `info`). |
 | `orbit.sync.enableWorkspaceSync`| `false` | Enable automatic syncing of the journal. |
+| `orbit.sync.method` | `file` | Team sync method: `file` saves to the workspace, `git` commits and syncs with the remote. |
 | `orbit.embedding.model` | `Xenova/all-MiniLM-L6-v2` | Model ID for offline semantic embeddings. |
 | `orbit.prIntegration.enabled` | `true` | Enable PR Integration. |
+| `orbit.customReviewPresets` | `[]` | Custom review presets. |
 
 ## ⌨️ Keyboard Shortcuts
 

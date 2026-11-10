@@ -60,7 +60,7 @@ function getOnlineConfig() {
     };
   } else {
     return {
-      baseUrl: c.get<string>('onlineApiEndpoint', 'https://api.orbit-ai.com/v1'),
+      baseUrl: c.get<string>('onlineApiEndpoint', 'https://api.openai.com/v1'),
       apiKey: c.get<string>('onlineApiKey', ''),
       model: 'text-embedding-3-small'
     };

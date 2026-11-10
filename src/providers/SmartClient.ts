@@ -15,7 +15,7 @@ export class SmartClient implements ILLMClient {
       return new OnlineClient(defaultEndpoint, '');
     } else if (mode === 'custom') {
       // Mode 2: Custom API Token
-      const endpoint = config.get<string>('onlineApiEndpoint', 'https://api.orbit-ai.com/v1');
+      const endpoint = config.get<string>('onlineApiEndpoint', 'https://api.openai.com/v1');
       const apiKey = config.get<string>('onlineApiKey', '');
       return new OnlineClient(endpoint, apiKey);
     } else if (mode === 'local-server') {

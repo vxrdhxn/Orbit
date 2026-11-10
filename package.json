@@ -168,8 +168,8 @@
         },
         "orbit.onlineApiEndpoint": {
           "type": "string",
-          "default": "https://api.orbit-ai.com/v1",
-          "description": "Endpoint for the Custom API Provider (Mode 2)"
+          "default": "https://api.openai.com/v1",
+          "description": "OpenAI-compatible endpoint for the Custom API Provider (Mode 2)"
         },
         "orbit.onlineApiKey": {
           "type": "string",
