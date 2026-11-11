@@ -1,10 +1,35 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import Database from 'better-sqlite3';
 import { DecisionRecord, DecisionQuery } from './types';
+import { log } from '../logger';
+
+/**
+ * The parts of Node's built-in `node:sqlite` that Orbit uses. It ships with the
+ * Node inside VS Code (1.101+), so there is no native module to compile and no
+ * Electron ABI mismatch (better-sqlite3 failed to load inside VS Code).
+ */
+interface SqliteStatement {
+    run(...params: unknown[]): unknown;
+    get(...params: unknown[]): unknown;
+    all(...params: unknown[]): unknown[];
+}
+
+interface SqliteDatabase {
+    exec(sql: string): void;
+    prepare(sql: string): SqliteStatement;
+    close(): void;
+}
+
+function openDatabase(filePath: string): SqliteDatabase {
+    // Loaded at runtime so that a host without node:sqlite fails here, inside the
+    // try/catch in initialize(), instead of when the extension loads.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { DatabaseSync } = require('node:sqlite');
+    return new DatabaseSync(filePath) as SqliteDatabase;
+}
 
 export class SQLiteMemory {
-    private db: Database.Database | null = null;
+    private db: SqliteDatabase | null = null;
     private dbPath: string;
 
     constructor(workspaceRoot: string) {
@@ -14,7 +39,7 @@ export class SQLiteMemory {
             fs.mkdirSync(orbitDir, { recursive: true });
         }
         this.dbPath = path.join(orbitDir, 'decisions.db');
-        // Ensure file exists before chmod if it's new, though better-sqlite3 handles creation
+        // Ensure the file exists before chmod; SQLite would otherwise create it later
         if (!fs.existsSync(this.dbPath)) {
             fs.writeFileSync(this.dbPath, '');
         }
@@ -30,12 +55,14 @@ export class SQLiteMemory {
      */
     public initialize(): void {
         try {
-            this.db = new Database(this.dbPath);
+            this.db = openDatabase(this.dbPath);
             // Requirement 14.6: enable concurrent reads via WAL mode
-            this.db.pragma('journal_mode = WAL');
+            this.db.exec('PRAGMA journal_mode = WAL');
             this.migrate();
-        } catch (error) {
-            // Requirement 15.2: Graceful database error handling
+        } catch (error: any) {
+            // Requirement 15.2: Graceful database error handling. Say so in the Orbit
+            // output channel: a silent failure here hid a broken Decision Journal before.
+            log(`Decision Journal disabled: could not open ${this.dbPath}: ${error?.message ?? error}`);
             console.error(`Failed to initialize SQLite Memory at ${this.dbPath}:`, error);
             this.db = null;
         }
@@ -61,7 +88,7 @@ export class SQLiteMemory {
         const migrations = [
             {
                 version: 1,
-                up: (db: Database.Database) => {
+                up: (db: SqliteDatabase) => {
                     // Requirements 14.2 & 14.3: Create decisions table and indexes
                     db.exec(`
                         CREATE TABLE IF NOT EXISTS decisions (
@@ -246,6 +273,11 @@ export class SQLiteMemory {
             console.error('Failed to query decision records:', error);
             return [];
         }
+    }
+
+    /** True when the database opened successfully. */
+    public get isAvailable(): boolean {
+        return this.db !== null;
     }
 
     public close(): void {
