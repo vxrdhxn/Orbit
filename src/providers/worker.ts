@@ -11,6 +11,8 @@ let context: any = null;
 let session: any = null;
 // Lets the extension cancel the generation that is currently running.
 let currentAbort: AbortController | null = null;
+// Cancels a running background request (completion/review) so chat never waits on it.
+let backgroundAbort: AbortController | null = null;
 
 async function loadLlamaModule() {
     if (!llamaModule) {
@@ -26,6 +28,8 @@ async function loadLlamaModule() {
 
 // Keeps the context small so the model fits on machines with limited memory.
 const MAX_CONTEXT_SIZE = 4096;
+// Upper bound on one reply so a rambling small model cannot run for minutes.
+const MAX_REPLY_TOKENS = 2048;
 
 async function disposeAll() {
     for (const resource of [session, context, model, llama]) {
@@ -82,17 +86,53 @@ async function initLlama(modelPath: string) {
     }
 }
 
-parentPort?.on('message', async (msg) => {
+// One session can run one prompt at a time, so run jobs in arrival order.
+let queue: Promise<void> = Promise.resolve();
+let pendingChats = 0;
+
+parentPort?.on('message', (msg) => {
+    if (msg.type === 'abort') {
+        // Must not wait in the queue, or Stop would only act after the generation ends.
+        currentAbort?.abort();
+        return;
+    }
+    if (msg.type === 'generateStream') {
+        pendingChats++;
+        backgroundAbort?.abort();
+    }
+    queue = queue.then(() => handleMessage(msg)).finally(() => {
+        if (msg.type === 'generateStream') {
+            pendingChats--;
+        }
+    });
+});
+
+async function handleMessage(msg: any) {
     try {
         if (msg.type === 'init') {
             await initLlama(msg.modelPath);
             parentPort?.postMessage({ id: msg.id, result: 'ok' });
         } else if (msg.type === 'generate') {
+            if (pendingChats > 0) {
+                throw new Error('Skipped background request: chat is waiting for the model.');
+            }
             // Every prompt already carries the full context and history, so do not
             // let the session stack its own copy on top of it.
             session.resetChatHistory();
-            const response = await session.prompt(msg.prompt);
-            parentPort?.postMessage({ id: msg.id, result: response });
+            const abort = new AbortController();
+            backgroundAbort = abort;
+            try {
+                const response = await session.prompt(msg.prompt, {
+                    signal: abort.signal,
+                    stopOnAbortSignal: true,
+                    maxTokens: 512
+                });
+                parentPort?.postMessage({ id: msg.id, result: response });
+            } finally {
+                if (backgroundAbort === abort) {
+                    backgroundAbort = null;
+                }
+            }
         } else if (msg.type === 'generateStream') {
             session.resetChatHistory();
             const abort = new AbortController();
@@ -101,6 +141,9 @@ parentPort?.on('message', async (msg) => {
                 const response = await session.prompt(msg.prompt, {
                     signal: abort.signal,
                     stopOnAbortSignal: true,
+                    maxTokens: MAX_REPLY_TOKENS,
+                    // Stop as soon as a tool call is complete; the extension runs the tool.
+                    customStopTriggers: ['</tool_call>', '<observation>'],
                     onTextChunk(text: string) {
                         parentPort?.postMessage({ id: msg.id, chunk: text });
                     }
@@ -111,10 +154,8 @@ parentPort?.on('message', async (msg) => {
                     currentAbort = null;
                 }
             }
-        } else if (msg.type === 'abort') {
-            currentAbort?.abort();
         }
     } catch (err: any) {
         parentPort?.postMessage({ id: msg.id, error: err.message });
     }
-});
+}

@@ -13,9 +13,15 @@ export class CompletionProvider implements vscode.InlineCompletionItemProvider {
 
         if (token.isCancellationRequested) {return [];}
 
-        // 1. Get context
-        const prefix = document.getText(new vscode.Range(new vscode.Position(0, 0), position));
-        const suffix = document.getText(new vscode.Range(position, document.lineAt(document.lineCount - 1).range.end));
+        // Wait for a pause in typing; VS Code cancels the token when the user keeps typing.
+        await new Promise(resolve => setTimeout(resolve, 350));
+        if (token.isCancellationRequested) {return [];}
+
+        // 1. Get context (bounded so each completion stays cheap)
+        const fullPrefix = document.getText(new vscode.Range(new vscode.Position(0, 0), position));
+        const fullSuffix = document.getText(new vscode.Range(position, document.lineAt(document.lineCount - 1).range.end));
+        const prefix = fullPrefix.slice(-3000);
+        const suffix = fullSuffix.slice(0, 1000);
 
         // 2. Construct FIM prompt (Qwen/CodeLlama style)
         // <|fim_prefix|> content <|fim_suffix|> content <|fim_middle|>

@@ -56,6 +56,7 @@ export class ServiceLocator {
         this.formatter = new ResponseFormatter();
         this.router = new LLMRouter(this.formatter, { maxRetries: 2, enforceFormat: true });
         this.llmClient = new SmartClient();
+        context.subscriptions.push({ dispose: () => this.llmClient.dispose() });
         this.chatProvider = new ChatProvider(context, this.llmClient, this.router);
     }
 

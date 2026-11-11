@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ILLMClient } from './ILLMClient';
+import { ILLMClient, buildUserContent } from './ILLMClient';
 
 // Global Mutex to prevent Pollinations 429s (1 concurrent request max per IP)
 let pollinationsMutex = Promise.resolve();
@@ -132,15 +132,15 @@ export class OnlineClient implements ILLMClient {
     }
   }
 
-  public async generateStream(prompt: string, onChunk: (chunk: string) => void, signal?: AbortSignal): Promise<string> {
+  public async generateStream(prompt: string, onChunk: (chunk: string) => void, signal?: AbortSignal, images?: string[]): Promise<string> {
     const config = vscode.workspace.getConfiguration('orbit');
     const model = config.get<string>('onlineModel', 'gpt-4o');
 
     const body: any = {
       model,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: buildUserContent(prompt, images) }],
       stream: true,
-      max_tokens: 1024,
+      max_tokens: 4096,
     };
 
     try {

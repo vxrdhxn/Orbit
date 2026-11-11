@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ILLMClient } from './ILLMClient';
+import { ILLMClient, buildUserContent } from './ILLMClient';
 
 export class LocalServerClient implements ILLMClient {
   constructor(private endpoint: string, private modelName: string) {}
@@ -57,7 +57,7 @@ export class LocalServerClient implements ILLMClient {
 
     const body = {
       model,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: buildUserContent(prompt, images) }],
       stream: true,
     };
 

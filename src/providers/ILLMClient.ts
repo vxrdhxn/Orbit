@@ -4,3 +4,14 @@ export interface ILLMClient {
     checkConnection(): Promise<{ ok: boolean; message: string; canBootstrap?: boolean }>;
     listModels(): Promise<string[]>;
 }
+
+/** Builds the user message, attaching images (data URLs) in OpenAI vision format. */
+export function buildUserContent(prompt: string, images?: string[]): any {
+  if (!images || images.length === 0) {
+    return prompt;
+  }
+  return [
+    { type: 'text', text: prompt },
+    ...images.map(url => ({ type: 'image_url', image_url: { url } })),
+  ];
+}

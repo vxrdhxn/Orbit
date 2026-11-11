@@ -11,6 +11,8 @@ export class LocalClient implements ILLMClient {
   private worker: Worker | null = null;
   private msgIdCounter = 0;
   private pendingMessages = new Map<number, { resolve: (val: any) => void, reject: (err: any) => void, onChunk?: (chunk: string) => void }>();
+  // Shared so concurrent callers wait for one model load instead of starting several.
+  private initPromise: Promise<void> | null = null;
 
   constructor(private modelName: string, modelPath?: string) {
     this.modelPath = modelPath ?? path.join(os.homedir(), '.orbit', 'models', `${modelName}.gguf`);
@@ -36,11 +38,12 @@ export class LocalClient implements ILLMClient {
             }
         });
         this.worker.on('error', (err) => {
-            for (const [id, handlers] of this.pendingMessages.entries()) {
+            for (const handlers of this.pendingMessages.values()) {
                 handlers.reject(err);
             }
             this.pendingMessages.clear();
             this.worker = null;
+            this.initPromise = null;
         });
     }
     return this.worker;
@@ -122,7 +125,29 @@ export class LocalClient implements ILLMClient {
     });
   }
 
-  private async initLlama() {
+  public dispose(): void {
+    const worker = this.worker;
+    this.worker = null;
+    this.initPromise = null;
+    for (const handlers of this.pendingMessages.values()) {
+      handlers.reject(new Error('Model unloaded'));
+    }
+    this.pendingMessages.clear();
+    worker?.terminate().catch(() => undefined);
+  }
+
+  private initLlama(): Promise<void> {
+    if (!this.initPromise) {
+      this.initPromise = this.loadOnce().catch(err => {
+        // Let the next message retry after a failed load.
+        this.initPromise = null;
+        throw err;
+      });
+    }
+    return this.initPromise;
+  }
+
+  private async loadOnce() {
     await ensureRuntimePackage('node-llama-cpp');
 
     if (!fs.existsSync(this.modelPath)) {
@@ -131,7 +156,7 @@ export class LocalClient implements ILLMClient {
 
     const w = this.getWorker();
     const id = ++this.msgIdCounter;
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
         this.pendingMessages.set(id, { resolve, reject });
         w.postMessage({ type: 'init', id, modelPath: this.modelPath });
     });
