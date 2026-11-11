@@ -19,12 +19,13 @@ function App() {
         view, setView,
         proposal, setProposal,
         decisions, setDecisions, appendDecisions,
-        messages, setMessages, addMessage, appendAIResponseChunk, clearChat,
+        messages, setMessages, addMessage, appendAIResponseChunk, startAIResponse, setAIResponse, clearChat,
         chatHistory, setChatHistory,
         isGenerating, setIsGenerating,
         models, setModels,
         currentModel, setCurrentModel,
         selectedImage, setSelectedImage,
+        attachments, addAttachment, removeAttachment, clearAttachments,
         statusMessage, setStatusMessage,
         connectionState, setConnectionState,
         hasAttemptedInitialHistoryLoad, setHasAttemptedInitialHistoryLoad,
@@ -58,9 +59,22 @@ function App() {
                     if (message.value == null) break;
                     appendAIResponseChunk(message.value);
                     break;
+                case 'agentStart':
+                    startAIResponse();
+                    break;
+                case 'agentDelta':
+                    if (message.value) appendAIResponseChunk(message.value);
+                    break;
+                case 'agentSet':
+                    setAIResponse(message.value ?? '');
+                    break;
+                case 'agentEnd':
+                    setIsGenerating(false);
+                    setStatusMessage('');
+                    break;
                 case 'status':
                     setStatusMessage(message.value);
-                    if (message.value === 'Generation cancelled.' || message.value === '') {
+                    if (message.value === 'Generation cancelled.') {
                         setIsGenerating(false);
                     }
                     break;
@@ -84,6 +98,9 @@ function App() {
                     setMessages(message.value);
                     setIsGenerating(false);
                     setView('chat');
+                    break;
+                case 'fileAttached':
+                    if (message.value?.path) addAttachment(message.value);
                     break;
                 case 'insertFileReference':
                     window.dispatchEvent(new CustomEvent('orbit-insert-text', { detail: message.value }));
@@ -114,15 +131,34 @@ function App() {
         vscode.postMessage({ type: 'webviewReady' });
 
         return () => window.removeEventListener('message', handleMessage);
-    }, [hasAttemptedInitialHistoryLoad, setChatHistory, setHasAttemptedInitialHistoryLoad, setView, addMessage, setIsGenerating, setStatusMessage, appendAIResponseChunk, setConnectionState, setModels, setCurrentModel, setSelectedImage, clearChat, setMessages, setProposal, setDecisions, appendDecisions]);
+    }, [hasAttemptedInitialHistoryLoad, setChatHistory, setHasAttemptedInitialHistoryLoad, setView, addMessage, setIsGenerating, setStatusMessage, appendAIResponseChunk, startAIResponse, setAIResponse, setConnectionState, setModels, setCurrentModel, setSelectedImage, addAttachment, clearChat, setMessages, setProposal, setDecisions, appendDecisions]);
+
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && useOrbitStore.getState().isGenerating) {
+                vscode.postMessage({ type: 'cancelGeneration' });
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, []);
 
     const handleSend = (text: string) => {
         if (isGenerating) return;
 
-        addMessage({ role: 'user', content: text });
+        const paths = attachments.map(a => a.path);
+        addMessage({
+            role: 'user',
+            content: text,
+            ...(paths.length ? { attachments: paths } : {}),
+            ...(selectedImage ? { image: selectedImage } : {})
+        });
         setIsGenerating(true);
-        vscode.postMessage({ type: 'sendMessage', value: text });
+        vscode.postMessage(paths.length
+            ? { type: 'sendMessage', value: text, attachments: paths }
+            : { type: 'sendMessage', value: text });
         setSelectedImage(null);
+        clearAttachments();
     };
 
     const handleModelChange = (model: string) => {
@@ -147,7 +183,6 @@ function App() {
     };
 
     const handleRemoveImage = () => {
-        setIsGenerating(false);
         setSelectedImage(null);
         vscode.postMessage({ type: 'clearImage' });
     };
@@ -187,100 +222,60 @@ function App() {
         />;
     }
 
+    const suggestions = [
+        { icon: 'codicon-book', text: 'Explain the open file' },
+        { icon: 'codicon-bug', text: 'Find bugs in the open file' },
+        { icon: 'codicon-beaker', text: 'Write unit tests for the open file' },
+        { icon: 'codicon-list-tree', text: 'Give me an overview of this project' },
+    ];
+
     return (
         <ErrorBoundary resetKey={messages.length}>
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-main)', color: 'var(--text-main)' }}>
-            {/* Pro Header */}
-            <header className="glass" style={{
-                height: '48px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0 16px',
-                zIndex: 100,
-                borderBottom: '1px solid var(--border-dim)'
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ fontSize: '14px', fontWeight: 600, letterSpacing: '-0.5px' }}>Orbit</div>
+        <div className="app-shell">
+            <header className="app-header">
+                <div className="app-title">
+                    <span className="codicon codicon-sparkle" />
+                    <span>Orbit</span>
                 </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                        <span className={`codicon ${connectionState === 'Checking...' ? 'codicon-loading codicon-modifier-spin' : 'codicon-record'} ${isGenerating ? 'animate-pulse' : ''}`} 
-                              style={{ color: isGenerating ? 'var(--accent-primary)' : (connectionState === 'Connected' ? 'var(--text-dim)' : '#f48771'), fontSize: '10px' }}></span>
-                        {isGenerating ? 'Reasoning...' : connectionState}
-                    </div>
-                    {telemetry && (
-                        <>
-                            <div style={{ width: '1px', height: '14px', background: 'var(--border-dim)' }}></div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }} title={`Last generation took ${(telemetry.durationMs/1000).toFixed(1)}s`}>
-                                <span className="codicon codicon-dashboard" style={{ fontSize: '12px' }}></span>
-                                {telemetry.tps} tps
-                            </div>
-                        </>
+                <div className="app-header-right">
+                    <span
+                        className={`status-dot ${isGenerating ? 'busy' : connectionState === 'Connected' ? 'ok' : connectionState === 'Checking...' ? 'checking' : 'down'}`}
+                        title={isGenerating ? 'Working' : connectionState}
+                    />
+                    {telemetry && !isGenerating && (
+                        <span className="telemetry" title={`Last step took ${(telemetry.durationMs / 1000).toFixed(1)}s`}>
+                            {telemetry.tps} tok/s
+                        </span>
                     )}
-                    <div style={{ width: '1px', height: '14px', background: 'var(--border-dim)' }}></div>
-                    <button className="clickable" title="Chat History" onClick={() => setView('chatHistory')} style={{ background: 'transparent' }}>
-                        <span className="codicon codicon-history" style={{ fontSize: '14px', color: 'var(--text-dim)' }}></span>
+                    <button className="icon-button" title="Chat History" onClick={() => setView('chatHistory')}>
+                        <span className="codicon codicon-history" />
                     </button>
-                    <button className="clickable" title="New Chat" onClick={handleNewChat} style={{ background: 'transparent' }}>
-                        <span className="codicon codicon-add" style={{ fontSize: '14px', color: 'var(--text-dim)' }}></span>
+                    <button className="icon-button" title="New Chat" onClick={handleNewChat}>
+                        <span className="codicon codicon-add" />
                     </button>
                 </div>
             </header>
 
-            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+            <div className="app-body">
                 {messages.length === 0 ? (
-                    <div style={{
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        opacity: 0.9
-                    }}>
-                        <div style={{
-                            width: '80px',
-                            height: '80px',
-                            borderRadius: '50%',
-                            background: 'radial-gradient(circle, var(--accent-primary) 0%, transparent 70%)',
-                            position: 'absolute',
-                            filter: 'blur(30px)',
-                            opacity: 0.2
-                        }}></div>
-                        <div style={{ fontSize: '2.5rem', fontWeight: 600, letterSpacing: '-1.5px', color: 'var(--text-main)', marginBottom: '4px', position: 'relative' }}>
-                            Orbit
-                        </div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                            Code at the speed of thought
+                    <div className="welcome">
+                        <div className="welcome-logo"><span className="codicon codicon-sparkle" /></div>
+                        <div className="welcome-title">Orbit</div>
+                        <div className="welcome-subtitle">Code at the speed of thought</div>
+                        <div className="welcome-hint">I can read your files, edit code, and run commands. Ask me anything.</div>
+                        <div className="suggestions">
+                            {suggestions.map(s => (
+                                <button key={s.text} className="suggestion" onClick={() => handleSend(s.text)}>
+                                    <span className={`codicon ${s.icon}`} />
+                                    {s.text}
+                                </button>
+                            ))}
                         </div>
                     </div>
                 ) : (
                     <ErrorBoundary resetKey={messages.length}>
-                        <MessageList messages={messages} isGenerating={isGenerating} />
+                        <MessageList messages={messages} isGenerating={isGenerating} statusMessage={statusMessage} />
                     </ErrorBoundary>
-                )}
-
-                {statusMessage && isGenerating && (
-                    <div className="glass animate-slide-up" style={{
-                        position: 'absolute',
-                        bottom: '24px',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        padding: '6px 14px',
-                        borderRadius: '100px',
-                        fontSize: '11px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        boxShadow: 'var(--shadow-premium)',
-                        color: 'var(--text-main)',
-                        zIndex: 20,
-                        border: '1px solid hsla(190, 100%, 50%, 0.2)'
-                    }}>
-                        <span className="codicon codicon-loading codicon-modifier-spin" style={{ color: 'var(--accent-primary)' }}></span>
-                        {statusMessage}
-                    </div>
                 )}
             </div>
 
@@ -297,6 +292,8 @@ function App() {
                 onPasteImage={handlePasteImage}
                 onRemoveImage={handleRemoveImage}
                 onFilePicker={handleFilePicker}
+                attachments={attachments}
+                onRemoveAttachment={removeAttachment}
             />
         </div>
         </ErrorBoundary>

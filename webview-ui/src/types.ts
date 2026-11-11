@@ -6,9 +6,18 @@ export interface StructuredResponse {
     production: string;
 }
 
+export interface Attachment {
+    path: string;
+    name: string;
+}
+
 export interface Message {
     role: 'user' | 'ai' | 'system';
     content: string;
+    /** Files attached to a user message (absolute paths). */
+    attachments?: string[];
+    /** Image preview (data URL) shown on a user message in this session. */
+    image?: string;
 }
 
 export interface DiffHunk {

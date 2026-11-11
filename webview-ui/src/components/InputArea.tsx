@@ -1,7 +1,7 @@
 import { useState, useEffect, KeyboardEvent, ClipboardEvent } from 'react';
-import { VSCodeButton, VSCodeTextArea } from '@vscode/webview-ui-toolkit/react';
 import { FileReferenceIndicator } from './FileReferenceIndicator';
 import { ModelSelector } from './ModelSelector';
+import { Attachment } from '../types';
 
 interface InputAreaProps {
     onSend: (text: string) => void;
@@ -16,6 +16,8 @@ interface InputAreaProps {
     onPasteImage: (base64: string) => void;
     onRemoveImage: () => void;
     onFilePicker: () => void;
+    attachments?: Attachment[];
+    onRemoveAttachment?: (path: string) => void;
 }
 
 export const InputArea = ({
@@ -30,7 +32,9 @@ export const InputArea = ({
     onModelChange,
     onPasteImage,
     onRemoveImage,
-    onFilePicker
+    onFilePicker,
+    attachments = [],
+    onRemoveAttachment
 }: InputAreaProps) => {
     const [value, setValue] = useState('');
 
@@ -80,152 +84,78 @@ export const InputArea = ({
     const isPreview = selectedImage && selectedImage.startsWith('data:');
 
     return (
-        <div className="glass-dark" onPaste={handlePaste} style={{
-            padding: '20px',
-            background: 'transparent',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-            borderTop: 'none',
-            zIndex: 30
-        }}>
-            <div className="glow-on-focus" style={{
-                transition: 'var(--transition-smooth)',
-                borderRadius: 'var(--radius-lg)',
-                backgroundColor: 'var(--bg-surface)',
-                border: '1px solid var(--border-base)',
-                padding: '12px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-            }}>
+        <div className="composer" onPaste={handlePaste}>
+            <div className="composer-box">
+                {attachments.length > 0 && (
+                    <div className="attachment-row">
+                        {attachments.map(a => (
+                            <span key={a.path} className="attachment-chip" title={a.path}>
+                                <span className="codicon codicon-file" />
+                                {a.name}
+                                <button className="chip-remove" onClick={() => onRemoveAttachment?.(a.path)} title="Remove attachment">
+                                    <span className="codicon codicon-close" />
+                                </button>
+                            </span>
+                        ))}
+                    </div>
+                )}
                 {selectedImage && (
-                    <div className="image-preview" style={{
-                        position: 'relative',
-                        alignSelf: 'flex-start',
-                        marginBottom: '4px',
-                        display: 'inline-block'
-                    }}>
+                    <div className="image-preview">
                         {isPreview ? (
-                            <img src={selectedImage} alt="Selected" style={{
-                                maxHeight: '90px',
-                                maxWidth: '180px',
-                                borderRadius: 'var(--radius-sm)',
-                                border: '1px solid var(--border-base)'
-                            }} />
+                            <img src={selectedImage} alt="Selected" />
                         ) : (
-                            <div className="badge" style={{ backgroundColor: 'var(--bg-surface-lighter)', color: 'var(--accent-primary)', fontSize: '11px' }}>
-                                <span className="codicon codicon-file-media" style={{ fontSize: '12px' }}></span>
-                                <span style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {selectedImage.split(/[/\\]/).pop()}
-                                </span>
-                            </div>
+                            <span className="badge">
+                                <span className="codicon codicon-file-media" />
+                                {selectedImage.split(/[/\\]/).pop()}
+                            </span>
                         )}
-
-                        <div
-                            onClick={onRemoveImage}
-                            title="Remove Image"
-                            style={{
-                                position: 'absolute',
-                                top: '-8px',
-                                right: '-8px',
-                                width: '18px',
-                                height: '18px',
-                                borderRadius: '50%',
-                                backgroundColor: 'hsl(0, 70%, 50%)',
-                                color: 'white',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                fontSize: '10px',
-                                border: '2px solid var(--bg-surface)'
-                            }}
-                        >
-                            <span className="codicon codicon-close"></span>
-                        </div>
+                        <button className="image-remove" onClick={onRemoveImage} title="Remove Image">
+                            <span className="codicon codicon-close" />
+                        </button>
                     </div>
                 )}
 
                 <textarea
                     value={value}
-                    onInput={(e: any) => setValue(e.target.value)}
+                    onChange={(e) => setValue(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Ask Orbit everything (Ctrl+L)..."
+                    placeholder={isGenerating ? 'Orbit is working… (Esc to stop)' : 'Ask Orbit to explain, fix or build something…'}
+                    aria-label="Ask Orbit"
                     disabled={disabled && !isGenerating}
-                    rows={Math.min(10, Math.max(2, value.split('\n').length))}
-                    style={{
-                        width: '100%',
-                        border: 'none',
-                        background: 'transparent',
-                        outline: 'none',
-                        padding: '4px 0',
-                        color: 'var(--text-main)',
-                        resize: 'none',
-                        fontSize: '13px',
-                        fontFamily: 'inherit',
-                        lineHeight: '1.6'
-                    }}
+                    rows={Math.min(12, Math.max(2, value.split('\n').length))}
+                    className="composer-input"
                 />
 
                 <FileReferenceIndicator text={value} />
 
-                <div className="input-footer" style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginTop: '4px'
-                }}>
-                    <div className="left-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                            <button className="clickable" onClick={onImageSelect} disabled={disabled || isGenerating} title="Attach Image" 
-                                    style={{ padding: '6px', borderRadius: '6px', color: 'var(--text-dim)', background: 'transparent' }}>
-                                <span className="codicon codicon-file-media" style={{ fontSize: '16px' }}></span>
-                            </button>
-                            <button className="clickable" onClick={onFilePicker} disabled={disabled || isGenerating} title="Attach File"
-                                    style={{ padding: '6px', borderRadius: '6px', color: 'var(--text-dim)', background: 'transparent' }}>
-                                <span className="codicon codicon-attach" style={{ fontSize: '16px' }}></span>
-                            </button>
-                        </div>
-
+                <div className="composer-footer">
+                    <div className="composer-left">
+                        <button className="icon-button" onClick={onFilePicker} disabled={disabled} title="Attach a file">
+                            <span className="codicon codicon-attach" />
+                        </button>
+                        <button className="icon-button" onClick={onImageSelect} disabled={disabled} title="Attach an image (or paste one)">
+                            <span className="codicon codicon-file-media" />
+                        </button>
                         <ModelSelector models={models} current={currentModel} onSelect={onModelChange} />
                     </div>
 
-                    <div className="right-controls">
-                        {isGenerating ? (
-                            <button className="clickable" onClick={onStop} title="Stop Generation" style={{
-                                width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-surface-lighter)', color: 'var(--text-main)', border: '1px solid var(--border-base)'
-                            }}>
-                                <span className="codicon codicon-debug-stop" style={{ fontSize: '14px' }}></span>
-                            </button>
-                        ) : (
-                            <button
-                                className="clickable"
-                                onClick={handleSend}
-                                disabled={disabled || !value.trim()}
-                                title="Send"
-                                style={{
-                                    width: '32px',
-                                    height: '32px',
-                                    borderRadius: '50%',
-                                    background: value.trim() ? 'var(--accent-primary)' : 'var(--bg-surface-lighter)',
-                                    color: value.trim() ? 'black' : 'var(--text-dim)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    boxShadow: value.trim() ? 'var(--shadow-glow)' : 'none'
-                                }}
-                            >
-                                <span className="codicon codicon-arrow-up" style={{ fontSize: '18px', fontWeight: 'bold' }}></span>
-                            </button>
-                        )}
-                    </div>
+                    {isGenerating ? (
+                        <button className="send-button stop" onClick={onStop} title="Stop (Esc)">
+                            <span className="codicon codicon-debug-stop" />
+                        </button>
+                    ) : (
+                        <button
+                            className={`send-button ${value.trim() ? 'ready' : ''}`}
+                            onClick={handleSend}
+                            disabled={disabled || !value.trim()}
+                            title="Send message (Enter)"
+                        >
+                            <span className="codicon codicon-arrow-up" />
+                        </button>
+                    )}
                 </div>
             </div>
-            
-            <div style={{ fontSize: '10px', color: 'var(--text-dim)', textAlign: 'center', marginTop: '4px' }}>
-                Orbit can make mistakes. Check important info.
-            </div>
+            <div className="composer-hint">Enter to send · Shift+Enter for a new line · Esc to stop</div>
         </div>
     );
 };

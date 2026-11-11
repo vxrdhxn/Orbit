@@ -36,7 +36,7 @@ describe('App Webview UI', () => {
 
     it('renders the initial state correctly', () => {
         render(<App />);
-        expect(screen.getByText('Orbit')).toBeInTheDocument();
+        expect(screen.getAllByText('Orbit').length).toBeGreaterThan(0);
         expect(screen.getByText('Code at the speed of thought')).toBeInTheDocument();
     });
 

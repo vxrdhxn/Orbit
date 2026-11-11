@@ -1,167 +1,233 @@
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { useEffect, useRef, useState } from 'react';
 import { CodeBlock } from './CodeBlock';
 import { StructuredReasoning } from './StructuredReasoning';
-import { useEffect, useRef } from 'react';
+import { parseAgentContent, describeTool, toolArgs, ToolPart, ThinkPart } from '../utilities/agentParser';
 
 interface Message {
     role: 'user' | 'ai' | 'system';
     content: string;
     structuredReasoning?: any;
+    attachments?: string[];
+    image?: string;
 }
 
 interface MessageListProps {
     messages: Message[];
     isGenerating?: boolean;
+    statusMessage?: string;
+    onSuggestion?: (text: string) => void;
 }
 
 /**
- * Safe markdown renderer — catches render errors from malformed
- * streaming content and falls back to plain text.
+ * Markdown renderer. Catches render errors from half-streamed content and
+ * falls back to plain text.
  */
-const SafeMarkdown = ({ content }: { content: string }) => {
+export const SafeMarkdown = ({ content }: { content: string }) => {
     try {
         return (
-            <ReactMarkdown
-                components={{
-                    code({ node, className, children, ...props }: any) {
-                        // react-markdown v9 removed the `inline` prop.
-                        // Detect inline code by checking if the parent node is NOT <pre>.
-                        const isInline = !node?.properties?.className &&
-                            !(node?.position && node?.tagName === 'code' &&
-                                node?.parent?.tagName === 'pre');
-                        // Simpler heuristic: if there's a language class, it's a code block
-                        const match = /language-(\w+)/.exec(className || '');
-
-                        if (!isInline && match) {
-                            return (
-                                <CodeBlock
-                                    language={match[1]}
-                                    value={String(children).replace(/\n$/, '')}
-                                />
-                            );
+            <div className="markdown">
+                <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                        code({ className, children, ...props }: any) {
+                            const match = /language-([\w:./\\-]+)/.exec(className || '');
+                            const text = String(children);
+                            // Fenced blocks have a language class or span several lines.
+                            if (match || text.includes('\n')) {
+                                return <CodeBlock language={match?.[1] ?? 'text'} value={text.replace(/\n$/, '')} />;
+                            }
+                            return <code className="inline-code" {...props}>{children}</code>;
+                        },
+                        pre({ children }: any) {
+                            // CodeBlock renders its own container.
+                            return <>{children}</>;
                         }
-                        return (
-                            <code className={className} {...props} style={{
-                                backgroundColor: 'var(--bg-surface)',
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                color: 'var(--accent-primary)',
-                                fontFamily: 'var(--vscode-editor-font-family)',
-                                border: '1px solid var(--border-dim)'
-                            }}>
-                                {children}
-                            </code>
-                        );
-                    }
-                }}
-            >
-                {content}
-            </ReactMarkdown>
+                    }}
+                >
+                    {content}
+                </ReactMarkdown>
+            </div>
         );
     } catch (e) {
-        // Fallback to plain text if ReactMarkdown throws
         console.error('[SafeMarkdown] Render error, falling back to plain text:', e);
         return <div style={{ whiteSpace: 'pre-wrap' }}>{content}</div>;
     }
 };
 
-export const MessageList = ({ messages, isGenerating }: MessageListProps) => {
-    const endRef = useRef<HTMLDivElement>(null);
+/** One tool call as a compact row; click to see its input and result. */
+const ToolStep = ({ part, running }: { part: ToolPart; running: boolean }) => {
+    const [open, setOpen] = useState(false);
+    const { verb, target, icon } = describeTool(part);
+    const args = toolArgs(part);
+    const state = running ? 'running' : part.resultStatus === 'error' ? 'error' : part.result !== undefined ? 'ok' : 'idle';
 
-    useEffect(() => {
-        // Ensure we scroll to the bottom during streaming
-        if (isGenerating) {
-            endRef.current?.scrollIntoView({ behavior: 'auto' });
-        } else {
-            endRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }
-    }, [messages, isGenerating]);
+    let summary = '';
+    if (part.name === 'apply' && typeof args.code === 'string') {
+        const lines = args.code.replace(/\n$/, '').split('\n').length;
+        summary = running && !part.closed ? `writing… ${lines} lines` : `${lines} lines`;
+    } else if (part.result !== undefined) {
+        const lines = part.result.split('\n').length;
+        summary = part.resultStatus === 'error' ? 'failed' : `${lines} line${lines === 1 ? '' : 's'}`;
+    }
 
     return (
-        <div className="messages" style={{
-            flexGrow: 1,
-            overflowY: 'auto',
-            padding: '24px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '32px'
-        }}>
-            {messages.map((msg, i) => {
-                const isLastAI = i === messages.length - 1 && msg.role === 'ai' && isGenerating;
-                // Strip out all internal AI tags completely so they never pollute the chat
-                let safeContent = (msg.content ?? '')
-                    .replace(/<think>[\s\S]*?<\/think>/g, '')
-                    .replace(/<think>[\s\S]*$/g, '')
-                    .replace(/<tool_call\s+name="[^"]+"[^>]*>[\s\S]*?<\/tool_call>/g, '')
-                    .replace(/<tool_call\s+name="[^"]+"[^>]*>[\s\S]*$/g, '')
-                    .replace(/<observation>[\s\S]*?<\/observation>/g, '')
-                    .replace(/<observation>[\s\S]*$/g, '')
-                    .trim();
+        <div className={`tool-step tool-${state}`}>
+            <button className="tool-step-header" onClick={() => setOpen(!open)} title="Show details">
+                <span className="tool-dot">
+                    {state === 'running'
+                        ? <span className="codicon codicon-loading codicon-modifier-spin" />
+                        : <span className={`codicon ${icon}`} />}
+                </span>
+                <span className="tool-verb">{verb}</span>
+                <span className="tool-target">{target}</span>
+                {summary && <span className="tool-summary">{summary}</span>}
+                <span className={`codicon ${open ? 'codicon-chevron-down' : 'codicon-chevron-right'} tool-chevron`} />
+            </button>
+            {open && (
+                <div className="tool-details">
+                    {part.name === 'apply' && typeof args.code === 'string' ? (
+                        <pre className="tool-output">{args.code}</pre>
+                    ) : (
+                        part.body.trim() && <pre className="tool-output tool-input">{part.body.trim()}</pre>
+                    )}
+                    {part.result !== undefined && (
+                        <pre className={`tool-output ${part.resultStatus === 'error' ? 'tool-output-error' : ''}`}>
+                            {part.result || '(no output)'}
+                        </pre>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
 
-                // If the AI is still generating and hasn't output any real text yet, just show a single thinking indicator
-                if (safeContent === '' && msg.role === 'ai') {
-                    safeContent = '🤔 *Thinking...*';
+const ThinkBlock = ({ part }: { part: ThinkPart }) => {
+    const [open, setOpen] = useState(false);
+    return (
+        <div className="think-block">
+            <button className="think-header" onClick={() => setOpen(!open)}>
+                <span className={`codicon ${open ? 'codicon-chevron-down' : 'codicon-chevron-right'}`} />
+                {part.closed ? 'Thought process' : 'Thinking…'}
+            </button>
+            {open && <div className="think-body">{part.text}</div>}
+        </div>
+    );
+};
+
+/** Animated "Thinking… 12s" line shown while the agent works, like a CLI agent. */
+// Start of the current agent turn, shared so the timer survives re-mounts.
+let turnStartedAt = Date.now();
+
+const WorkingIndicator = ({ status }: { status?: string }) => {
+    const elapsed = () => Math.floor((Date.now() - turnStartedAt) / 1000);
+    const [seconds, setSeconds] = useState(elapsed);
+    useEffect(() => {
+        const timer = setInterval(() => setSeconds(elapsed()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+    const label = (status && status.trim()) || 'Thinking...';
+    return (
+        <div className="working-indicator">
+            <span className="working-spark">✻</span>
+            <span className="working-label">{label.replace(/\.\.\.$/, '…')}</span>
+            <span className="working-time">{seconds}s{/Waiting/.test(label) ? '' : ' · esc to stop'}</span>
+        </div>
+    );
+};
+
+const AssistantTurn = ({ msg, live, statusMessage }: { msg: Message; live: boolean; statusMessage?: string }) => {
+    if (msg.structuredReasoning) {
+        return <StructuredReasoning reasoning={msg.structuredReasoning} />;
+    }
+
+    const parts = parseAgentContent(msg.content ?? '', live);
+    const lastPart = parts[parts.length - 1];
+    // Show the working line unless text is actively streaming in as the last part.
+    const showIndicator = live && (!lastPart || lastPart.type !== 'text' || /Calling|Working|Waiting/.test(statusMessage || ''));
+
+    return (
+        <div className="assistant-turn">
+            {parts.map((part, i) => {
+                if (part.type === 'text') {
+                    return <SafeMarkdown key={i} content={part.text} />;
                 }
+                if (part.type === 'think') {
+                    return <ThinkBlock key={i} part={part} />;
+                }
+                const running = live && part.result === undefined;
+                return <ToolStep key={i} part={part} running={running} />;
+            })}
+            {showIndicator && <WorkingIndicator status={statusMessage} />}
+        </div>
+    );
+};
 
-                return (
-                    <div key={i} className="animate-slide-up" style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '8px',
-                        alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start'
-                    }}>
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '0 4px',
-                            marginBottom: '4px'
-                        }}>
-                            <div style={{
-                                width: '20px',
-                                height: '20px',
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backgroundColor: msg.role === 'user' ? 'var(--bg-surface-lighter)' : 'hsla(190, 100%, 50%, 0.1)',
-                                border: '1px solid var(--border-dim)'
-                            }}>
-                                <span className={`codicon ${msg.role === 'user' ? 'codicon-account' : 'codicon-hubot'}`}
-                                    style={{ fontSize: '12px', color: msg.role === 'user' ? 'var(--text-muted)' : 'var(--accent-primary)' }}></span>
+export const MessageList = ({ messages, isGenerating, statusMessage }: MessageListProps) => {
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const stickToBottom = useRef(true);
+    const wasGenerating = useRef(false);
+
+    if (isGenerating && !wasGenerating.current) {
+        turnStartedAt = Date.now();
+        // A new request always scrolls into view.
+        stickToBottom.current = true;
+    }
+    wasGenerating.current = !!isGenerating;
+
+    const handleScroll = () => {
+        const el = scrollRef.current;
+        if (!el) {
+            return;
+        }
+        // Follow new output only while the user is at the bottom.
+        stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    };
+
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (el && stickToBottom.current) {
+            el.scrollTop = el.scrollHeight;
+        }
+    }, [messages, isGenerating, statusMessage]);
+
+    return (
+        <div className="messages" ref={scrollRef} onScroll={handleScroll}>
+            {messages.map((msg, i) => {
+                const live = !!isGenerating && i === messages.length - 1 && msg.role === 'ai';
+                if (msg.role === 'user') {
+                    return (
+                        <div key={i} className="user-turn animate-fade-in">
+                            <div className="user-bubble">
+                                {(msg.attachments?.length || msg.image) && (
+                                    <div className="attachment-row">
+                                        {msg.image && <img className="bubble-image" src={msg.image} alt="Attached" />}
+                                        {msg.attachments?.map(p => (
+                                            <span key={p} className="attachment-chip" title={p}>
+                                                <span className="codicon codicon-file" />
+                                                {p.split(/[/\\]/).pop()}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                                {msg.content}
                             </div>
-                            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                {msg.role === 'user' ? 'You' : 'Orbit'}
-                            </span>
                         </div>
-
-                        <div className={`message-bubble ${msg.role}`} style={{
-                            padding: msg.role === 'user' ? '10px 14px' : '0',
-                            borderRadius: 'var(--radius-md)',
-                            maxWidth: msg.role === 'user' ? '90%' : '100%',
-                            fontSize: '13px',
-                            lineHeight: '1.6',
-                            backgroundColor: msg.role === 'user' ? 'var(--bg-surface)' : 'transparent',
-                            color: 'var(--text-main)',
-                            border: msg.role === 'user' ? '1px solid var(--border-base)' : 'none',
-                        }}>
-                            {msg.role === 'user' ? (
-                                <div style={{ whiteSpace: 'pre-wrap' }}>{safeContent}</div>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    {msg.structuredReasoning ? (
-                                        <StructuredReasoning reasoning={msg.structuredReasoning} />
-                                    ) : (
-                                        <SafeMarkdown content={safeContent} />
-                                    )}
-                                    {isLastAI && <span className="blinking-cursor" />}
-                                </div>
-                            )}
-                        </div>
+                    );
+                }
+                return (
+                    <div key={i} className="ai-turn animate-fade-in">
+                        <AssistantTurn msg={msg} live={live} statusMessage={statusMessage} />
                     </div>
                 );
             })}
-            <div ref={endRef} />
+            {/* Waiting for the extension to open the assistant turn. */}
+            {isGenerating && messages[messages.length - 1]?.role === 'user' && (
+                <div className="ai-turn">
+                    <div className="assistant-turn"><WorkingIndicator status={statusMessage} /></div>
+                </div>
+            )}
         </div>
     );
 };

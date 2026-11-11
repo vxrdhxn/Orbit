@@ -39,14 +39,14 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ models, current, o
                     alignItems: 'center',
                     gap: '6px',
                     padding: '4px 10px',
-                    background: 'var(--bg-surface-lighter)',
-                    borderRadius: '8px',
-                    border: isOpen ? '1px solid var(--accent-primary)' : '1px solid var(--border-base)',
-                    color: 'var(--text-main)',
+                    background: 'transparent',
+                    borderRadius: '6px',
+                    border: '1px solid transparent',
+                    color: 'var(--text-muted)',
                     fontSize: '11px',
                     fontWeight: 500,
                     transition: 'all 0.2s ease',
-                    boxShadow: isOpen ? '0 0 10px hsla(190, 100%, 50%, 0.2)' : 'none'
+                    boxShadow: 'none'
                 }}
             >
                 <span className="codicon codicon-sparkle" style={{ fontSize: '12px', color: 'var(--accent-primary)' }}></span>
@@ -65,7 +65,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ models, current, o
                         bottom: 'calc(100% + 12px)',
                         left: '0',
                         width: '240px',
-                        background: 'hsl(220, 15%, 7%)',
+                        background: 'var(--vscode-quickInput-background, var(--bg-surface))',
                         borderRadius: '12px',
                         border: '1px solid var(--border-base)',
                         boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
@@ -97,10 +97,10 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ models, current, o
                                         justifyContent: 'space-between',
                                         padding: '8px 12px',
                                         borderRadius: '8px',
-                                        background: isSelected ? 'hsla(190, 100%, 50%, 0.1)' : 'transparent',
-                                        border: isSelected ? '1px solid var(--accent-primary)' : '1px solid transparent',
+                                        background: isSelected ? 'var(--vscode-list-activeSelectionBackground, var(--bg-surface-lighter))' : 'transparent',
+                                        border: '1px solid transparent',
                                         transition: 'all 0.1s ease',
-                                        color: isSelected ? 'var(--text-main)' : 'var(--text-dim)'
+                                        color: isSelected ? 'var(--vscode-list-activeSelectionForeground, var(--text-main))' : 'var(--text-muted)'
                                     }}
                                 >
                                     <span style={{ fontSize: '12px', fontWeight: isSelected ? 600 : 400 }}>{model}</span>

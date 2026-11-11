@@ -39,20 +39,21 @@ export const CodeBlock = ({ language, value }: CodeBlockProps) => {
 
     return (
         <div className="code-block-container" style={{
-            margin: '16px 0',
+            margin: '10px 0',
             borderRadius: 'var(--radius-md)',
             overflow: 'hidden',
-            border: '1px solid var(--border-base)',
-            boxShadow: 'var(--shadow-premium)',
-            backgroundColor: 'hsl(220, 15%, 8%)'
+            border: '1px solid var(--border-dim)',
+            backgroundColor: 'var(--code-bg)'
         }}>
             <div className="glass" style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '6px 12px',
+                padding: '4px 10px',
                 borderBottom: '1px solid var(--border-dim)',
-                background: 'hsla(220, 13%, 18%, 0.4)'
+                background: 'var(--bg-surface)',
+                backdropFilter: 'none',
+                border: 'none'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span className="badge badge-primary" style={{ fontSize: '10px', padding: '1px 6px' }}>
@@ -153,7 +154,7 @@ export const CodeBlock = ({ language, value }: CodeBlockProps) => {
             <SyntaxHighlighter
                 language={lang}
                 style={vscDarkPlus}
-                customStyle={{ margin: 0, borderRadius: 0, fontSize: '0.9em' }}
+                customStyle={{ margin: 0, borderRadius: 0, fontSize: '12px', background: 'var(--code-bg)', padding: '10px 12px' }}
             >
                 {value}
             </SyntaxHighlighter>

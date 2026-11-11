@@ -147,6 +147,67 @@ describe('ChatProvider agent loop', () => {
     });
 });
 
+describe('ChatProvider streaming', () => {
+    it('streams the reply live and ends the turn', async () => {
+        const context: any = {
+            globalState: { get: jest.fn().mockReturnValue([]), update: jest.fn().mockResolvedValue(undefined) },
+            workspaceState: { get: jest.fn().mockReturnValue([]), update: jest.fn() },
+        };
+        const llmClient: any = {
+            checkConnection: jest.fn().mockResolvedValue({ ok: true }),
+            generateStream: jest.fn(async (_p: string, onChunk: Function) => {
+                onChunk('Hello ');
+                onChunk('there');
+            }),
+        };
+        const provider: any = new ChatProvider(context, llmClient);
+        const webview = { postMessage: jest.fn() } as any;
+
+        await provider._processMessage('hi', webview);
+
+        const types = webview.postMessage.mock.calls.map((c: any[]) => c[0].type);
+        expect(types[0]).toBe('agentStart');
+        expect(types).toContain('agentDelta');
+        expect(types).toContain('agentEnd');
+        const finalSet = webview.postMessage.mock.calls.map((c: any[]) => c[0]).filter((m: any) => m.type === 'agentSet').pop();
+        expect(finalSet.value).toBe('Hello there');
+    });
+
+    it('records the tool call and its result in the visible turn', async () => {
+        const context: any = {
+            globalState: { get: jest.fn().mockReturnValue([]), update: jest.fn().mockResolvedValue(undefined) },
+            workspaceState: { get: jest.fn().mockReturnValue([]), update: jest.fn() },
+        };
+        const llmClient: any = {
+            checkConnection: jest.fn().mockResolvedValue({ ok: true }),
+            generateStream: jest.fn()
+                .mockImplementationOnce(async (_p: string, onChunk: Function) => {
+                    // No closing tag: the local worker stops on it.
+                    onChunk('Reading.<tool_call name="read">{"path":"a.ts"}');
+                })
+                .mockImplementationOnce(async (_p: string, onChunk: Function) => {
+                    onChunk('It exports a.');
+                }),
+        };
+        const provider: any = new ChatProvider(context, llmClient);
+        jest.spyOn(provider._toolManager, 'callTool').mockResolvedValue({ output: 'export const a = 1;' });
+        const webview = { postMessage: jest.fn() } as any;
+
+        await provider._processMessage('what is in a.ts?', webview);
+
+        const saved = provider._currentSession.messages.pop().content;
+        expect(saved).toContain('<tool_call name="read">{"path":"a.ts"}</tool_call>');
+        expect(saved).toContain('<observation status="ok">');
+        expect(saved).toContain('It exports a.');
+    });
+
+    it('keeps tool traffic out of the prompt history', () => {
+        const { summarizeForHistory } = require('../../src/ChatProvider');
+        const text = 'Done.<tool_call name="apply" path="a.js">lots of code</tool_call><observation status="ok">saved</observation>';
+        expect(summarizeForHistory(text)).toBe('Done.[edited a.js]');
+    });
+});
+
 describe('ChatProvider system prompt', () => {
     it('requires the apply tool for file modifications', () => {
         const context: any = {
