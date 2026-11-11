@@ -1,368 +1,309 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as os from 'os';
-import * as fs from 'fs';
 import { resolveWorkspacePath } from '../utils/workspacePath';
+import { Segment, computeSegments, changeSegments, render, allDecided, splitLines, RenderResult } from './inlineDiff';
 
 /**
- * Manages the inline code apply lifecycle:
+ * Reviews a proposed change directly inside the real file, like an inline
+ * code-editor suggestion:
  *
- *  1. proposeChange() — creates temporary original/proposed files and opens diff
- *  2. accept() — applies the proposed content to the real file
- *  3. reject() — discards the proposal without modifying the real file
+ *  - removed lines are shown with a red background, added lines in green;
+ *  - each change has "Accept" / "Reject" buttons (CodeLens) right above it,
+ *    plus "Accept All" (Ctrl+Enter) and "Reject All" (Ctrl+Backspace);
+ *  - when every change is decided, the file is saved with the result.
  *
- * The target file is NEVER modified during proposeChange().
+ * Until the review ends, the extra lines only live in the editor buffer.
+ * Rejecting everything restores the original text.
  */
-export class InlineApplyService {
-    private _originalContent: string | null = null;
-    private _proposedContent: string | null = null;
-    private _targetUri: vscode.Uri | null = null;
-    private _originalTempUri: vscode.Uri | null = null;
-    private _proposedTempUri: vscode.Uri | null = null;
+export class InlineApplyService implements vscode.CodeLensProvider {
+    private _segments: Segment[] = [];
+    private _document: vscode.TextDocument | null = null;
+    private _wasDirty = false;
+    private _createdFile = false;
+    private _eol = '\n';
+    /** Text Orbit last put in the buffer; anything else means the user edited it. */
+    private _renderedText: string | null = null;
+    private _rendered: RenderResult | null = null;
     private _pendingResolve: ((accepted: boolean) => void) | null = null;
 
-    /**
-     * Proposes a code change by opening VS Code's native diff editor.
-     *
-     * The real target file is not modified until the user explicitly accepts.
-     *
-     * @param targetFilePath - Absolute path to the file to modify
-     * @param proposedContent - The full new content for the file
-     * @returns true if accepted, false if rejected or failed
-     */
+    private _addedDecoration: vscode.TextEditorDecorationType | null = null;
+    private _removedDecoration: vscode.TextEditorDecorationType | null = null;
+    private readonly _codeLensChanged = typeof (vscode as any).EventEmitter === 'function'
+        ? new vscode.EventEmitter<void>()
+        : null;
+    public readonly onDidChangeCodeLenses = this._codeLensChanged?.event;
 
-    /**
-     * Reads a file as text. A file that does not exist yet reads as empty,
-     * so the agent can create new files; any other error is rethrown.
-     */
-    private async readFileOrEmpty(uri: vscode.Uri): Promise<string> {
-        try {
-            const bytes = await vscode.workspace.fs.readFile(uri);
-            return Buffer.from(bytes).toString('utf8');
-        } catch (e: any) {
-            const notFound =
-                e?.code === 'FileNotFound' ||
-                e?.code === 'ENOENT' ||
-                /ENOENT|FileNotFound|EntryNotFound/i.test(String(e?.message));
-            if (notFound) {
-                return '';
-            }
-            throw e;
+    /** Registers the editor buttons, commands and keybinding context. Call once on activation. */
+    register(context: vscode.ExtensionContext): void {
+        if (!vscode.languages?.registerCodeLensProvider || !vscode.commands?.registerCommand) {
+            return;
         }
+
+        this._addedDecoration = vscode.window.createTextEditorDecorationType({
+            isWholeLine: true,
+            backgroundColor: new vscode.ThemeColor('diffEditor.insertedLineBackground'),
+            overviewRulerColor: new vscode.ThemeColor('editorOverviewRuler.addedForeground'),
+            overviewRulerLane: vscode.OverviewRulerLane.Left,
+        });
+        this._removedDecoration = vscode.window.createTextEditorDecorationType({
+            isWholeLine: true,
+            backgroundColor: new vscode.ThemeColor('diffEditor.removedLineBackground'),
+            overviewRulerColor: new vscode.ThemeColor('editorOverviewRuler.deletedForeground'),
+            overviewRulerLane: vscode.OverviewRulerLane.Left,
+            opacity: '0.75',
+        });
+
+        const subscriptions = [
+            this._addedDecoration,
+            this._removedDecoration,
+            vscode.languages.registerCodeLensProvider({ scheme: 'file' }, this),
+            vscode.commands.registerCommand('orbit.inlineChange.acceptAll', () => this.decideAll('accepted')),
+            vscode.commands.registerCommand('orbit.inlineChange.rejectAll', () => this.decideAll('rejected')),
+            vscode.commands.registerCommand('orbit.inlineChange.acceptHunk', (i: number) => this.decideHunk(i, 'accepted')),
+            vscode.commands.registerCommand('orbit.inlineChange.rejectHunk', (i: number) => this.decideHunk(i, 'rejected')),
+            // Re-apply highlights when the file is shown again (e.g. after switching tabs).
+            vscode.window.onDidChangeVisibleTextEditors(() => this.decorate()),
+            vscode.workspace.onDidCloseTextDocument(doc => {
+                if (doc === this._document) {
+                    this.finish(false);
+                }
+            }),
+        ];
+        if (this._codeLensChanged) {
+            subscriptions.push(this._codeLensChanged);
+        }
+        context.subscriptions?.push(...subscriptions);
     }
 
-    private validateWorkspacePath(targetFilePath: string): string {
-        const workspaceRoot =
-            vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-
-        if (!workspaceRoot) {
-            throw new Error('No workspace open');
-        }
-
-        if (
-            typeof targetFilePath !== 'string' ||
-            targetFilePath.trim() === ''
-        ) {
-            throw new Error('A valid file path is required');
-        }
-
-        const resolvedRoot = path.resolve(workspaceRoot);
-        const resolvedTarget = path.resolve(targetFilePath);
-
-        const relativePath = path.relative(
-            resolvedRoot,
-            resolvedTarget
-        );
-
-        if (
-            relativePath === '..' ||
-            relativePath.startsWith(`..${path.sep}`) ||
-            path.isAbsolute(relativePath)
-        ) {
-            throw new Error(
-                'Access denied: path is outside the workspace'
-            );
-        }
-
-        return resolvedTarget;
+    get hasPendingProposal(): boolean {
+        return this._document !== null;
     }
 
-    async proposeChange(
-        targetFilePath: string,
-        proposedContent: string
-    ): Promise<boolean> {
-        let validatedPath: string;
-
+    /**
+     * Shows the change inline in the target file and waits for the user.
+     * @returns true if the user accepted at least one change.
+     */
+    async proposeChange(targetFilePath: string, proposedContent: string): Promise<boolean> {
+        let fullPath: string;
         try {
-            validatedPath = await resolveWorkspacePath(targetFilePath);
+            fullPath = await resolveWorkspacePath(targetFilePath);
         } catch (e: any) {
             vscode.window.showErrorMessage(e.message);
             return false;
         }
 
-        targetFilePath = validatedPath;
-
-        // rest of lifecycle unchanged...
-        // Resolve any previous pending proposal as rejected before cleanup.
-        if (this._pendingResolve) {
-            this._pendingResolve(false);
-            this._pendingResolve = null;
+        // Only one review at a time: the previous one counts as rejected.
+        if (this.hasPendingProposal) {
+            await this.reject();
         }
 
-        this.cleanup();
-
-        const targetUri = vscode.Uri.file(targetFilePath);
-
-        // 1. Read and save the current original content.
-        // A file that does not exist yet is treated as empty, so the agent can create files.
+        const uri = vscode.Uri.file(fullPath);
+        let document: vscode.TextDocument;
+        let createdFile = false;
         try {
-            const openDocument = vscode.workspace.textDocuments.find(
-                document => document.uri.fsPath === targetUri.fsPath
-            );
-
-            if (openDocument) {
-                this._originalContent = openDocument.getText();
-            } else {
-                this._originalContent = await this.readFileOrEmpty(targetUri);
+            if (!(await this.exists(uri))) {
+                // A new file: create it empty so it can be reviewed like any other.
+                await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(fullPath)));
+                await vscode.workspace.fs.writeFile(uri, new Uint8Array());
+                createdFile = true;
             }
-        } catch (e) {
-            vscode.window.showErrorMessage(
-                `Cannot read file: ${targetFilePath}`
-            );
+            document = await vscode.workspace.openTextDocument(uri);
+        } catch (e: any) {
+            vscode.window.showErrorMessage(`Orbit: Cannot open ${path.basename(fullPath)}: ${e.message}`);
             return false;
         }
 
-        // Nothing to review if the file already holds exactly this content.
-        if (this._originalContent === proposedContent) {
-            this.cleanup();
-            vscode.window.showInformationMessage(
-                `Orbit: ${path.basename(targetFilePath)} already has these contents.`
-            );
+        const original = document.getText();
+        const eol = document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
+        let proposed = splitLines(proposedContent).join(eol);
+        // Keep the file's trailing newline convention.
+        if (original.endsWith(eol) && !proposed.endsWith(eol)) {
+            proposed += eol;
+        }
+
+        if (original === proposed) {
+            vscode.window.showInformationMessage(`Orbit: ${path.basename(fullPath)} already has these contents.`);
             return true;
         }
 
-        this._targetUri = targetUri;
-        this._proposedContent = proposedContent;
+        this._document = document;
+        this._wasDirty = document.isDirty;
+        this._createdFile = createdFile;
+        this._eol = eol;
+        this._segments = computeSegments(original, proposed);
 
-        // 2. Create unique temporary files for the diff.
-        const tempDir = os.tmpdir();
-        const ext = path.extname(targetFilePath);
-        const baseName = path.basename(targetFilePath, ext);
-        const uniqueId = `${Date.now()}-${process.pid}`;
+        const editor = await vscode.window.showTextDocument(document, { preview: false });
+        await this.renderToBuffer();
 
-        const originalTempPath = path.join(
-            tempDir,
-            `${baseName}.original.${uniqueId}${ext}`
-        );
-
-        const proposedTempPath = path.join(
-            tempDir,
-            `${baseName}.proposed.${uniqueId}${ext}`
-        );
-
-        try {
-            fs.writeFileSync(
-                originalTempPath,
-                this._originalContent,
-                'utf8'
-            );
-
-            fs.writeFileSync(
-                proposedTempPath,
-                proposedContent,
-                'utf8'
-            );
-
-            this._originalTempUri = vscode.Uri.file(originalTempPath);
-            this._proposedTempUri = vscode.Uri.file(proposedTempPath);
-        } catch (e: any) {
-            this.cleanup();
-            vscode.window.showErrorMessage(
-                `Cannot prepare change preview: ${e.message}`
-            );
-            return false;
+        const firstHunk = this._rendered?.hunks[0];
+        if (firstHunk) {
+            const position = new vscode.Position(firstHunk.startLine, 0);
+            editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
         }
+        await vscode.commands.executeCommand('setContext', 'orbit.inlineChangePending', true);
 
-        // 3. Open diff: original on the left, proposed on the right.
-        try {
-            const fileName = path.basename(targetFilePath);
-
-            await vscode.commands.executeCommand(
-                'vscode.diff',
-                this._originalTempUri,
-                this._proposedTempUri,
-                `${fileName}: Original ↔ Proposed Changes`,
-                { preview: true }
-            );
-        } catch (e: any) {
-            this.cleanup();
-            vscode.window.showErrorMessage(
-                `Cannot open change preview: ${e.message}`
-            );
-            return false;
-        }
-
-        // 4. Ask the user for explicit approval.
-        return new Promise<boolean>((resolve) => {
+        return new Promise<boolean>(resolve => {
             this._pendingResolve = resolve;
-
-            vscode.window.showInformationMessage(
-                `Orbit: Review proposed changes for ${path.basename(targetFilePath)}.`,
-                'Accept ✓',
-                'Reject ✕'
-            ).then(async (choice) => {
-                this._pendingResolve = null;
-
-                if (choice === 'Accept ✓') {
-                    try {
-                        await this.accept();
-                        resolve(true);
-                    } catch (e: any) {
-                        vscode.window.showErrorMessage(
-                            `Orbit: Could not apply changes: ${e.message}`
-                        );
-                        resolve(false);
-                    }
-                } else {
-                    await this.reject();
-                    resolve(false);
-                }
-            });
         });
     }
 
-    /**
-     * Accepts the proposed changes.
-     *
-     * Before writing, verifies that the target file has not changed since
-     * the proposal was created. This prevents Orbit from overwriting
-     * unrelated user edits.
-     */
     async accept(): Promise<void> {
-        if (
-            !this._targetUri ||
-            this._originalContent === null ||
-            this._proposedContent === null
-        ) {
+        await this.decideAll('accepted');
+    }
+
+    async reject(): Promise<void> {
+        await this.decideAll('rejected');
+    }
+
+    async decideAll(decision: 'accepted' | 'rejected'): Promise<void> {
+        if (!this.hasPendingProposal) {
+            return;
+        }
+        for (const segment of changeSegments(this._segments)) {
+            if (segment.decision === 'pending') {
+                segment.decision = decision;
+            }
+        }
+        await this.update();
+    }
+
+    async decideHunk(index: number, decision: 'accepted' | 'rejected'): Promise<void> {
+        const segment = changeSegments(this._segments)[index];
+        if (!segment || segment.decision !== 'pending') {
+            return;
+        }
+        segment.decision = decision;
+        await this.update();
+    }
+
+    provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
+        if (document !== this._document || !this._rendered) {
+            return [];
+        }
+        const pending = this._rendered.hunks.filter(h => h.decision === 'pending');
+        const lenses: vscode.CodeLens[] = [];
+
+        pending.forEach((hunk, i) => {
+            const line = Math.min(hunk.startLine, Math.max(document.lineCount - 1, 0));
+            const range = new vscode.Range(line, 0, line, 0);
+            if (i === 0 && pending.length > 1) {
+                lenses.push(
+                    new vscode.CodeLens(range, { title: '✓ Accept All (Ctrl+Enter)', command: 'orbit.inlineChange.acceptAll' }),
+                    new vscode.CodeLens(range, { title: '✕ Reject All (Ctrl+Backspace)', command: 'orbit.inlineChange.rejectAll' }),
+                );
+            }
+            const shortcut = pending.length === 1 ? ' (Ctrl+Enter)' : '';
+            const rejectShortcut = pending.length === 1 ? ' (Ctrl+Backspace)' : '';
+            lenses.push(
+                new vscode.CodeLens(range, { title: `✓ Accept${shortcut}`, command: 'orbit.inlineChange.acceptHunk', arguments: [hunk.index] }),
+                new vscode.CodeLens(range, { title: `✕ Reject${rejectShortcut}`, command: 'orbit.inlineChange.rejectHunk', arguments: [hunk.index] }),
+            );
+        });
+        return lenses;
+    }
+
+    /** Re-renders after a decision, or finishes once every change is decided. */
+    private async update(): Promise<void> {
+        const document = this._document;
+        if (!document) {
             return;
         }
 
-        const targetUri = this._targetUri;
-
-        const currentDocument = vscode.workspace.textDocuments.find(
-            document => document.uri.fsPath === targetUri.fsPath
-        );
-
-        const currentContent = currentDocument
-            ? currentDocument.getText()
-            : await this.readFileOrEmpty(targetUri);
-
-        // Never overwrite changes made after the proposal was created.
-        if (currentContent !== this._originalContent) {
-            this.cleanup();
-
-            throw new Error(
-                'The file changed while the proposal was open. ' +
-                'The proposed changes were not applied.'
+        // The user typed in the file during the review: do not overwrite their edits.
+        if (this._renderedText !== null && document.getText() !== this._renderedText) {
+            vscode.window.showErrorMessage(
+                'Orbit: The file changed while the proposal was open. The proposed changes were not applied.'
             );
+            this.finish(false);
+            return;
         }
 
-        if (currentDocument) {
-            const editor = await vscode.window.showTextDocument(
-                currentDocument,
-                { preview: false }
-            );
+        if (!allDecided(this._segments)) {
+            await this.renderToBuffer();
+            return;
+        }
 
-            const fullRange = new vscode.Range(
-                currentDocument.positionAt(0),
-                currentDocument.positionAt(currentDocument.getText().length)
-            );
-
-            const applied = await editor.edit(editBuilder => {
-                editBuilder.replace(fullRange, this._proposedContent!);
-            });
-
-            if (!applied) {
-                throw new Error('VS Code rejected the proposed edit.');
+        const accepted = changeSegments(this._segments).some(s => s.decision === 'accepted');
+        try {
+            await this.renderToBuffer();
+            this.clearDecorations();
+            if (!accepted && this._createdFile) {
+                // The new file was never wanted: remove it again.
+                await vscode.workspace.fs.delete(document.uri);
+            } else if (accepted || !this._wasDirty) {
+                await document.save();
             }
-
-            await currentDocument.save();
-        } else {
-            const encoder = new TextEncoder();
-
-            await vscode.workspace.fs.createDirectory(
-                vscode.Uri.file(path.dirname(targetUri.fsPath))
-            );
-            await vscode.workspace.fs.writeFile(
-                targetUri,
-                encoder.encode(this._proposedContent)
-            );
-            // Open the new file so the user sees what the agent wrote.
-            await vscode.window.showTextDocument(targetUri, { preview: false });
+        } catch (e: any) {
+            vscode.window.showErrorMessage(`Orbit: Could not finish the change: ${e.message}`);
         }
-
-        vscode.window.showInformationMessage(
-            `Orbit: Changes accepted ✓`
-        );
-
-        this.cleanup();
+        this.finish(accepted);
     }
 
-    /**
-     * Rejects the proposed changes.
-     *
-     * Since proposeChange() never modifies the real file, rejection simply
-     * discards the temporary preview files.
-     */
-    async reject(): Promise<void> {
-        // Release anyone still waiting for the user's answer (e.g. the agent loop).
-        if (this._pendingResolve) {
-            this._pendingResolve(false);
-            this._pendingResolve = null;
+    private async renderToBuffer(): Promise<void> {
+        const document = this._document;
+        if (!document) {
+            return;
         }
+        this._rendered = render(this._segments);
+        const text = this._rendered.lines.join(this._eol);
 
-        this.cleanup();
-
-        vscode.window.showInformationMessage(
-            'Orbit: Changes rejected — file unchanged ✕'
-        );
+        if (document.getText() !== text) {
+            const edit = new vscode.WorkspaceEdit();
+            edit.replace(
+                document.uri,
+                new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)),
+                text
+            );
+            await vscode.workspace.applyEdit(edit);
+        }
+        this._renderedText = document.getText();
+        this.decorate();
+        this._codeLensChanged?.fire();
     }
 
-    /**
-     * Checks if there's a pending proposal.
-     */
-    get hasPendingProposal(): boolean {
-        return (
-            this._originalContent !== null &&
-            this._proposedContent !== null &&
-            this._targetUri !== null
-        );
+    private decorate(): void {
+        if (!this._document || !this._rendered || !this._addedDecoration || !this._removedDecoration) {
+            return;
+        }
+        const toRanges = (lines: number[]) => lines.map(l => new vscode.Range(l, 0, l, 0));
+        for (const editor of vscode.window.visibleTextEditors) {
+            if (editor.document === this._document) {
+                editor.setDecorations(this._addedDecoration, toRanges(this._rendered.addedLines));
+                editor.setDecorations(this._removedDecoration, toRanges(this._rendered.removedLines));
+            }
+        }
     }
 
-    /**
-     * Clean up temporary files and pending state.
-     */
-    private cleanup(): void {
-        if (this._originalTempUri) {
-            try {
-                fs.unlinkSync(this._originalTempUri.fsPath);
-            } catch {
-                // Ignore cleanup failures.
-            }
+    private clearDecorations(): void {
+        if (!this._addedDecoration || !this._removedDecoration) {
+            return;
         }
-
-        if (this._proposedTempUri) {
-            try {
-                fs.unlinkSync(this._proposedTempUri.fsPath);
-            } catch {
-                // Ignore cleanup failures.
-            }
+        for (const editor of vscode.window.visibleTextEditors ?? []) {
+            editor.setDecorations(this._addedDecoration, []);
+            editor.setDecorations(this._removedDecoration, []);
         }
+    }
 
-        this._originalContent = null;
-        this._proposedContent = null;
-        this._targetUri = null;
-        this._originalTempUri = null;
-        this._proposedTempUri = null;
+    private finish(accepted: boolean): void {
+        this.clearDecorations();
+        const resolve = this._pendingResolve;
+        this._pendingResolve = null;
+        this._document = null;
+        this._renderedText = null;
+        this._rendered = null;
+        this._segments = [];
+        this._createdFile = false;
+        this._codeLensChanged?.fire();
+        Promise.resolve(vscode.commands.executeCommand('setContext', 'orbit.inlineChangePending', false)).catch(() => undefined);
+        resolve?.(accepted);
+    }
+
+    private async exists(uri: vscode.Uri): Promise<boolean> {
+        try {
+            await vscode.workspace.fs.stat(uri);
+            return true;
+        } catch {
+            return false;
+        }
     }
 }

@@ -28,6 +28,14 @@
         "title": "Orbit: Open Chat"
       },
       {
+        "command": "orbit.inlineChange.acceptAll",
+        "title": "Orbit: Accept All Proposed Changes"
+      },
+      {
+        "command": "orbit.inlineChange.rejectAll",
+        "title": "Orbit: Reject All Proposed Changes"
+      },
+      {
         "command": "orbit.explain",
         "title": "Orbit: Explain Selection"
       },
@@ -98,6 +106,18 @@
       }
     ],
     "keybindings": [
+      {
+        "command": "orbit.inlineChange.acceptAll",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus && orbit.inlineChangePending"
+      },
+      {
+        "command": "orbit.inlineChange.rejectAll",
+        "key": "ctrl+backspace",
+        "mac": "cmd+backspace",
+        "when": "editorTextFocus && orbit.inlineChangePending"
+      },
       {
         "command": "orbit.chat",
         "key": "ctrl+l",
