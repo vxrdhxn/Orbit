@@ -40,6 +40,19 @@ describe('ImportGraphBuilder', () => {
         expect(graph.imports.get(filePath)).toContain(buttonPath);
     });
 
+    test('should resolve alias imports (@/) to src first', () => {
+        const filePath = path.join(projectRoot, 'src', 'main.ts');
+        const content = "import { api } from '@/lib/api'";
+        const apiPath = path.join(projectRoot, 'src', 'lib', 'api.ts');
+
+        (fs.existsSync as jest.Mock).mockImplementation((p) => p === apiPath);
+        (fs.statSync as jest.Mock).mockReturnValue({ isFile: () => true, isDirectory: () => false });
+
+        const graph = builder.buildGraph([{ path: filePath, content }]);
+
+        expect(graph.imports.get(filePath)).toContain(apiPath);
+    });
+
     test('should resolve directory index imports', () => {
         const filePath = path.join(projectRoot, 'src', 'main.ts');
         const content = "import { api } from './api'";

@@ -4,12 +4,14 @@ import { ImportGraph } from './types';
 
 export class ImportGraphBuilder {
     private readonly projectRoot: string;
-    private readonly uiSourceRoot: string;
+    /** Folders the `@/` alias may point to, most common first. */
+    private readonly aliasRoots: string[];
 
     constructor(projectRoot: string = '') {
         this.projectRoot = projectRoot;
-        // Based on vite.config.ts: alias @/ -> src/ui
-        this.uiSourceRoot = path.join(this.projectRoot, 'src', 'ui');
+        // `@/` usually means `src/` (Vite, Next.js, Vue CLI); `src/ui` is kept for
+        // projects laid out like Orbit's original webview.
+        this.aliasRoots = [path.join(this.projectRoot, 'src'), path.join(this.projectRoot, 'src', 'ui')];
     }
 
     /**
@@ -61,8 +63,13 @@ export class ImportGraphBuilder {
         let absolutePath: string;
 
         if (importPath.startsWith('@/')) {
-            // Handle alias @/ -> src/ui
-            absolutePath = path.join(this.uiSourceRoot, importPath.substring(2));
+            for (const root of this.aliasRoots) {
+                const found = this.findExistingFile(path.join(root, importPath.substring(2)));
+                if (found) {
+                    return found;
+                }
+            }
+            return '';
         } else if (importPath.startsWith('.')) {
             // Handle relative imports
             absolutePath = path.resolve(dir, importPath);
