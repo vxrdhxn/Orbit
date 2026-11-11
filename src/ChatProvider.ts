@@ -16,8 +16,27 @@ import { parseCodeBlocks, languageMatchesFile, isTerminalLanguage } from './util
 import { LLMRouter } from './reasoning/LLMRouter';
 import { StructuredResponse } from './reasoning/types';
 import { log } from './logger';
+import { ApiKeyStore, KeyProvider, KEY_PROVIDERS } from './providers/ApiKeyStore';
 import { resolveWorkspacePath } from './utils/workspacePath';
 import { classifyEditIntent, preserveExistingCode, countLineChanges, wantsAppend, appendNewCode } from './utils/editIntent';
+
+/** Modes the chat's connection panel can switch between. */
+export const CONNECTION_MODES = ['cloud', 'custom', 'groq', 'openrouter', 'local-server', 'offline'] as const;
+export type ConnectionMode = typeof CONNECTION_MODES[number];
+
+/** The setting that holds the chosen model for a mode. */
+export function modelSettingFor(mode: string): 'offlineModel' | 'localServerModel' | 'onlineModel' {
+    if (mode === 'offline') {
+        return 'offlineModel';
+    }
+    if (mode === 'local-server') {
+        return 'localServerModel';
+    }
+    return 'onlineModel';
+}
+
+/** Webview messages handled by the connection panel. */
+const CONNECTION_MESSAGE_TYPES = new Set(['getConnection', 'setMode', 'setApiKey', 'clearApiKey', 'setEndpoint', 'testConnection']);
 
 const MAX_HISTORY_MESSAGES = 6;
 const MAX_HISTORY_CHARS = 1500;
@@ -116,7 +135,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly _context: vscode.ExtensionContext,
     private readonly _llmClient: ILLMClient,
-    private readonly _llmRouter?: LLMRouter
+    private readonly _llmRouter?: LLMRouter,
+    private readonly _keys: ApiKeyStore = new ApiKeyStore()
   ) {
 
     this._currentSession = this._createNewSession();
@@ -128,6 +148,118 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     this._inlineApply.register(_context);
     this._terminalService = new TerminalService();
     this._toolManager = new ToolManager(this._terminalService, this._inlineApply);
+
+    // Keep the chat's connection panel in sync when settings change elsewhere.
+    const onConfig = vscode.workspace.onDidChangeConfiguration?.(e => {
+      if (['orbit.mode', 'orbit.onlineApiEndpoint', 'orbit.localServerEndpoint'].some(k => e.affectsConfiguration(k))) {
+        this._scheduleConnectionRefresh();
+      }
+    });
+    if (onConfig) {
+      _context.subscriptions?.push(onConfig);
+    }
+  }
+
+  /** Current provider settings for the chat's connection panel. Keys themselves are never sent. */
+  private _connectionInfo() {
+    const config = vscode.workspace.getConfiguration('orbit');
+    const hasKey: Record<string, boolean> = {};
+    for (const provider of KEY_PROVIDERS) {
+      hasKey[provider] = this._keys.has(provider);
+    }
+    return {
+      mode: config.get<string>('mode', 'cloud'),
+      hasKey,
+      endpoint: config.get<string>('onlineApiEndpoint', 'https://api.openai.com/v1'),
+      localServerEndpoint: config.get<string>('localServerEndpoint', 'http://localhost:1234/v1'),
+    };
+  }
+
+  private _refreshTimer: NodeJS.Timeout | null = null;
+
+  /** Sends provider info, the model list and the connection state again (debounced). */
+  private _scheduleConnectionRefresh(): void {
+    const webview = this._webviewView?.webview;
+    if (!webview) {
+      return;
+    }
+    if (this._refreshTimer) {
+      clearTimeout(this._refreshTimer);
+    }
+    this._refreshTimer = setTimeout(async () => {
+      this._refreshTimer = null;
+      this._lastConnectionOkAt = 0;
+      webview.postMessage({ type: 'connectionInfo', value: this._connectionInfo() });
+      await this._sendModelList(webview);
+      await this._sendConnectionStatus(webview);
+    }, 150);
+  }
+
+  /** Opens the chat and shows its connection panel (used by the status bar item). */
+  public async showConnectionPanel(): Promise<void> {
+    await vscode.commands.executeCommand('orbit.chatView.focus');
+    if (!this._webviewView) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    this._webviewView?.webview.postMessage({ type: 'connectionInfo', value: this._connectionInfo() });
+    this._webviewView?.webview.postMessage({ type: 'openConnectionPanel' });
+  }
+
+  /** Handles the connection panel's messages. Returns false for other message types. */
+  private async _handleConnectionMessage(data: any, webview: vscode.Webview): Promise<boolean> {
+    const config = vscode.workspace.getConfiguration('orbit');
+    switch (data.type) {
+      case 'getConnection':
+        webview.postMessage({ type: 'connectionInfo', value: this._connectionInfo() });
+        return true;
+      case 'setMode': {
+        if (!(CONNECTION_MODES as readonly string[]).includes(data.value)) {
+          return true;
+        }
+        await config.update('mode', data.value, vscode.ConfigurationTarget.Global);
+        this._scheduleConnectionRefresh();
+        return true;
+      }
+      case 'setApiKey': {
+        const provider = data.provider as KeyProvider;
+        if (!KEY_PROVIDERS.includes(provider) || typeof data.value !== 'string') {
+          return true;
+        }
+        await this._keys.set(provider, data.value);
+        this._scheduleConnectionRefresh();
+        return true;
+      }
+      case 'clearApiKey': {
+        const provider = data.provider as KeyProvider;
+        if (KEY_PROVIDERS.includes(provider)) {
+          await this._keys.clear(provider);
+          this._scheduleConnectionRefresh();
+        }
+        return true;
+      }
+      case 'setEndpoint': {
+        const field = data.field === 'localServer' ? 'localServerEndpoint' : data.field === 'custom' ? 'onlineApiEndpoint' : null;
+        const value = typeof data.value === 'string' ? data.value.trim().replace(/\/+$/, '') : '';
+        if (!field || !/^https?:\/\/\S+$/i.test(value)) {
+          webview.postMessage({ type: 'connectionTestResult', value: { ok: false, message: 'Enter a full URL starting with http:// or https://' } });
+          return true;
+        }
+        await config.update(field, value, vscode.ConfigurationTarget.Global);
+        this._scheduleConnectionRefresh();
+        return true;
+      }
+      case 'testConnection': {
+        this._lastConnectionOkAt = 0;
+        const status = await this._llmClient.checkConnection();
+        webview.postMessage({ type: 'connectionTestResult', value: status });
+        webview.postMessage({ type: 'updateConnectionState', value: status });
+        if (status.ok) {
+          await this._sendModelList(webview);
+        }
+        return true;
+      }
+    }
+    return false;
   }
 
   private _createNewSession(): ChatSession {
@@ -725,6 +857,12 @@ export class ChatProvider implements vscode.WebviewViewProvider {
     this._sendModelList(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage(async (data) => {
+      // Only the panel's own messages take this path, so other messages are handled
+      // without an extra await (callers rely on e.g. clearChat being posted right away).
+      if (CONNECTION_MESSAGE_TYPES.has(data?.type)) {
+        await this._handleConnectionMessage(data, webviewView.webview);
+        return;
+      }
       switch (data.type) {
         case 'refreshModels': {
           await this._sendModelList(webviewView.webview);
@@ -732,6 +870,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         }
         case 'webviewReady': {
           log('Received webviewReady, sending model list and history');
+          webviewView.webview.postMessage({ type: 'connectionInfo', value: this._connectionInfo() });
           await this._sendConnectionStatus(webviewView.webview);
           await this._sendModelList(webviewView.webview);
           await this._sendHistory(webviewView.webview);
@@ -773,11 +912,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
           const model = data.value;
           const currentMode = config.get<string>('mode', 'cloud');
           
-          if (currentMode === 'cloud' || currentMode === 'custom') {
-            await config.update('onlineModel', model, vscode.ConfigurationTarget.Global);
-          } else {
-            await config.update('offlineModel', model, vscode.ConfigurationTarget.Global);
-          }
+          // Groq, OpenRouter and the local server used to save into offlineModel by mistake.
+          await config.update(modelSettingFor(currentMode), model, vscode.ConfigurationTarget.Global);
           
           vscode.window.showInformationMessage(`Orbit: Model changed to ${model}`);
           
@@ -1074,13 +1210,13 @@ export class ChatProvider implements vscode.WebviewViewProvider {
 
       const config = vscode.workspace.getConfiguration('orbit');
       const currentMode = config.get<string>('mode', 'cloud');
-      const isOffline = currentMode === 'offline';
-      let currentModel = config.get<string>(isOffline ? 'offlineModel' : 'onlineModel') || '';
+      const modelSetting = modelSettingFor(currentMode);
+      let currentModel = config.get<string>(modelSetting) || '';
 
       // Auto-sync: if the configured model isn't installed/available, switch to the first available one
       if (models.length > 0 && (!currentModel || !models.includes(currentModel))) {
         currentModel = models[0];
-        await config.update(isOffline ? 'offlineModel' : 'onlineModel', currentModel, vscode.ConfigurationTarget.Global);
+        await config.update(modelSetting, currentModel, vscode.ConfigurationTarget.Global);
         log(`Orbit: Auto-selected model "${currentModel}" (previous model not found)`);
       }
 

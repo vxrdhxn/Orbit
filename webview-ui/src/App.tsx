@@ -8,6 +8,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { ChatHistory } from './components/ChatHistory';
 import { useOrbitStore } from './store/useOrbitStore';
 import { OrbitLogo } from './components/OrbitLogo';
+import { ConnectionPanel, modeLabel, modeIcon } from './components/ConnectionPanel';
 
 declare global {
     interface Window {
@@ -27,6 +28,7 @@ function App() {
         currentModel, setCurrentModel,
         selectedImage, setSelectedImage,
         attachments, addAttachment, removeAttachment, clearAttachments,
+        connection, setConnection, connectionPanelOpen, setConnectionPanelOpen, setConnectionTest,
         statusMessage, setStatusMessage,
         connectionState, setConnectionState,
         hasAttemptedInitialHistoryLoad, setHasAttemptedInitialHistoryLoad,
@@ -80,7 +82,17 @@ function App() {
                     }
                     break;
                 case 'updateConnectionState':
-                    setConnectionState(message.value.ok ? 'Connected' : 'Disconnected');
+                    setConnectionState(message.value.message === 'Checking...' ? 'Checking...' : message.value.ok ? 'Connected' : 'Disconnected');
+                    break;
+                case 'connectionInfo':
+                    setConnection(message.value);
+                    break;
+                case 'openConnectionPanel':
+                    setView('chat');
+                    setConnectionPanelOpen(true);
+                    break;
+                case 'connectionTestResult':
+                    setConnectionTest(message.value);
                     break;
                 case 'updateModels':
                     setModels(message.value.models);
@@ -132,7 +144,7 @@ function App() {
         vscode.postMessage({ type: 'webviewReady' });
 
         return () => window.removeEventListener('message', handleMessage);
-    }, [hasAttemptedInitialHistoryLoad, setChatHistory, setHasAttemptedInitialHistoryLoad, setView, addMessage, setIsGenerating, setStatusMessage, appendAIResponseChunk, startAIResponse, setAIResponse, setConnectionState, setModels, setCurrentModel, setSelectedImage, addAttachment, clearChat, setMessages, setProposal, setDecisions, appendDecisions]);
+    }, [hasAttemptedInitialHistoryLoad, setChatHistory, setHasAttemptedInitialHistoryLoad, setView, addMessage, setIsGenerating, setStatusMessage, appendAIResponseChunk, startAIResponse, setAIResponse, setConnectionState, setModels, setCurrentModel, setSelectedImage, addAttachment, setConnection, setConnectionPanelOpen, setConnectionTest, clearChat, setMessages, setProposal, setDecisions, appendDecisions]);
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -239,10 +251,20 @@ function App() {
                     <span>Orbit AI</span>
                 </div>
                 <div className="app-header-right">
-                    <span
-                        className={`status-dot ${isGenerating ? 'busy' : connectionState === 'Connected' ? 'ok' : connectionState === 'Checking...' ? 'checking' : 'down'}`}
-                        title={isGenerating ? 'Working' : connectionState}
-                    />
+                    <button
+                        className={`provider-pill ${connectionPanelOpen ? 'open' : ''}`}
+                        title="Choose the AI provider and API key"
+                        aria-expanded={connectionPanelOpen}
+                        onClick={() => setConnectionPanelOpen(!connectionPanelOpen)}
+                    >
+                        <span
+                            className={`status-dot ${isGenerating ? 'busy' : connectionState === 'Connected' ? 'ok' : connectionState === 'Checking...' ? 'checking' : 'down'}`}
+                            title={isGenerating ? 'Working' : connectionState}
+                        />
+                        <span className={`codicon ${modeIcon(connection?.mode)}`} />
+                        <span className="provider-name">{modeLabel(connection?.mode)}</span>
+                        <span className={`codicon ${connectionPanelOpen ? 'codicon-chevron-up' : 'codicon-chevron-down'}`} />
+                    </button>
                     {telemetry && !isGenerating && (
                         <span className="telemetry" title={`Last step took ${(telemetry.durationMs / 1000).toFixed(1)}s`}>
                             {telemetry.tps} tok/s
@@ -257,6 +279,8 @@ function App() {
                 </div>
             </header>
 
+            {connectionPanelOpen && <ConnectionPanel />}
+
             <div className="app-body">
                 {messages.length === 0 ? (
                     <div className="welcome">
@@ -264,6 +288,11 @@ function App() {
                         <div className="welcome-title">Orbit AI</div>
                         <div className="welcome-subtitle">Code at the speed of thought</div>
                         <div className="welcome-hint">I can read your files, edit code, and run commands. Ask me anything.</div>
+                        <button className="welcome-provider" onClick={() => setConnectionPanelOpen(true)} title="Choose the AI provider and API key">
+                            <span className={`codicon ${modeIcon(connection?.mode)}`} />
+                            {connection ? `Using ${modeLabel(connection.mode)}` : 'Choose an AI provider'}
+                            <span className="welcome-provider-change">Change</span>
+                        </button>
                         <div className="suggestions">
                             {suggestions.map(s => (
                                 <button key={s.text} className="suggestion" onClick={() => handleSend(s.text)}>

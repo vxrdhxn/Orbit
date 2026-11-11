@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Message, DiffProposal, Attachment } from '../types';
+import { Message, DiffProposal, Attachment, ConnectionInfo, ConnectionTestResult } from '../types';
 import { ChatSessionMetadata } from '../components/ChatHistory';
 
 interface OrbitState {
@@ -13,6 +13,10 @@ interface OrbitState {
   currentModel: string;
   selectedImage: string | null;
   attachments: Attachment[];
+  connection: ConnectionInfo | null;
+  connectionPanelOpen: boolean;
+  connectionTest: ConnectionTestResult | null;
+  testingConnection: boolean;
   statusMessage: string;
   connectionState: 'Connected' | 'Disconnected' | 'Checking...';
   hasAttemptedInitialHistoryLoad: boolean;
@@ -34,6 +38,10 @@ interface OrbitState {
   setCurrentModel: (model: string) => void;
   setSelectedImage: (image: string | null) => void;
   addAttachment: (attachment: Attachment) => void;
+  setConnection: (connection: ConnectionInfo) => void;
+  setConnectionPanelOpen: (open: boolean) => void;
+  setConnectionTest: (result: ConnectionTestResult | null) => void;
+  setTestingConnection: (testing: boolean) => void;
   removeAttachment: (path: string) => void;
   clearAttachments: () => void;
   setStatusMessage: (message: string) => void;
@@ -54,6 +62,10 @@ export const useOrbitStore = create<OrbitState>((set) => ({
   currentModel: '',
   selectedImage: null,
   attachments: [],
+  connection: null,
+  connectionPanelOpen: false,
+  connectionTest: null,
+  testingConnection: false,
   statusMessage: '',
   connectionState: 'Checking...',
   hasAttemptedInitialHistoryLoad: false,
@@ -102,6 +114,10 @@ export const useOrbitStore = create<OrbitState>((set) => ({
       ? state.attachments
       : [...state.attachments, attachment]
   })),
+  setConnection: (connection) => set({ connection }),
+  setConnectionPanelOpen: (connectionPanelOpen) => set({ connectionPanelOpen, connectionTest: null }),
+  setConnectionTest: (connectionTest) => set({ connectionTest, testingConnection: false }),
+  setTestingConnection: (testingConnection) => set({ testingConnection }),
   removeAttachment: (path) => set((state) => ({ attachments: state.attachments.filter(a => a.path !== path) })),
   clearAttachments: () => set({ attachments: [] }),
   setStatusMessage: (statusMessage) => set({ statusMessage }),

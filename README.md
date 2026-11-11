@@ -44,6 +44,9 @@ Orbit needs VS Code 1.101 or newer. It works out of the box in the default `clou
 
 ## ⚙️ Configuration
 
+**Choosing a provider:** click the provider button in the chat header, the **Change** link on the welcome screen, or the Orbit item in the status bar. Pick a provider, paste an API key if it needs one, and click **Test connection**. Keys entered there are stored encrypted in VS Code's Secret Storage. You can also set everything below in Settings.
+
+
 | Setting | Default | Description |
 | :--- | :--- | :--- |
 | `orbit.mode` | `cloud` | Operation mode (`cloud`, `custom`, `offline`, `local-server`, `groq`, `openrouter`). |
@@ -102,6 +105,7 @@ Open the Command Palette (`Ctrl + Shift + P`) and type `Orbit`:
 | Orbit: Undo Last Pilot Fix | `orbit.pilot.undo` |
 | Orbit: Export Journal to Workspace | `orbit.sync.export` |
 | Orbit: Import Journal from Workspace | `orbit.sync.import` |
+| Orbit: Choose AI Provider & API Key | `orbit.chooseProvider` |
 | Orbit: Accept All Proposed Changes | `orbit.inlineChange.acceptAll` |
 | Orbit: Reject All Proposed Changes | `orbit.inlineChange.rejectAll` |
 | Orbit: View Decision History | `orbit.viewDecisionHistory` |

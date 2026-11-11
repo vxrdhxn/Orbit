@@ -6,6 +6,21 @@ export interface StructuredResponse {
     production: string;
 }
 
+export type ConnectionMode = 'cloud' | 'custom' | 'groq' | 'openrouter' | 'local-server' | 'offline';
+
+/** Provider settings sent by the extension. API keys themselves never reach the webview. */
+export interface ConnectionInfo {
+    mode: ConnectionMode;
+    hasKey: { custom: boolean; groq: boolean; openrouter: boolean };
+    endpoint: string;
+    localServerEndpoint: string;
+}
+
+export interface ConnectionTestResult {
+    ok: boolean;
+    message: string;
+}
+
 export interface Attachment {
     path: string;
     name: string;

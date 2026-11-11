@@ -3,6 +3,7 @@ import { ILLMClient } from './ILLMClient';
 import { OnlineClient } from './OnlineClient';
 import { LocalClient } from './LocalClient';
 import { LocalServerClient } from './LocalServerClient';
+import { ApiKeyStore, KeyProvider } from './ApiKeyStore';
 
 export class SmartClient implements ILLMClient {
   // Reuse one client per configuration. Creating a new LocalClient on every call
@@ -11,15 +12,22 @@ export class SmartClient implements ILLMClient {
   private cachedKey: string | null = null;
   private cachedClient: ILLMClient | null = null;
 
+  /** @param keys API keys (Secret Storage); without it, keys come from settings. */
+  constructor(private readonly keys: ApiKeyStore = new ApiKeyStore()) {}
+
+  private key(provider: KeyProvider): string {
+    return this.keys.get(provider);
+  }
+
   private configKey(config: vscode.WorkspaceConfiguration): string {
     return JSON.stringify([
       config.get('mode', 'cloud'),
       config.get('onlineApiEndpoint'),
-      config.get('onlineApiKey'),
+      this.key('custom'),
       config.get('localServerEndpoint'),
       config.get('localServerModel'),
-      config.get('groqApiKey'),
-      config.get('openRouterApiKey'),
+      this.key('groq'),
+      this.key('openrouter'),
       config.get('offlineModel'),
     ]);
   }
@@ -55,7 +63,7 @@ export class SmartClient implements ILLMClient {
     } else if (mode === 'custom') {
       // Mode 2: Custom API Token
       const endpoint = config.get<string>('onlineApiEndpoint', 'https://api.openai.com/v1');
-      const apiKey = config.get<string>('onlineApiKey', '');
+      const apiKey = this.key('custom');
       return new OnlineClient(endpoint, apiKey);
     } else if (mode === 'local-server') {
       // Mode 4: Local Server Execution (LM Studio/vLLM)
@@ -63,10 +71,10 @@ export class SmartClient implements ILLMClient {
       const model = config.get<string>('localServerModel', 'local-model');
       return new LocalServerClient(endpoint, model);
     } else if (mode === 'groq') {
-      const apiKey = config.get<string>('groqApiKey', '');
+      const apiKey = this.key('groq');
       return new OnlineClient('https://api.groq.com/openai/v1', apiKey);
     } else if (mode === 'openrouter') {
-      const apiKey = config.get<string>('openRouterApiKey', '');
+      const apiKey = this.key('openrouter');
       return new OnlineClient('https://openrouter.ai/api/v1', apiKey);
     } else {
       // Mode 3: Offline Local Execution

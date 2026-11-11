@@ -69,3 +69,8 @@ export const ViewColumn = {
 export const TextEditorRevealType = {
     InCenter: 2,
 };
+export const ConfigurationTarget = {
+    Global: 1,
+    Workspace: 2,
+    WorkspaceFolder: 3,
+};

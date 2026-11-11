@@ -16,6 +16,8 @@ export class CommandRegistrar {
 
     constructor(private context: vscode.ExtensionContext, private services: ServiceLocator) {
         this.aiStatusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 101);
+        // Clicking the mode opens the provider panel in the chat.
+        this.aiStatusItem.command = 'orbit.chooseProvider';
         this.context.subscriptions.push(this.aiStatusItem);
     }
 
@@ -42,6 +44,7 @@ export class CommandRegistrar {
                 
                 await this.services.chatProvider.handleExternalInstruction(`Explain this code from ${fileName}:\n\n\`\`\`\n${text}\n\`\`\``);
             }),
+            vscode.commands.registerCommand('orbit.chooseProvider', () => this.services.chatProvider.showConnectionPanel()),
             vscode.commands.registerCommand('orbit.toggleMode', async () => {
                 const config = vscode.workspace.getConfiguration('orbit');
                 const current = config.get<string>('mode', 'cloud');
@@ -192,8 +195,16 @@ export class CommandRegistrar {
     private updateAIStatus() {
         const config = vscode.workspace.getConfiguration('orbit');
         const mode = config.get<string>('mode', 'cloud');
-        this.aiStatusItem.text = mode !== 'offline' ? '$(cloud) Orbit: Online' : '$(device-desktop) Orbit: Local';
-        this.aiStatusItem.tooltip = mode !== 'offline' ? 'Orbit is using the Online AI provider' : 'Orbit is using local offline models';
+        const labels: Record<string, string> = {
+            cloud: '$(cloud) Orbit: Cloud (free)',
+            custom: '$(cloud) Orbit: OpenAI-compatible',
+            groq: '$(cloud) Orbit: Groq',
+            openrouter: '$(cloud) Orbit: OpenRouter',
+            'local-server': '$(server) Orbit: Local server',
+            offline: '$(device-desktop) Orbit: Offline',
+        };
+        this.aiStatusItem.text = labels[mode] ?? `$(cloud) Orbit: ${mode}`;
+        this.aiStatusItem.tooltip = 'Orbit AI provider. Click to change the provider or API key.';
         this.aiStatusItem.show();
     }
 }

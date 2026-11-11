@@ -2,6 +2,16 @@
 
 All notable changes to the "Orbit" extension will be documented in this file.
 
+## [2.2.0] - 2026-11-11
+
+### Added
+- **Provider picker in the chat**: Choose Cloud (free), OpenAI-compatible, Groq, OpenRouter, a local server or offline mode from the chat header, without opening Settings. Enter API keys and endpoint URLs there, and test the connection with one click. The welcome screen shows the active provider with a **Change** link.
+- **Encrypted API keys**: Keys entered in the chat are kept in VS Code's Secret Storage instead of plain-text settings. Keys already in settings keep working, and saving a key from the chat removes the plain-text copy.
+- `Orbit: Choose AI Provider & API Key` command. The status bar item now names the active provider and opens the picker when clicked.
+
+### Fixed
+- Choosing a model in Groq, OpenRouter or local-server mode saved it to the offline model setting, so the choice had no effect.
+
 ## [2.1.0] - 2026-11-11
 
 ### Added

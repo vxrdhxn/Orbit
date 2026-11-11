@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { SmartClient } from '../providers/SmartClient';
+import { ApiKeyStore } from '../providers/ApiKeyStore';
 import { ChatProvider } from '../ChatProvider';
 import { LLMRouter } from '../reasoning/LLMRouter';
 import { ResponseFormatter } from '../reasoning/ResponseFormatter';
@@ -34,6 +35,7 @@ export class ServiceLocator {
     public formatter!: ResponseFormatter;
     public router!: LLMRouter;
     public llmClient!: SmartClient;
+    public apiKeys!: ApiKeyStore;
     public chatProvider!: ChatProvider;
     
     // Workspace Services
@@ -61,9 +63,13 @@ export class ServiceLocator {
         this.formatter = new ResponseFormatter();
         const maxRetries = vscode.workspace.getConfiguration('orbit').get<number>('reasoning.maxRetries', 3);
         this.router = new LLMRouter(this.formatter, { maxRetries, enforceFormat: true });
-        this.llmClient = new SmartClient();
+        // API keys live in VS Code's encrypted Secret Storage; until they load, keys
+        // still saved in the old settings keep working.
+        this.apiKeys = new ApiKeyStore(context.secrets);
+        void this.apiKeys.load();
+        this.llmClient = new SmartClient(this.apiKeys);
         context.subscriptions.push({ dispose: () => this.llmClient.dispose() });
-        this.chatProvider = new ChatProvider(context, this.llmClient, this.router);
+        this.chatProvider = new ChatProvider(context, this.llmClient, this.router, this.apiKeys);
     }
 
     public initWorkspaceServices(context: vscode.ExtensionContext, workspaceFolder: vscode.Uri) {
