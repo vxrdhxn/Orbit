@@ -1,5 +1,5 @@
 {
-  "name": "orbit",
+  "name": "orbit-ai",
   "displayName": "Orbit AI",
   "description": "A VS Code extension providing agentic AI chat features offline, online, and via custom API keys",
   "version": "2.1.0",
