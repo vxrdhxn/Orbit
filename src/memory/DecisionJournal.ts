@@ -11,7 +11,11 @@ const safeRandomUUID = () => {
 export class DecisionJournal {
     private db: SQLiteMemory;
 
-    constructor(db: SQLiteMemory) {
+    /**
+     * @param isEnabled reads orbit.decisionJournal.enabled; when it returns false,
+     *                  nothing new is recorded (existing history stays readable).
+     */
+    constructor(db: SQLiteMemory, private readonly isEnabled: () => boolean = () => true) {
         this.db = db;
     }
 
@@ -25,6 +29,9 @@ export class DecisionJournal {
         structuredResponse: StructuredResponse,
         approved: boolean = true
     ): DecisionRecord | null {
+        if (!this.isEnabled()) {
+            return null;
+        }
         // Generate unique IDs and timestamps (req 9.1)
         const record: DecisionRecord = {
             id: safeRandomUUID(),
@@ -49,6 +56,9 @@ export class DecisionJournal {
      * Records a manual or system-generated decision without needing a full StructuredResponse.
      */
     public recordManualDecision(record: Partial<DecisionRecord> & { project_id: string, file_path: string }): DecisionRecord | null {
+        if (!this.isEnabled()) {
+            return null;
+        }
         const fullRecord: DecisionRecord = {
             id: record.id || safeRandomUUID(),
             timestamp: record.timestamp || Date.now(),

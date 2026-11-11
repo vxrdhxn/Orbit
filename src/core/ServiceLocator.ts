@@ -24,6 +24,11 @@ import { ReviewCodeLensProvider } from '../reviewCodeLens';
 import { CompletionProvider } from '../completionProvider';
 import { FindingCategory, SeverityLevel } from '../reviewTypes';
 
+/** orbit.decisionJournal.maxHistoryItems: how many decisions the history view loads at a time. */
+export function historyPageSize(): number {
+    return Math.max(1, vscode.workspace.getConfiguration('orbit').get<number>('decisionJournal.maxHistoryItems', 50));
+}
+
 export class ServiceLocator {
     // Global Services
     public formatter!: ResponseFormatter;
@@ -54,7 +59,8 @@ export class ServiceLocator {
 
     public initGlobalServices(context: vscode.ExtensionContext) {
         this.formatter = new ResponseFormatter();
-        this.router = new LLMRouter(this.formatter, { maxRetries: 2, enforceFormat: true });
+        const maxRetries = vscode.workspace.getConfiguration('orbit').get<number>('reasoning.maxRetries', 3);
+        this.router = new LLMRouter(this.formatter, { maxRetries, enforceFormat: true });
         this.llmClient = new SmartClient();
         context.subscriptions.push({ dispose: () => this.llmClient.dispose() });
         this.chatProvider = new ChatProvider(context, this.llmClient, this.router);
@@ -65,7 +71,10 @@ export class ServiceLocator {
         this.sqliteMemory = new SQLiteMemory(workspaceFolder.fsPath);
         this.sqliteMemory.initialize();
         context.subscriptions.push({ dispose: () => this.sqliteMemory?.close() });
-        this.decisionJournal = new DecisionJournal(this.sqliteMemory);
+        this.decisionJournal = new DecisionJournal(
+            this.sqliteMemory,
+            () => vscode.workspace.getConfiguration('orbit').get<boolean>('decisionJournal.enabled', true)
+        );
 
         // Sync & Collaboration
         this.syncService = new GitJournalSyncService(this.decisionJournal, workspaceFolder.fsPath);
@@ -115,7 +124,7 @@ export class ServiceLocator {
             },
             (offset: number) => {
                 const projectId = vscode.workspace.name || 'default-project';
-                return this.decisionJournal!.getRecentDecisions(projectId, 50, offset);
+                return this.decisionJournal!.getRecentDecisions(projectId, historyPageSize(), offset);
             }
         );
         this.codeLensProvider = new ReviewCodeLensProvider(this.annotationManager);

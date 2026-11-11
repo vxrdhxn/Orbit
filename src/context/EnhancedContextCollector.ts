@@ -90,9 +90,12 @@ export class EnhancedContextCollector {
 
         // 6. Gather past decisions from Decision Journal
         const projectId = vscode.workspace.name || 'default';
-        const pastDecisions = currentFile
-            ? this.journal.getDecisionsForFile(projectId, currentFile, 5)
-            : this.journal.getRecentDecisions(projectId, 10);
+        const includeDecisions = vscode.workspace.getConfiguration('orbit').get<boolean>('context.includeDecisions', true);
+        const pastDecisions = !includeDecisions
+            ? []
+            : currentFile
+                ? this.journal.getDecisionsForFile(projectId, currentFile, 5)
+                : this.journal.getRecentDecisions(projectId, 10);
 
         // 7. Assemble context
         const initialContext: CollectedContext = {
@@ -105,7 +108,8 @@ export class EnhancedContextCollector {
         };
 
         // 8. Truncate to token limit
-        return this.tokenEstimator.truncate(initialContext, this.maxTokens);
+        const maxTokens = vscode.workspace.getConfiguration('orbit').get<number>('context.maxTokens', this.maxTokens);
+        return this.tokenEstimator.truncate(initialContext, maxTokens);
     }
 
     /**

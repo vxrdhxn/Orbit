@@ -80,4 +80,42 @@ test
         const proposal = await engine.generateProposal('test.ts', 'code', 'make it safe');
         expect(proposal).toBeNull();
     });
+
+    it('retries when the first answer is missing the diff', async () => {
+        const reasoning = '### What changed\n- x\n### Why\ny\n### Improvements\nz\n### Tradeoffs\nt\n### Production Considerations\np';
+        const withDiff = '```diff\n--- a/test.ts\n+++ b/test.ts\n@@ -1 +1 @@\n-code\n+code-safe\n```\n' + reasoning;
+        jest.spyOn(router, 'transformResponse').mockReturnValue({ what: ['x'], why: 'y', improvements: '', tradeoffs: '', production: '' });
+        mockOllamaClient.generate
+            .mockResolvedValueOnce(reasoning)
+            .mockResolvedValueOnce(withDiff);
+
+        const proposal = await engine.generateProposal('test.ts', 'code', 'make it safe');
+
+        expect(mockOllamaClient.generate).toHaveBeenCalledTimes(2);
+        expect(proposal).not.toBeNull();
+    });
+
+    it('keeps a valid diff with plain-text reasoning when fallbackToRaw is on', async () => {
+        jest.spyOn(router, 'transformResponse').mockReturnValue(null);
+        mockOllamaClient.generate.mockResolvedValue('I made it safe.\n```diff\n--- a/test.ts\n+++ b/test.ts\n@@ -1 +1 @@\n-code\n+code-safe\n```');
+
+        const proposal = await engine.generateProposal('test.ts', 'code', 'make it safe');
+
+        expect(proposal).not.toBeNull();
+        expect(proposal!.reasoning.why).toBe('I made it safe.');
+    });
+
+    it('rejects unstructured reasoning when fallbackToRaw is off', async () => {
+        const vscode = require('vscode');
+        vscode.workspace.getConfiguration.mockImplementation(() => ({
+            get: (key: string, def: any) => (key === 'reasoning.fallbackToRaw' ? false : key === 'reasoning.maxRetries' ? 0 : def),
+        }));
+        jest.spyOn(router, 'transformResponse').mockReturnValue(null);
+        mockOllamaClient.generate.mockResolvedValue('```diff\n--- a/test.ts\n+++ b/test.ts\n@@ -1 +1 @@\n-code\n+code-safe\n```');
+
+        const proposal = await engine.generateProposal('test.ts', 'code', 'make it safe');
+
+        expect(proposal).toBeNull();
+        vscode.workspace.getConfiguration.mockImplementation(() => ({ get: jest.fn((_k: string, d: any) => d) }));
+    });
 });

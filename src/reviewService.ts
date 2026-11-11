@@ -48,9 +48,11 @@ export class ReviewService {
 
         const report = this.parseResponse(response);
 
+        // An empty list means every category; callers such as Orbit Pilot rely on that.
+        const categories = options.enabledCategories ?? [];
         report.findings = report.findings.filter(
             finding =>
-                options.enabledCategories.includes(finding.category) &&
+                (categories.length === 0 || categories.includes(finding.category)) &&
                 this.isSeverityAllowed(
                     finding.severity,
                     options.minSeverity

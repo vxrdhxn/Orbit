@@ -2,8 +2,20 @@ import * as vscode from 'vscode';
 import { ILLMClient } from '../providers/ILLMClient';
 
 import { LLMRouter } from '../reasoning/LLMRouter';
-import { DiffProposal } from '../reasoning/types';
+import { DiffProposal, StructuredResponse } from '../reasoning/types';
 import { HunkParser, extractUnifiedDiff } from '../diffUtils';
+
+/** Reasoning built from the model's plain text when it skipped the required sections. */
+function rawReasoning(response: string): StructuredResponse {
+    const prose = response.replace(/```[\s\S]*?```/g, '').trim();
+    return {
+        what: ['See the proposed diff.'],
+        why: prose || 'The model did not explain this change.',
+        improvements: '',
+        tradeoffs: '',
+        production: ''
+    };
+}
 
 export class EnhancedDiffEngine {
     constructor(
@@ -17,26 +29,43 @@ export class EnhancedDiffEngine {
      */
     async generateProposal(filePath: string, originalContent: string, instruction: string): Promise<DiffProposal | null> {
         const prompt = this.buildPrompt(filePath, originalContent, instruction);
+        const config = vscode.workspace.getConfiguration('orbit');
+        // orbit.reasoning.maxRetries: extra attempts when the reply lacks the diff or the reasoning.
+        const maxRetries = Math.max(0, config.get<number>('reasoning.maxRetries', 3));
+        // orbit.reasoning.fallbackToRaw: keep a valid diff even if the reasoning never parses.
+        const fallbackToRaw = config.get<boolean>('reasoning.fallbackToRaw', true);
 
-        // We use json: false because we want the LLM to output a mix of Markdown and Diff
-        const response = await this.llmClient.generate(prompt);
+        let structured: StructuredResponse | null = null;
+        let rawDiff: string | null = null;
+        let response = '';
 
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            const attemptPrompt = attempt === 0
+                ? prompt
+                : `${prompt}
 
-        // 1. Extract reasoning using LLMRouter
-        const structured = this.llmRouter.transformResponse(response);
-        if (!structured) {
-            console.error('[EnhancedDiffEngine] Failed to parse structured reasoning from response');
-            return null;
+Your previous answer was missing the \`\`\`diff block or one of the reasoning sections. Answer again with both.`;
+            response = await this.llmClient.generate(attemptPrompt);
+            structured = this.llmRouter.transformResponse(response);
+            rawDiff = extractUnifiedDiff(response);
+            if (structured && rawDiff) {
+                break;
+            }
         }
 
-        // 2. Extract unified diff
-        const rawDiff = extractUnifiedDiff(response);
         if (!rawDiff) {
             console.error('[EnhancedDiffEngine] Failed to extract unified diff from response');
             return null;
         }
 
-        // 3. Parse into hunks
+        if (!structured) {
+            if (!fallbackToRaw) {
+                console.error('[EnhancedDiffEngine] Failed to parse structured reasoning from response');
+                return null;
+            }
+            structured = rawReasoning(response);
+        }
+
         const hunks = HunkParser.parse(rawDiff);
 
         return {
