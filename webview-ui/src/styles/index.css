@@ -96,8 +96,13 @@ button:disabled {
   letter-spacing: 0.2px;
 }
 
-.app-title .codicon {
-  color: var(--spark);
+.app-title svg {
+  color: var(--text-main);
+}
+
+/* Orbit AI logo: the satellite uses the accent color everywhere. */
+.orbit-logo-satellite {
+  fill: var(--spark);
 }
 
 .app-header-right {
@@ -160,9 +165,9 @@ button:disabled {
   text-align: center;
 }
 
-.welcome-logo .codicon {
-  font-size: 28px;
-  color: var(--spark);
+.welcome-logo {
+  color: var(--text-main);
+  margin-bottom: 4px;
 }
 
 .welcome-title {

@@ -7,6 +7,7 @@ import { DecisionHistory } from './components/DecisionHistory';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ChatHistory } from './components/ChatHistory';
 import { useOrbitStore } from './store/useOrbitStore';
+import { OrbitLogo } from './components/OrbitLogo';
 
 declare global {
     interface Window {
@@ -234,8 +235,8 @@ function App() {
         <div className="app-shell">
             <header className="app-header">
                 <div className="app-title">
-                    <span className="codicon codicon-sparkle" />
-                    <span>Orbit</span>
+                    <OrbitLogo size={16} />
+                    <span>Orbit AI</span>
                 </div>
                 <div className="app-header-right">
                     <span
@@ -259,8 +260,8 @@ function App() {
             <div className="app-body">
                 {messages.length === 0 ? (
                     <div className="welcome">
-                        <div className="welcome-logo"><span className="codicon codicon-sparkle" /></div>
-                        <div className="welcome-title">Orbit</div>
+                        <div className="welcome-logo"><OrbitLogo size={56} animated /></div>
+                        <div className="welcome-title">Orbit AI</div>
                         <div className="welcome-subtitle">Code at the speed of thought</div>
                         <div className="welcome-hint">I can read your files, edit code, and run commands. Ask me anything.</div>
                         <div className="suggestions">

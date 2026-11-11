@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <!-- Orbit AI: a planet with a satellite on a tilted orbit.
+       Plain shapes only (no masks or filters): VS Code tints activity-bar icons
+       by using the SVG as a mask, which does not support every SVG feature. -->
+  <ellipse cx="12" cy="12" rx="10" ry="4.6" transform="rotate(-30 12 12)"
+           fill="none" stroke="#c5c5c5" stroke-width="1.5"/>
+  <circle cx="12" cy="12" r="3.2" fill="#c5c5c5"/>
+  <circle cx="18.87" cy="5.79" r="2.2" fill="#c5c5c5"/>
+</svg>

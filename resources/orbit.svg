@@ -1,41 +1,65 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Orbit brand mark (source for icon.png): a planet with a tilted orbit ring
+       passing in front of it, and an orange satellite. Same geometry as icon.svg, scaled. -->
   <defs>
-    <radialGradient id="gradBg" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-      <stop offset="0%" style="stop-color:#2b2b2b;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1e1e1e;stop-opacity:1" />
-    </radialGradient>
-    <linearGradient id="gradSphere" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#00b4db;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#0083b0;stop-opacity:1" />
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b2133"/>
+      <stop offset="1" stop-color="#0b0e17"/>
     </linearGradient>
-    <filter id="glow">
-        <feGaussianBlur stdDeviation="5" result="coloredBlur"/>
-        <feMerge>
-            <feMergeNode in="coloredBlur"/>
-            <feMergeNode in="SourceGraphic"/>
-        </feMerge>
+    <radialGradient id="planet" cx="0.36" cy="0.32" r="0.8">
+      <stop offset="0" stop-color="#7fe3ff"/>
+      <stop offset="0.45" stop-color="#1ea7e6"/>
+      <stop offset="1" stop-color="#0b4f9c"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#7fe3ff" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+    <radialGradient id="sat" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#ffd27a"/>
+      <stop offset="1" stop-color="#ff8a00"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
+    <!-- Hides the back half of the ring where the planet covers it. -->
+    <mask id="ring-back" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <rect width="512" height="512" fill="#fff"/>
+      <circle cx="256" cy="256" r="98" fill="#000"/>
+    </mask>
+    <!-- Gap in the ring around the satellite. -->
+    <mask id="ring-gap" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <rect width="512" height="512" fill="#fff"/>
+      <circle cx="404.5" cy="126.5" r="58" fill="#000"/>
+    </mask>
   </defs>
-  
-  <!-- Background -->
-  <rect width="512" height="512" rx="100" ry="100" fill="url(#gradBg)" />
-  
-  <!-- Orbital Rings -->
-  <ellipse cx="256" cy="256" rx="180" ry="60" fill="none" stroke="#ffffff" stroke-width="12" stroke-opacity="0.3" transform="rotate(45 256 256)" />
-  <ellipse cx="256" cy="256" rx="180" ry="60" fill="none" stroke="#ffffff" stroke-width="12" stroke-opacity="0.3" transform="rotate(-45 256 256)" />
-  
-  <!-- Active Orbit Path (The "Watching" Path) -->
-  <path d="M 383,128 A 180,60 45 0,1 128,383" fill="none" stroke="#00b4db" stroke-width="14" stroke-linecap="round" />
-  
-  <!-- Central Sphere (The Core) -->
-  <circle cx="256" cy="256" r="70" fill="url(#gradSphere)" filter="url(#glow)" />
-  
-  <!-- Inner Code Symbol -->
-  <path d="M 230,230 L 210,256 L 230,282" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
-  <path d="M 282,230 L 302,256 L 282,282" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
-  <line x1="248" y1="290" x2="264" y2="222" stroke="#ffffff" stroke-width="10" stroke-linecap="round" />
-  
-  <!-- The Watcher (Satellite) -->
-  <circle cx="383" cy="128" r="25" fill="#ff9900" filter="url(#glow)" />
-  
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- Stars -->
+  <g fill="#ffffff">
+    <circle cx="96" cy="118" r="4" opacity="0.7"/>
+    <circle cx="150" cy="70" r="2.5" opacity="0.5"/>
+    <circle cx="420" cy="300" r="3" opacity="0.5"/>
+    <circle cx="84" cy="380" r="2.5" opacity="0.45"/>
+    <circle cx="380" cy="440" r="3.5" opacity="0.6"/>
+  </g>
+
+  <!-- Masks sit on unrotated groups so their coordinates are not rotated too. -->
+  <g mask="url(#ring-gap)"><g mask="url(#ring-back)"><g transform="rotate(-30 256 256)">
+    <!-- Back half of the ring (behind the planet) -->
+    <path d="M 469 256 A 213 90 0 0 0 43 256" fill="none" stroke="url(#ring)" stroke-width="22"/>
+  </g></g></g>
+
+  <!-- Planet -->
+  <circle cx="256" cy="256" r="98" fill="url(#planet)" filter="url(#glow)"/>
+
+  <g mask="url(#ring-gap)"><g transform="rotate(-30 256 256)">
+    <!-- Front half of the ring (in front of the planet) -->
+    <path d="M 469 256 A 213 90 0 0 1 43 256" fill="none" stroke="url(#ring)" stroke-width="22"/>
+  </g></g>
+
+  <!-- Satellite -->
+  <circle cx="404.5" cy="126.5" r="38" fill="url(#sat)" filter="url(#glow)"/>
 </svg>

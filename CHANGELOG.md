@@ -9,6 +9,7 @@ All notable changes to the "Orbit" extension will be documented in this file.
 - **Inline change review**: Edits are shown inside the real file, with removed lines in red and added lines in green, and Accept / Reject buttons above each change. `Ctrl + Enter` accepts all and `Ctrl + Backspace` rejects all. This replaces the side-by-side diff and the notification prompt.
 - **Attachments that work everywhere**: Attach recent, workspace or any on-disk files (no open folder needed), shown as chips. Images are sent to cloud and local-server models.
 - `orbit.review.enabledCategories` setting for Orbit Pilot.
+- New Orbit AI icon (a planet with an orbiting satellite) for the Marketplace, the activity bar and the chat panel, and the extension is now listed as **Orbit AI**.
 
 ### Changed
 - **Decision Journal storage** uses VS Code's built-in `node:sqlite` instead of the native `better-sqlite3` module. Requires VS Code 1.101 or newer.

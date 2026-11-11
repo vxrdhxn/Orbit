@@ -1,10 +1,14 @@
 {
   "name": "orbit",
-  "displayName": "Orbit",
+  "displayName": "Orbit AI",
   "description": "A VS Code extension providing agentic AI chat features offline, online, and via custom API keys",
   "version": "2.1.0",
   "publisher": "vxrdhxn",
   "icon": "resources/icon.png",
+  "galleryBanner": {
+    "color": "#0b0e17",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.101.0"
   },
@@ -12,10 +16,15 @@
     "type": "git",
     "url": "https://github.com/vxrdhxn/Orbit.git"
   },
+  "bugs": {
+    "url": "https://github.com/vxrdhxn/Orbit/issues"
+  },
   "homepage": "https://github.com/vxrdhxn/Orbit#readme",
   "categories": [
     "AI",
-    "Programming Languages"
+    "Chat",
+    "Programming Languages",
+    "Linters"
   ],
   "activationEvents": [
     "onStartupFinished"
@@ -147,8 +156,8 @@
       "activitybar": [
         {
           "id": "orbit-sidebar",
-          "title": "Orbit",
-          "icon": "resources/icon.svg"
+          "title": "Orbit AI",
+          "icon": "resources/orbit-activity.svg"
         }
       ]
     },
@@ -158,12 +167,12 @@
           "type": "webview",
           "id": "orbit.chatView",
           "name": "Chat",
-          "icon": "resources/icon.svg"
+          "icon": "resources/orbit-activity.svg"
         }
       ]
     },
     "configuration": {
-      "title": "Orbit",
+      "title": "Orbit AI",
       "properties": {
         "orbit.mode": {
           "type": "string",
@@ -416,5 +425,18 @@
     "@vscode/webview-ui-toolkit": "^1.4.0",
     "diff": "^9.0.0",
     "node-llama-cpp": "^3.18.1"
-  }
+  },
+  "license": "MIT",
+  "keywords": [
+    "ai",
+    "agent",
+    "chat",
+    "offline",
+    "local llm",
+    "code review",
+    "copilot alternative",
+    "llama",
+    "qwen",
+    "semantic search"
+  ]
 }

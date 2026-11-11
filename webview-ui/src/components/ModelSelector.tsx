@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { OrbitLogo } from './OrbitLogo';
 
 interface ModelSelectorProps {
     models: string[];
@@ -49,7 +50,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ models, current, o
                     boxShadow: 'none'
                 }}
             >
-                <span className="codicon codicon-sparkle" style={{ fontSize: '12px', color: 'var(--accent-primary)' }}></span>
+                <OrbitLogo size={12} />
                 <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {current}
                 </span>
