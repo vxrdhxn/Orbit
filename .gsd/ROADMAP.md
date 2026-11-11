@@ -14,7 +14,7 @@
 - Confirm the worker contains the preserved native dynamic import.
 - Run TypeScript compilation and existing tests.
 
-### Task 3: Live offline smoke test
+### Task 3: Live offline smoke test - DONE (2026-11-11)
 - Run Orbit with a valid GGUF model.
 - Verify the offline provider can load the model.
 - Verify a real generation request completes.

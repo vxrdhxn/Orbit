@@ -5,7 +5,7 @@ import { log } from './logger';
 
 export function activate(context: vscode.ExtensionContext) {
     try {
-        log('Orbit v2.0.1 (Hybrid AI) is active!');
+        log(`Orbit v${context.extension?.packageJSON?.version ?? ''} (Hybrid AI) is active!`);
 
         // Bootstrap Core Infrastructure
         const services = new ServiceLocator();

@@ -8,16 +8,19 @@ async function init() {
     if (!pipeline) {
         // Installed on first use into ~/.orbit/runtime; fall back to a normal
         // require for a development checkout.
-        const entryUrl = resolvePackageEntryUrl('@xenova/transformers', [__dirname]);
+        const entryUrl = resolvePackageEntryUrl('@huggingface/transformers', [__dirname]);
         const transformers = entryUrl
             ? await import(/* webpackIgnore: true */ entryUrl)
-            : require('@xenova/transformers');
+            : require('@huggingface/transformers');
         pipeline = transformers.pipeline;
         env = transformers.env;
         // Optimization for local usage
         env.allowLocalModels = true;
         env.useBrowserCache = false;
-        env.backends.onnx.wasm.numThreads = 1; // Or let the user configure
+        // Only the browser (WASM) backend has this setting; Node uses onnxruntime-node.
+        if (env.backends?.onnx?.wasm) {
+            env.backends.onnx.wasm.numThreads = 1;
+        }
     }
 }
 

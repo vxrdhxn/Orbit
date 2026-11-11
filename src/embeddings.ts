@@ -39,7 +39,7 @@ function getWorker(): Worker {
 }
 
 async function embedOffline(texts: string[]): Promise<number[][]> {
-  await ensureRuntimePackage('@xenova/transformers');
+  await ensureRuntimePackage('@huggingface/transformers');
   const w = getWorker();
   const id = ++msgIdCounter;
   const config = vscode.workspace.getConfiguration('orbit');

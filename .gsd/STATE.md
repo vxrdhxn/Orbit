@@ -1,36 +1,24 @@
-## Last Session Summary
-Codebase mapping complete.
-- 6 components identified
-- 6 production dependencies analyzed
-- 2 technical debt items found
+## Last Session Summary (2026-11-11)
 
-## Technical debt (named 2026-11-10)
+**Objective:** Finish every open item from the project audit and get Orbit release-ready as 2.1.0.
 
-Source list: `.gsd/ARCHITECTURE.md` > Technical Debt.
+**Changes:**
+- Decision Journal storage moved from the native `better-sqlite3` module (built for system Node ABI 137, failed to load in VS Code's ABI 148, so the journal silently did nothing) to the built-in `node:sqlite`. Minimum VS Code is now 1.101.
+- `@xenova/transformers` replaced by `@huggingface/transformers` 4.3.2 with the same embedding model; `npm audit --omit=dev` reports 0 vulnerabilities (was 10: 3 critical, 7 high).
+- Git journal sync rewritten: dedicated `orbit-journal` branch built with git plumbing (never touches the user's branch, index or working tree), union merge by id, push-race retry, per-line JSON parsing, cross-window lock file.
+- Six declared-but-ignored settings wired up, `orbit.performance.showUncertainty` removed, `orbit.review.enabledCategories` declared. Fixed Orbit Pilot filtering out every finding (empty category list).
+- Removed the unbuilt legacy UI in `src/ui` (App.tsx, index.tsx, index.html, styles) and the root `vite.config.ts`, plus root `react`, `react-dom`, `vite`, `@vitejs/plugin-react`.
+- `@/` alias in `ImportGraphBuilder` resolves to `src/` first.
+- Earlier in the session: streaming agent chat UI, inline change review, attachments, add-only edit guard, model load-once and chat priority.
 
-1. **Git journal sync robustness** (`src/memory/GitJournalSyncService.ts`) - logged, not fixed.
-   - `exportAndSync` runs `git fetch`, `commit`, `pull --rebase` and `push` on the user's working branch, so a sync while the tree is dirty or mid-rebase can interfere with their work.
-   - Remote journal lines are parsed with `JSON.parse` with no per-line guard; one malformed line aborts the import (the error is swallowed by an empty `catch`).
-   - `isSyncing` is an in-process flag only, so two VS Code windows can sync concurrently.
-   - Merge conflicts on `.orbit/journal.jsonl` are not resolved; the sync aborts the rebase and warns the user.
-2. **Dependency vulnerabilities** - logged, not fixed. `npm audit --omit=dev` reports 10 (7 high, 3 critical): `tar`, `@simple-git/argv-parser`, `protobufjs`, `sharp` (via `@xenova/transformers`) and a nested `nanoid` under `node-llama-cpp`.
-   - `tar` is fixable with `npm audit fix`; the `sharp` fix is a breaking downgrade of `@xenova/transformers` (`--force`), so needs its own task and a re-run of the embedding tests.
-## Offline native loader compatibility
+**Verification:** see the 2.1.0 entry in `CHANGELOG.md`; Jest, webview Vitest, VS Code E2E (including a real `node:sqlite` round trip inside VS Code), lint and both builds pass; a real embedding run with `@huggingface/transformers` returned 384-dim vectors.
 
-**Objective:** Load the ESM-only `node-llama-cpp` package only from Orbit's worker.
+**Offline smoke test (Roadmap Task 3):** done. The user ran offline chat with `Qwen2.5-Coder-1.5B` in the Extension Development Host (Electron ABI) and completed real generations and file edits.
 
-**Changes:** Removed extension-host CommonJS loading; added a native, Webpack-preserved
-worker import; configured the webpack TypeScript loader to retain `import()`.
+**Risks / next:**
+- Publishing 2.1.0 to the Marketplace needs the publisher token and a final check of the packaged `.vsix` in a clean VS Code profile.
+- Users on VS Code older than 1.101 can no longer install this version (needed for `node:sqlite`).
 
-**Verification:**
-- Webpack compilation passed successfully.
-- `dist/extension.js` contains no `require('node-llama-cpp')`.
-- `dist/worker.js` contains the native dynamic import:
-  `import(/* webpackIgnore: true */ 'node-llama-cpp')`.
-- Existing offline model-file validation remains intact in `LocalClient`.
-- Full Jest suite passed: 27 test suites and 126 tests.
-- TypeScript test compilation passed.
-- The cached VS Code E2E suite exited successfully; its existing IPC coverage uses a mock LLM, not native inference.
+## Technical debt
 
-**Remaining:** Run a live offline generation smoke test on a host with an installed GGUF model
-and the VS Code Electron ABI used by the production extension.
+None open. Both items named on 2026-11-10 (git journal sync robustness, dependency vulnerabilities) were fixed on 2026-11-11.

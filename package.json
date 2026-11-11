@@ -2,11 +2,11 @@
   "name": "orbit",
   "displayName": "Orbit",
   "description": "A VS Code extension providing agentic AI chat features offline, online, and via custom API keys",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "publisher": "vxrdhxn",
   "icon": "resources/icon.png",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.101.0"
   },
   "repository": {
     "type": "git",
@@ -229,12 +229,12 @@
         "orbit.reasoning.maxRetries": {
           "type": "number",
           "default": 3,
-          "description": "Maximum number of retries for structured reasoning generation"
+          "description": "Extra attempts when an edit proposal is missing its diff or its structured reasoning."
         },
         "orbit.reasoning.fallbackToRaw": {
           "type": "boolean",
           "default": true,
-          "description": "Fallback to raw output if structured generation fails after max retries"
+          "description": "Keep a valid diff with plain-text reasoning when the structured reasoning never parses."
         },
         "orbit.context.maxTokens": {
           "type": "number",
@@ -249,17 +249,12 @@
         "orbit.decisionJournal.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable the Decision Journal for tracking architectural choices"
+          "description": "Record new decisions in the Decision Journal. Existing history stays viewable when off."
         },
         "orbit.decisionJournal.maxHistoryItems": {
           "type": "number",
           "default": 50,
-          "description": "Maximum number of historical decisions to fetch in the history view"
-        },
-        "orbit.performance.showUncertainty": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show uncertainty levels in performance analysis results"
+          "description": "Number of decisions the history view loads at a time."
         },
         "orbit.pilot.enabled": {
           "type": "boolean",
@@ -279,7 +274,7 @@
         "orbit.sync.enableWorkspaceSync": {
           "type": "boolean",
           "default": false,
-          "description": "Enable automatic syncing of the Orbit Decision Journal to .orbit/journal.json in your workspace"
+          "description": "Re-import .orbit/journal.jsonl automatically whenever it changes."
         },
         "orbit.sync.method": {
           "type": "string",
@@ -288,7 +283,7 @@
             "git"
           ],
           "default": "file",
-          "description": "Method to use for team sync. 'file' just saves to workspace. 'git' automatically commits and syncs with remote."
+          "description": "Method to use for team sync. 'file' writes .orbit/journal.jsonl in the workspace. 'git' shares the journal on a separate 'orbit-journal' branch without touching your own branches or uncommitted work."
         },
         "orbit.embedding.model": {
           "type": "string",
@@ -354,6 +349,26 @@
               }
             }
           }
+        },
+        "orbit.review.enabledCategories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "bug",
+              "security",
+              "performance",
+              "style",
+              "maintainability",
+              "bestPractice"
+            ]
+          },
+          "default": [
+            "bug",
+            "security",
+            "performance"
+          ],
+          "description": "Finding categories Orbit Pilot reports in the background. An empty list reports every category."
         }
       }
     }
@@ -366,18 +381,14 @@
     "package": "webpack --mode production --devtool hidden-source-map",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
-    "pretest": "npm run rebuild:node && npm run compile-tests && npm run compile && npm run lint",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "test:e2e": "node ./out/src/test/runTest.js",
     "lint": "eslint src --ext ts",
     "test": "jest",
     "build:ui": "npm run build --prefix webview-ui",
-    "watch:ui": "npm run watch --prefix webview-ui",
-    "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
-    "rebuild:node": "npm rebuild better-sqlite3"
+    "watch:ui": "npm run watch --prefix webview-ui"
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.0.4",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/diff": "^7.0.2",
     "@types/glob": "^8.1.0",
     "@types/jest": "^29.5.11",
@@ -388,7 +399,6 @@
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.18.0",
     "@typescript-eslint/parser": "^6.18.0",
-    "@vitejs/plugin-react": "^4.2.1",
     "@vscode/test-electron": "^3.0.0",
     "@vscode/vsce": "^3.9.0",
     "eslint": "^8.56.0",
@@ -398,17 +408,13 @@
     "ts-jest": "^29.1.1",
     "ts-loader": "^9.5.1",
     "typescript": "^5.4.5",
-    "vite": "^5.0.11",
     "webpack": "^5.89.0",
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.2",
     "@vscode/webview-ui-toolkit": "^1.4.0",
-    "@xenova/transformers": "^2.17.2",
-    "better-sqlite3": "^12.6.2",
     "diff": "^9.0.0",
-    "node-llama-cpp": "^3.18.1",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "node-llama-cpp": "^3.18.1"
   }
 }

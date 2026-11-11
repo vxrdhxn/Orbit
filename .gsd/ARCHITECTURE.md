@@ -44,7 +44,7 @@ Orbit is a VS Code extension providing agentic AI chat features offline, online,
 ### Memory & State Management
 - **Purpose:** Handles storing and retrieving decision journals, using SQLite for persistence, and synchronizing with the workspace using Git or file-based methods.
 - **Location:** `src/memory/`
-- **Dependencies:** `better-sqlite3`
+- **Dependencies:** `node:sqlite` (built into VS Code's Node runtime, 1.101+)
 
 ### Code Correction & Services
 - **Purpose:** Implements background analysis, automated code fixes, and enhanced code reviews.
@@ -57,7 +57,7 @@ Orbit is a VS Code extension providing agentic AI chat features offline, online,
 2. Message is sent via VS Code Webview messaging to the `ChatProvider` (`src/ChatProvider.ts`).
 3. The `ChatProvider` orchestrates the request, collecting codebase context (semantic search, indexer) and passing it to the selected LLM Provider (`src/providers/OnlineClient.ts` or similar).
 4. The LLM processes the prompt, and the response is streamed back to the React UI.
-5. If decisions or code fixes are applied, `DecisionJournal.ts` and `SQLiteMemory.ts` persist the data locally, and `GitJournalSyncService.ts` may sync to `.orbit/journal.json`.
+5. If decisions or code fixes are applied, `DecisionJournal.ts` and `SQLiteMemory.ts` persist the data locally, and `GitJournalSyncService.ts` may share the journal through `.orbit/journal.jsonl` (file method) or the dedicated `orbit-journal` branch (git method).
 
 ## Integration Points
 
@@ -70,8 +70,8 @@ Orbit is a VS Code extension providing agentic AI chat features offline, online,
 
 ## Technical Debt
 
-- [ ] Review implementation of syncing journals via Git vs file to ensure robust concurrent handling.
-- [ ] Ensure older dependencies do not present any vulnerabilities (run `npm audit`).
+- [x] Review implementation of syncing journals via Git vs file to ensure robust concurrent handling. (2026-11-11: dedicated `orbit-journal` branch, union merge, push retry, per-line parsing, cross-window lock.)
+- [x] Ensure older dependencies do not present any vulnerabilities (run `npm audit`). (2026-11-11: `npm audit --omit=dev` reports 0.)
 
 ## Conventions
 

@@ -7,17 +7,17 @@
 | Technology | Version | Purpose |
 |------------|---------|---------|
 | Node.js | 18.x | Core runtime for VS Code Extensions |
-| VS Code Extension Host | ^1.85.0 | Editor Integration |
+| VS Code Extension Host | ^1.101.0 | Editor Integration |
 
 ## Dependencies
 
 ### Production
 | Package | Version | Purpose |
 |---------|---------|---------|
-| better-sqlite3 | ^12.6.2 | Local persistent database |
+| node:sqlite | built into VS Code's Node (1.101+) | Local persistent database |
 | node-llama-cpp | ^3.18.1 | Local LLM execution |
-| @xenova/transformers | ^2.17.2 | Local embeddings and tokenizer |
-| react | ^18.2.0 | UI Library for sidebar |
+| @huggingface/transformers | ^4.3.2 | Local embeddings (installed on first use) |
+| react (webview-ui) | ^18.2.0 | UI library for the chat webview |
 | @vscode/webview-ui-toolkit | ^1.4.0 | VS Code native UI components |
 | diff | ^9.0.0 | Comparing code for inline edits |
 
@@ -26,7 +26,7 @@
 |---------|---------|---------|
 | typescript | ^5.4.5 | Type checking and language |
 | webpack | ^5.89.0 | Bundling extension |
-| vite | ^5.0.11 | Bundling webview UI |
+| vite (webview-ui) | ^5.2.0 | Bundling webview UI |
 | jest | ^29.7.0 | Unit Testing |
 | mocha | ^11.7.6 | Integration Testing |
 

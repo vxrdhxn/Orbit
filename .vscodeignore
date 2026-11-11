@@ -14,9 +14,6 @@ adapters/**
 docs/**
 scripts/**
 node_modules/**
-!node_modules/better-sqlite3/**
-!node_modules/bindings/**
-!node_modules/file-uri-to-path/**
 src/**
 test/**
 webview-ui/**
@@ -24,16 +21,6 @@ out/**
 !out/webview/index.html
 !out/webview/index.css
 !out/webview/index.js
-node_modules/better-sqlite3/deps/**
-node_modules/better-sqlite3/src/**
-node_modules/better-sqlite3/README.md
-node_modules/better-sqlite3/binding.gyp
-node_modules/bindings/README.md
-node_modules/file-uri-to-path/.npmignore
-node_modules/file-uri-to-path/.travis.yml
-node_modules/file-uri-to-path/History.md
-node_modules/file-uri-to-path/README.md
-node_modules/file-uri-to-path/test/**
 !README.md
 !LICENSE
 .gitignore
@@ -41,7 +28,6 @@ node_modules/file-uri-to-path/test/**
 jest.config.js
 tsconfig.json
 webpack.config.js
-vite.config.ts
 **/*.map
 **/*.ts
 *.vsix

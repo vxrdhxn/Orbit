@@ -15,8 +15,8 @@ module.exports = {
     },
     externals: {
         vscode: 'commonjs vscode',
-        'better-sqlite3': 'commonjs better-sqlite3',
-        '@xenova/transformers': 'commonjs @xenova/transformers',
+        'node:sqlite': 'commonjs node:sqlite',
+        '@huggingface/transformers': 'commonjs @huggingface/transformers',
         'onnxruntime-node': 'commonjs onnxruntime-node',
         'node-llama-cpp': 'commonjs node-llama-cpp',
         'sharp': 'commonjs sharp'

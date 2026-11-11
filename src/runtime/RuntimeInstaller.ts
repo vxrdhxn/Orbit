@@ -5,11 +5,11 @@ import { execFile } from 'child_process';
 import { RUNTIME_DIR, findPackageDir } from './runtimeResolve';
 
 /** Packages Orbit installs on first use instead of shipping in the .vsix. */
-export type RuntimePackage = 'node-llama-cpp' | '@xenova/transformers';
+export type RuntimePackage = 'node-llama-cpp' | '@huggingface/transformers';
 
 const PACKAGE_INFO: Record<RuntimePackage, { feature: string; size: string }> = {
     'node-llama-cpp': { feature: 'offline AI mode', size: 'several hundred MB' },
-    '@xenova/transformers': { feature: 'local semantic search', size: 'about 100 MB' },
+    '@huggingface/transformers': { feature: 'local semantic search', size: 'about 100 MB' },
 };
 
 const NAME_PATTERN = /^(@[a-z0-9-]+\/)?[a-z0-9._-]+$/;
