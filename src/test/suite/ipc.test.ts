@@ -124,20 +124,18 @@ suite('ChatProvider IPC E2E Test Suite', () => {
     // Give it a tick to process async LLM stream
 
     
-    const statusMsg = mockWebviewView.webview.postedMessages.find(m => m.type === 'status' && m.value === 'Initializing...');
-    assert.ok(statusMsg, 'Should send Initializing status');
+    const posted = mockWebviewView.webview.postedMessages;
+    assert.strictEqual(posted[0]?.type, 'agentStart', 'Should open an assistant turn right away');
+    assert.ok(posted.find(m => m.type === 'status' && m.value === 'Thinking...'), 'Should show the thinking status');
 
-    const chunkMsg = mockWebviewView.webview.postedMessages.find(
-        m => m.type === 'addResponseChunk'
-    );
-
+    // The final agentSet carries the whole visible reply.
+    const finalMsg = posted.filter(m => m.type === 'agentSet').pop();
     assert.ok(
-        chunkMsg,
-        `Should send response chunks. Actual messages: ${JSON.stringify(
-            mockWebviewView.webview.postedMessages
-        )}`
+        finalMsg,
+        `Should send the reply. Actual messages: ${JSON.stringify(posted)}`
     );
-    assert.strictEqual(chunkMsg.value, 'This is a mock AI response', 'Should match mock LLM output');
+    assert.strictEqual(finalMsg.value, 'This is a mock AI response', 'Should match mock LLM output');
+    assert.ok(posted.find(m => m.type === 'agentEnd'), 'Should end the turn');
   });
 
   test('IPC: Allows an offline model to bootstrap on the first message', async () => {
@@ -152,8 +150,9 @@ suite('ChatProvider IPC E2E Test Suite', () => {
     });
 
     const errorMessage = mockWebviewView.webview.postedMessages.find(m =>
-      m.type === 'addResponse' && String(m.value).includes('Connection Error'));
-    const chunkMessage = mockWebviewView.webview.postedMessages.find(m => m.type === 'addResponseChunk');
+      (m.type === 'addResponse' || m.type === 'agentSet') && String(m.value).includes('Connection Error'));
+    const chunkMessage = mockWebviewView.webview.postedMessages.find(m =>
+      m.type === 'agentSet' && String(m.value).includes('mock AI response'));
     assert.strictEqual(errorMessage, undefined, 'A bootstrap-capable offline model should not be blocked');
     assert.ok(
         chunkMessage,

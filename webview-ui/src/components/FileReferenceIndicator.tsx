@@ -27,7 +27,7 @@ export const FileReferenceIndicator = ({ text }: FileReferenceIndicatorProps) =>
         setReferences(refs);
     }, [text]);
 
-    if (references.length === 0) return null;
+    if (references.length === 0) {return null;}
 
     return (
         <div style={{

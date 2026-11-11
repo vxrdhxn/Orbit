@@ -22,9 +22,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ models, current, o
 
     const getPill = (model: string) => {
         const m = model.toLowerCase();
-        if (m.includes('pro')) return { text: 'Premium', color: 'hsl(190, 100%, 50%)' };
-        if (m.includes('flash')) return { text: 'Fast', color: 'hsl(140, 80%, 50%)' };
-        if (m.includes('thought') || m.includes('coder')) return { text: 'Logic', color: 'hsl(280, 80%, 60%)' };
+        if (m.includes('pro')) {return { text: 'Premium', color: 'hsl(190, 100%, 50%)' };}
+        if (m.includes('flash')) {return { text: 'Fast', color: 'hsl(140, 80%, 50%)' };}
+        if (m.includes('thought') || m.includes('coder')) {return { text: 'Logic', color: 'hsl(280, 80%, 60%)' };}
         return null;
     };
 

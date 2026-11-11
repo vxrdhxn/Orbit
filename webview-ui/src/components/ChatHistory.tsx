@@ -1,5 +1,4 @@
 import React from 'react';
-import { vscode } from '../utilities/vscode';
 
 export interface ChatSessionMetadata {
   id: string;

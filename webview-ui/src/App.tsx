@@ -56,14 +56,14 @@ function App() {
                     setStatusMessage('');
                     break;
                 case 'addResponseChunk':
-                    if (message.value == null) break;
+                    if (message.value === null || message.value === undefined) {break;}
                     appendAIResponseChunk(message.value);
                     break;
                 case 'agentStart':
                     startAIResponse();
                     break;
                 case 'agentDelta':
-                    if (message.value) appendAIResponseChunk(message.value);
+                    if (message.value) {appendAIResponseChunk(message.value);}
                     break;
                 case 'agentSet':
                     setAIResponse(message.value ?? '');
@@ -100,7 +100,7 @@ function App() {
                     setView('chat');
                     break;
                 case 'fileAttached':
-                    if (message.value?.path) addAttachment(message.value);
+                    if (message.value?.path) {addAttachment(message.value);}
                     break;
                 case 'insertFileReference':
                     window.dispatchEvent(new CustomEvent('orbit-insert-text', { detail: message.value }));
@@ -144,7 +144,7 @@ function App() {
     }, []);
 
     const handleSend = (text: string) => {
-        if (isGenerating) return;
+        if (isGenerating) {return;}
 
         const paths = attachments.map(a => a.path);
         addMessage({

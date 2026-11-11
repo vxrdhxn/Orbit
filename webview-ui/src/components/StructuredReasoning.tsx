@@ -22,7 +22,7 @@ export const StructuredReasoning: React.FC<StructuredReasoningProps> = ({ reason
 const Section: React.FC<{ title: string; content?: string; items?: string[]; color: string }> = ({ title, content, items, color }) => {
     const [isCollapsed, setIsCollapsed] = React.useState(false);
 
-    if (!content && (!items || items.length === 0)) return null;
+    if (!content && (!items || items.length === 0)) {return null;}
 
     return (
         <div style={{

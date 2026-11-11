@@ -15,6 +15,23 @@ import { Segment, computeSegments, changeSegments, render, allDecided, splitLine
  * Until the review ends, the extra lines only live in the editor buffer.
  * Rejecting everything restores the original text.
  */
+/**
+ * State shared by every copy of this module in the extension host. Command IDs are
+ * global, and the host can load the code more than once (the bundle plus test
+ * builds), so a per-module flag is not enough to avoid "command already exists".
+ */
+interface SharedInlineState {
+    commandsRegistered: boolean;
+    /** The service whose review is currently shown; the commands act on it. */
+    active: { decideAll(d: 'accepted' | 'rejected'): Promise<void>; decideHunk(i: number, d: 'accepted' | 'rejected'): Promise<void> } | null;
+}
+
+function sharedState(): SharedInlineState {
+    const g = globalThis as any;
+    g.__orbitInlineApply ??= { commandsRegistered: false, active: null };
+    return g.__orbitInlineApply;
+}
+
 export class InlineApplyService implements vscode.CodeLensProvider {
     private _segments: Segment[] = [];
     private _document: vscode.TextDocument | null = null;
@@ -53,14 +70,10 @@ export class InlineApplyService implements vscode.CodeLensProvider {
             opacity: '0.75',
         });
 
-        const subscriptions = [
+        const subscriptions: vscode.Disposable[] = [
             this._addedDecoration,
             this._removedDecoration,
             vscode.languages.registerCodeLensProvider({ scheme: 'file' }, this),
-            vscode.commands.registerCommand('orbit.inlineChange.acceptAll', () => this.decideAll('accepted')),
-            vscode.commands.registerCommand('orbit.inlineChange.rejectAll', () => this.decideAll('rejected')),
-            vscode.commands.registerCommand('orbit.inlineChange.acceptHunk', (i: number) => this.decideHunk(i, 'accepted')),
-            vscode.commands.registerCommand('orbit.inlineChange.rejectHunk', (i: number) => this.decideHunk(i, 'rejected')),
             // Re-apply highlights when the file is shown again (e.g. after switching tabs).
             vscode.window.onDidChangeVisibleTextEditors(() => this.decorate()),
             vscode.workspace.onDidCloseTextDocument(doc => {
@@ -72,8 +85,25 @@ export class InlineApplyService implements vscode.CodeLensProvider {
         if (this._codeLensChanged) {
             subscriptions.push(this._codeLensChanged);
         }
+
+        // Command IDs are global, so register them once per VS Code session and route
+        // them to whichever service has a review open. Registering per instance threw
+        // "command already exists" as soon as a second ChatProvider was created.
+        const shared = sharedState();
+        if (!shared.commandsRegistered) {
+            shared.commandsRegistered = true;
+            const active = () => sharedState().active;
+            subscriptions.push(
+                vscode.commands.registerCommand('orbit.inlineChange.acceptAll', () => active()?.decideAll('accepted')),
+                vscode.commands.registerCommand('orbit.inlineChange.rejectAll', () => active()?.decideAll('rejected')),
+                vscode.commands.registerCommand('orbit.inlineChange.acceptHunk', (i: number) => active()?.decideHunk(i, 'accepted')),
+                vscode.commands.registerCommand('orbit.inlineChange.rejectHunk', (i: number) => active()?.decideHunk(i, 'rejected')),
+                { dispose: () => { sharedState().commandsRegistered = false; } },
+            );
+        }
         context.subscriptions?.push(...subscriptions);
     }
+
 
     get hasPendingProposal(): boolean {
         return this._document !== null;
@@ -127,6 +157,7 @@ export class InlineApplyService implements vscode.CodeLensProvider {
         }
 
         this._document = document;
+        sharedState().active = this;
         this._wasDirty = document.isDirty;
         this._createdFile = createdFile;
         this._eol = eol;
@@ -286,6 +317,9 @@ export class InlineApplyService implements vscode.CodeLensProvider {
 
     private finish(accepted: boolean): void {
         this.clearDecorations();
+        if (sharedState().active === this) {
+            sharedState().active = null;
+        }
         const resolve = this._pendingResolve;
         this._pendingResolve = null;
         this._document = null;
