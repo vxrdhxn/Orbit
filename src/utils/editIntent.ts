@@ -78,3 +78,40 @@ export function countLineChanges(original: string, updated: string): { added: nu
     }
     return { added, removed };
 }
+
+/**
+ * True when an "add" request should simply append to the end of the file: the
+ * file has content and the user did not say where the code goes.
+ */
+export function wantsAppend(userMsg: string, original: string): boolean {
+    return classifyEditIntent(userMsg) === 'add'
+        && original.trim() !== ''
+        && !/\b(top|beginning|start|before|after|above|below|inside|between|line \d+)\b/i.test(userMsg);
+}
+
+/**
+ * Combines the file with what the model sent for an append-style request.
+ * If the model sent the whole file (every existing line, in order, plus more),
+ * that is used as is; otherwise what it sent is treated as new code and added
+ * to the end, even if it repeats a line that already exists.
+ */
+export function appendNewCode(original: string, proposed: string): string {
+    const eol = original.includes('\r\n') ? '\r\n' : '\n';
+    const originalLines = original.split(/\r?\n/).map(normalize).filter(l => l !== '');
+    const proposedLines = proposed.split(/\r?\n/).map(normalize).filter(l => l !== '');
+
+    let i = 0;
+    for (const line of proposedLines) {
+        if (i < originalLines.length && line === originalLines[i]) {
+            i++;
+        }
+    }
+    const isWholeFile = i === originalLines.length && proposedLines.length > originalLines.length;
+    if (isWholeFile) {
+        return proposed;
+    }
+
+    const newCode = proposed.replace(/^(\r?\n)+/, '').replace(/(\r?\n)+$/, '');
+    const trailing = /\r?\n$/.test(original) ? eol : '';
+    return `${original.replace(/(\r?\n)+$/, '')}${eol}${newCode.split(/\r?\n/).join(eol)}${trailing}`;
+}

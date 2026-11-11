@@ -204,7 +204,38 @@ describe('ChatProvider streaming', () => {
     it('keeps tool traffic out of the prompt history', () => {
         const { summarizeForHistory } = require('../../src/ChatProvider');
         const text = 'Done.<tool_call name="apply" path="a.js">lots of code</tool_call><observation status="ok">saved</observation>';
-        expect(summarizeForHistory(text)).toBe('Done.[edited a.js]');
+        expect(summarizeForHistory(text)).toBe('Done.');
+        // Old saved replies may contain the previous placeholder notes; they must not reach the model.
+        expect(summarizeForHistory('Write it. [edited hello.js]\nDone.')).toBe('Write it.\nDone.');
+    });
+});
+
+describe('ChatProvider apply that changes nothing', () => {
+    it('does not claim success and does not open a review', async () => {
+        const vscode = require('vscode');
+        vscode.workspace.textDocuments = [{ uri: { fsPath: require('path').resolve('/mock/root/hello.js') }, getText: () => "console.log('hi');\n" }];
+        const context: any = {
+            globalState: { get: jest.fn().mockReturnValue([]), update: jest.fn().mockResolvedValue(undefined) },
+            workspaceState: { get: jest.fn().mockReturnValue([]), update: jest.fn() },
+        };
+        const llmClient: any = {
+            checkConnection: jest.fn().mockResolvedValue({ ok: true }),
+            // A placeholder instead of real code, twice in a row.
+            generateStream: jest.fn(async (_p: string, onChunk: Function) => {
+                onChunk('I will fix it.<tool_call name="apply" path="hello.js">[complete new contents of hello.js]</tool_call>');
+            }),
+        };
+        const provider: any = new ChatProvider(context, llmClient);
+        const callTool = jest.spyOn(provider._toolManager, 'callTool');
+        const webview = { postMessage: jest.fn() } as any;
+
+        await provider._processMessage('rewrite hello.js', webview);
+
+        expect(callTool).not.toHaveBeenCalled();
+        const saved = provider._currentSession.messages.pop().content;
+        expect(saved).not.toContain('Done.');
+        expect(saved).toContain("I couldn't produce that change");
+        delete vscode.workspace.textDocuments;
     });
 });
 

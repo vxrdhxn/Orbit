@@ -17,7 +17,7 @@ import { LLMRouter } from './reasoning/LLMRouter';
 import { StructuredResponse } from './reasoning/types';
 import { log } from './logger';
 import { resolveWorkspacePath } from './utils/workspacePath';
-import { classifyEditIntent, preserveExistingCode, countLineChanges } from './utils/editIntent';
+import { classifyEditIntent, preserveExistingCode, countLineChanges, wantsAppend, appendNewCode } from './utils/editIntent';
 
 const MAX_HISTORY_MESSAGES = 6;
 const MAX_HISTORY_CHARS = 1500;
@@ -29,16 +29,29 @@ const STREAM_FLUSH_MS = 50;
 const MAX_ATTACHMENT_CHARS = 12000;
 
 /**
- * Shortens tool traffic in an old reply so history stays small: file contents written
- * by apply and raw tool output are replaced by a one-line note.
+ * Shortens an old reply for the prompt history. Tool calls and their results are
+ * removed completely: the closing sentence ("Done. I added ...") already says what
+ * happened, and placeholder notes like "[edited a.js]" get copied by small models
+ * as plain text instead of real tool calls.
  */
 export function summarizeForHistory(text: string): string {
-    return text
-        .replace(/<tool_call name="apply"[^>]*path="([^"]+)"[^>]*>[\s\S]*?(<\/tool_call>|$)/g, '[edited $1]')
-        .replace(/<tool_call name="([^"]+)"[^>]*>([\s\S]*?)(<\/tool_call>|$)/g, (_m, name, body) => `[used ${name} ${String(body).trim().slice(0, 120)}]`)
+    return stripFakeToolNotes(text
+        .replace(/<tool_call name="[^"]+"[^>]*>[\s\S]*?(<\/tool_call>|$)/g, '')
         .replace(/<observation[^>]*>[\s\S]*?(<\/observation>|$)/g, '')
-        .replace(/<think>[\s\S]*?(<\/think>|$)/g, '')
+        .replace(/<think>[\s\S]*?(<\/think>|$)/g, ''))
+        .replace(/\n{3,}/g, '\n\n')
         .trim();
+}
+
+/** Removes made-up notes such as "[edited hello.js]" that a model writes instead of calling a tool. */
+export function stripFakeToolNotes(text: string): string {
+    return text.replace(/\s*\[(edited|used|applied|updated|modified)\b[^\]\n]*\]/gi, '');
+}
+
+/** True when apply carries no real code (empty, or a copied placeholder). */
+function isPlaceholderCode(code: string): boolean {
+    const trimmed = code.trim();
+    return trimmed === '' || /^\[[^\]]*(contents|code)[^\]]*\]$/i.test(trimmed);
 }
 
 /** Removes a leading/trailing markdown code fence the model may wrap file content in. */
@@ -58,6 +71,14 @@ export function echoesRequest(text: string, userMsg: string): boolean {
         return false;
     }
     return a === b || (a.includes(b) && b.length / a.length > 0.7) || (b.includes(a) && a.length / b.length > 0.7);
+}
+
+interface ApplyCheck {
+  code: string;
+  original: string;
+  restoredLines: number;
+  /** True when applying would leave the file exactly as it is. */
+  noChange: boolean;
 }
 
 export interface ChatMessage {
@@ -231,6 +252,8 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       let finalCombinedResponse = imageNotice;
       let shouldStop = false;
       let nudged = false;
+      // Apply calls that carried no new code; after two, give up honestly.
+      let emptyApplies = 0;
 
       // Batches streamed tokens so the webview re-renders ~20 times a second, not per token.
       let pendingDelta = '';
@@ -302,6 +325,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
               webview.postMessage({type: 'telemetry', value: {durationMs, tps, iteration}});
 
               log(`Stream generation completed. Length: ${currentTurnResponse.length}, TPS: ${tps}`);
+              log(`Model output (step ${iteration}):\n${currentTurnResponse.slice(0, 3000)}`);
 
               // Check for tool calls
               // The closing tag is optional: small models often stop right after the file contents.
@@ -328,7 +352,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
 
                   // Keep only the text before the call plus one well-formed call. Anything the
                   // model wrote after it (e.g. an invented result) is dropped.
-                  let textBefore = currentTurnResponse.slice(0, toolCallMatch.index);
+                  let textBefore = stripFakeToolNotes(currentTurnResponse.slice(0, toolCallMatch.index));
                   // Small models often just echo the request; say what will happen instead.
                   if (toolName === 'apply' && pathAttribute && echoesRequest(textBefore, userMsg)) {
                       textBefore = classifyEditIntent(userMsg) === 'add'
@@ -347,7 +371,7 @@ export class ChatProvider implements vscode.WebviewViewProvider {
                   });
 
                   let result: any;
-                  let applyCheck: { code: string; original: string; restoredLines: number } | null = null;
+                  let applyCheck: ApplyCheck | null = null;
 
                   if (parseError) {
                       result = {
@@ -361,7 +385,21 @@ export class ChatProvider implements vscode.WebviewViewProvider {
                           applyCheck = await this._checkApply(userMsg, toolArgs as any);
                           (toolArgs as any).code = applyCheck.code;
                       }
-                      result = await this._toolManager.callTool(toolName, toolArgs);
+                      if (applyCheck?.noChange) {
+                          // Nothing new to apply: do not open a review or claim success.
+                          result = {
+                              output: `Nothing was changed: your apply call for ${(toolArgs as any).path} contained no new code. ` +
+                                  `Call apply again and put the new code the user asked for inside the tool call.`,
+                              isError: true,
+                              noChange: true
+                          };
+                          emptyApplies++;
+                          if (emptyApplies >= 2) {
+                              shouldStop = true;
+                          }
+                      } else {
+                          result = await this._toolManager.callTool(toolName, toolArgs);
+                      }
                   }
 
                   const observation =
@@ -399,6 +437,11 @@ export class ChatProvider implements vscode.WebviewViewProvider {
                       shouldStop = true;
                   }
 
+                  if (result.noChange && shouldStop) {
+                      finalCombinedResponse += `\nI couldn't produce that change: the model didn't return any new code for \`${(toolArgs as any).path}\`. ` +
+                          'Nothing was modified. Try rephrasing the request, or switch to a larger model.';
+                  }
+
                   syncUI();
 
                   if (shouldStop) {
@@ -419,7 +462,11 @@ export class ChatProvider implements vscode.WebviewViewProvider {
                   }
 
                   // No more tool calls, we are done
-                  finalCombinedResponse += currentTurnResponse;
+                  finalCombinedResponse += stripFakeToolNotes(currentTurnResponse);
+                  if (nudged && editor && !hasCode && this._isCodeChangeRequest(userMsg)) {
+                      // Never let a reply read as if the file was changed when it was not.
+                      finalCombinedResponse += "\n\nI didn't change any file. Try rephrasing the request, or switch to a larger model.";
+                  }
                   break;
               }
 
@@ -510,8 +557,16 @@ export class ChatProvider implements vscode.WebviewViewProvider {
         ? vscode.workspace.asRelativePath(editor.document.uri, false)
         : path.basename(editor.document.fileName);
     const current = editor.document.getText();
-    const rule = classifyEditIntent(userMsg) === 'add'
-        ? `The user wants code ADDED. Keep every current line of ${target} exactly as it is and add the new code (at the end unless they said where).`
+    const addOnly = classifyEditIntent(userMsg) === 'add';
+    if (wantsAppend(userMsg, current)) {
+      // Easiest for small models: write only the new code; Orbit keeps the rest and appends it.
+      return `The user wants NEW code added to ${target}. The existing code stays automatically.\n` +
+          `Answer with one short first-person sentence saying what you will add, followed by the tool call containing ONLY the new code, e.g.:\n` +
+          `I'll add a line that prints "hi".\n<tool_call name="apply" path="${target}">\nconsole.log('hi');\n</tool_call>\n` +
+          `Do not copy the example; write the code the user asked for.`;
+    }
+    const rule = addOnly
+        ? `The user wants code ADDED. Keep every current line of ${target} exactly as it is and add the new code where they asked.`
         : `Change only what the user asked for. Keep every other line of ${target} exactly as it is.`;
     const currentBlock = current.length <= 4000
         ? `Current contents of ${target}:\n\`\`\`\n${current}\n\`\`\`\n`
@@ -523,8 +578,12 @@ export class ChatProvider implements vscode.WebviewViewProvider {
    * Checks an apply call against the request before showing it. For an "add"
    * request, existing lines the model dropped are put back.
    */
-  private async _checkApply(userMsg: string, args: { path?: string; code?: string }): Promise<{ code: string; original: string; restoredLines: number }> {
-    const code = typeof args.code === 'string' ? args.code : '';
+  private async _checkApply(userMsg: string, args: { path?: string; code?: string }): Promise<ApplyCheck> {
+    const rawCode = typeof args.code === 'string' ? args.code : '';
+    if (isPlaceholderCode(rawCode)) {
+      return { code: rawCode, original: '', restoredLines: 0, noChange: true };
+    }
+    const code = rawCode;
     let original = '';
     try {
       const fullPath = await resolveWorkspacePath(args.path ?? '');
@@ -532,21 +591,31 @@ export class ChatProvider implements vscode.WebviewViewProvider {
       original = open ? open.getText() : await fs.promises.readFile(fullPath, 'utf8');
     } catch {
       // New file or unreadable path: nothing to protect.
-      return { code, original: '', restoredLines: 0 };
+      return { code, original: '', restoredLines: 0, noChange: false };
     }
 
+    const unchanged = (updated: string) => {
+      const { added, removed } = countLineChanges(original, updated);
+      return added === 0 && removed === 0;
+    };
+
     if (original.trim() === '' || classifyEditIntent(userMsg) !== 'add') {
-      return { code, original, restoredLines: 0 };
+      return { code, original, restoredLines: 0, noChange: unchanged(code) };
+    }
+    if (wantsAppend(userMsg, original)) {
+      // The model was asked for only the new code: add it to the end of the file.
+      const appended = appendNewCode(original, code);
+      return { code: appended, original, restoredLines: 0, noChange: unchanged(appended) };
     }
     const preserved = preserveExistingCode(original, code);
     if (preserved.restoredLines > 0) {
       log(`Apply guard: restored ${preserved.restoredLines} line(s) the model dropped from ${args.path}`);
     }
-    return { code: preserved.content, original, restoredLines: preserved.restoredLines };
+    return { code: preserved.content, original, restoredLines: preserved.restoredLines, noChange: unchanged(preserved.content) };
   }
 
   /** One honest sentence about what was saved, based on the actual diff. */
-  private _describeApplied(target: string, check: { code: string; original: string; restoredLines: number } | null): string {
+  private _describeApplied(target: string, check: ApplyCheck | null): string {
     if (!check) {
       return `Done. I saved the change to \`${target}\`.`;
     }

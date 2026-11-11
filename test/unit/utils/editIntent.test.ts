@@ -1,4 +1,4 @@
-import { classifyEditIntent, preserveExistingCode, countLineChanges } from '../../../src/utils/editIntent';
+import { classifyEditIntent, preserveExistingCode, countLineChanges, appendNewCode, wantsAppend } from '../../../src/utils/editIntent';
 import { echoesRequest } from '../../../src/ChatProvider';
 
 describe('classifyEditIntent', () => {
@@ -58,5 +58,26 @@ describe('echoesRequest', () => {
     it('detects the model repeating the request', () => {
         expect(echoesRequest("Write an print statement which prints 'hello everyone'.", "write an print statement which prints ' hello everyone'")).toBe(true);
         expect(echoesRequest("I'll add a print statement at the end of hello.js.", "write an print statement which prints ' hello everyone'")).toBe(false);
+    });
+});
+
+describe('appendNewCode', () => {
+    it('adds only-new code to the end of the file', () => {
+        expect(appendNewCode('a();\nb();\n', 'c();')).toBe('a();\nb();\nc();\n');
+    });
+
+    it('adds a line even when it repeats an existing one', () => {
+        expect(appendNewCode("console.log('hello everyone');\n", "console.log('hello everyone');"))
+            .toBe("console.log('hello everyone');\nconsole.log('hello everyone');\n");
+    });
+
+    it('uses a whole-file proposal as is', () => {
+        expect(appendNewCode('a();\n', 'a();\nb();\n')).toBe('a();\nb();\n');
+    });
+
+    it('only appends when the user did not say where', () => {
+        expect(wantsAppend("write a print statement which prints 'hello'", 'a();')).toBe(true);
+        expect(wantsAppend('add an import at the top', 'a();')).toBe(false);
+        expect(wantsAppend('add a print', '')).toBe(false);
     });
 });
