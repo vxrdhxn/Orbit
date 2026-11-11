@@ -10,11 +10,11 @@ suite('Extension Test Suite', () => {
   });
 
   test('Extension should be present', () => {
-    assert.ok(vscode.extensions.getExtension('vxrdhxn.orbit-ai'));
+    assert.ok(vscode.extensions.getExtension('vxrdhxn.orbit-ai-assistant'));
   });
 
   test('should activate extension', async () => {
-    const ext = vscode.extensions.getExtension('vxrdhxn.orbit-ai');
+    const ext = vscode.extensions.getExtension('vxrdhxn.orbit-ai-assistant');
     if (ext) {
       await ext.activate();
       assert.strictEqual(ext.isActive, true);
